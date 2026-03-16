@@ -13,4 +13,5 @@ type ReservationUseCase interface {
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Reservation, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
 	Cancel(ctx context.Context, id uuid.UUID) error
+	Return(ctx context.Context, id uuid.UUID) error // NEW
 }

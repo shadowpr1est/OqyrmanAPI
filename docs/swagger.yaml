@@ -1,5 +1,22 @@
 basePath: /api/v1
 definitions:
+  ai.chatRequest:
+    properties:
+      message:
+        type: string
+    required:
+    - message
+    type: object
+  ai.chatResponse:
+    properties:
+      reply:
+        type: string
+    type: object
+  ai.recommendResponse:
+    properties:
+      recommendations:
+        type: string
+    type: object
   auth.loginRequest:
     properties:
       email:
@@ -207,22 +224,6 @@ definitions:
         type: string
       is_audio:
         type: boolean
-    type: object
-  book_file.createBookFileRequest:
-    properties:
-      book_id:
-        type: string
-      file_url:
-        type: string
-      format:
-        description: pdf, epub, mp3
-        type: string
-      is_audio:
-        type: boolean
-    required:
-    - book_id
-    - file_url
-    - format
     type: object
   book_machine.bookMachineResponse:
     properties:
@@ -617,6 +618,16 @@ definitions:
         minimum: 1
         type: integer
     type: object
+  user.updateRoleRequest:
+    properties:
+      role:
+        enum:
+        - Admin
+        - User
+        type: string
+    required:
+    - role
+    type: object
   user.updateUserRequest:
     properties:
       avatar_url:
@@ -756,29 +767,6 @@ paths:
       summary: Обновить автора
       tags:
       - authors
-  /admin/book-files:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Данные файла
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/book_file.createBookFileRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/book_file.bookFileResponse'
-      security:
-      - BearerAuth: []
-      summary: Добавить файл книги
-      tags:
-      - book-files
   /admin/book-files/{id}:
     delete:
       parameters:
@@ -793,6 +781,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Удалить файл
+      tags:
+      - book-files
+  /admin/book-files/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: ID книги
+        in: formData
+        name: book_id
+        required: true
+        type: string
+      - description: 'Формат: pdf, epub, mp3'
+        in: formData
+        name: format
+        required: true
+        type: string
+      - description: Аудиофайл?
+        in: formData
+        name: is_audio
+        type: boolean
+      - description: Файл
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/book_file.bookFileResponse'
+      security:
+      - BearerAuth: []
+      summary: Загрузить файл книги в S3
       tags:
       - book-files
   /admin/book-machine-books:
@@ -1215,6 +1239,22 @@ paths:
       summary: Обновить копии
       tags:
       - library-books
+  /admin/reservations/:id/return:
+    patch:
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Отметить книгу как возвращённую
+      tags:
+      - reservations
   /admin/reservations/{id}/status:
     patch:
       consumes:
@@ -1241,6 +1281,141 @@ paths:
       summary: Обновить статус брони
       tags:
       - reservations
+  /admin/users:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Список пользователей
+      tags:
+      - users
+  /admin/users/:id:
+    delete:
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Удалить пользователя (admin)
+      tags:
+      - users
+  /admin/users/:id/role:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID пользователя
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Новая роль
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/user.updateRoleRequest'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Изменить роль пользователя
+      tags:
+      - users
+  /ai/chat:
+    post:
+      consumes:
+      - application/json
+      description: Отвечает на вопросы пользователя по книгам и чтению
+      parameters:
+      - description: Сообщение пользователя
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/ai.chatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.chatResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Чат с книжным ассистентом
+      tags:
+      - ai
+  /ai/recommend:
+    post:
+      description: Генерирует рекомендации на основе истории чтения и вишлиста пользователя
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.recommendResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Персональные рекомендации книг
+      tags:
+      - ai
   /auth/login:
     post:
       consumes:
@@ -1617,6 +1792,27 @@ paths:
       security:
       - BearerAuth: []
       summary: Список книг
+      tags:
+      - books
+  /books/:id/availability:
+    get:
+      parameters:
+      - description: ID книги
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Наличие книги в библиотеках и книгоматах
       tags:
       - books
   /books/{id}:
@@ -2367,6 +2563,22 @@ paths:
       summary: Обновить профиль
       tags:
       - users
+  /users/me/qr:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: QR-код читательского билета
+      tags:
+      - users
   /wishlist:
     get:
       produces:
@@ -2444,6 +2656,8 @@ paths:
       - wishlist
 securityDefinitions:
   BearerAuth:
+    description: 'JWT Authorization header using the Bearer scheme. Example: "Bearer
+      {token}"'
     in: header
     name: Authorization
     type: apiKey

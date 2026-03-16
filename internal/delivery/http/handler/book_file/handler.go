@@ -17,43 +17,6 @@ func NewHandler(uc domainUseCase.BookFileUseCase) *Handler {
 	return &Handler{uc: uc}
 }
 
-// @Summary     Добавить файл книги
-// @Tags        book-files
-// @Security    BearerAuth
-// @Accept      json
-// @Produce     json
-// @Param       input body createBookFileRequest true "Данные файла"
-// @Success     201 {object} bookFileResponse
-// @Router      /admin/book-files [post]
-func (h *Handler) Create(c *gin.Context) {
-	var req createBookFileRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	bookID, err := uuid.Parse(req.BookID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid book_id"})
-		return
-	}
-
-	file := &entity.BookFile{
-		BookID:  bookID,
-		Format:  req.Format,
-		FileURL: req.FileURL,
-		IsAudio: req.IsAudio,
-	}
-
-	result, err := h.uc.Create(c.Request.Context(), file)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusCreated, toBookFileResponse(result))
-}
-
 // @Summary     Получить файл
 // @Tags        book-files
 // @Security    BearerAuth
@@ -75,6 +38,59 @@ func (h *Handler) GetByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, toBookFileResponse(file))
+}
+
+// @Summary     Загрузить файл книги в S3
+// @Tags        book-files
+// @Security    BearerAuth
+// @Accept      multipart/form-data
+// @Produce     json
+// @Param       book_id  formData string true  "ID книги"
+// @Param       format   formData string true  "Формат: pdf, epub, mp3"
+// @Param       is_audio formData bool   false "Аудиофайл?"
+// @Param       file     formData file   true  "Файл"
+// @Success     201 {object} bookFileResponse
+// @Router      /admin/book-files/upload [post]
+func (h *Handler) Upload(c *gin.Context) {
+	bookID, err := uuid.Parse(c.PostForm("book_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid book_id"})
+		return
+	}
+
+	format := c.PostForm("format")
+	if format == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "format is required"})
+		return
+	}
+
+	isAudio := c.PostForm("is_audio") == "true"
+
+	fh, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		return
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open file"})
+		return
+	}
+	defer f.Close()
+
+	contentType := fh.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	result, err := h.uc.Upload(c.Request.Context(), bookID, format, isAudio, fh.Filename, f, fh.Size, contentType)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, toBookFileResponse(result))
 }
 
 // @Summary     Файлы книги

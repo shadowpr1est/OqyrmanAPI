@@ -2,9 +2,7 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
-
+	aiHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/ai"
 	authHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/auth"
 	authorHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/author"
 	bookHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book"
@@ -22,6 +20,8 @@ import (
 	wishlistHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type Router struct {
@@ -39,6 +39,7 @@ type Router struct {
 	bookMachine     *bookMachineHandler.Handler
 	bookMachineBook *bookMachineBookHandler.Handler
 	reservation     *reservationHandler.Handler
+	ai              *aiHandler.Handler
 	review          *reviewHandler.Handler
 	jwt             *jwt.Manager
 }
@@ -58,6 +59,7 @@ func NewRouter(
 	bookMachine *bookMachineHandler.Handler,
 	bookMachineBook *bookMachineBookHandler.Handler,
 	reservation *reservationHandler.Handler,
+	ai *aiHandler.Handler,
 	review *reviewHandler.Handler,
 	jwt *jwt.Manager,
 ) *Router {
@@ -76,6 +78,7 @@ func NewRouter(
 		bookMachine:     bookMachine,
 		bookMachineBook: bookMachineBook,
 		reservation:     reservation,
+		ai:              ai,
 		review:          review,
 		jwt:             jwt,
 	}
@@ -107,6 +110,7 @@ func (r *Router) Init() *gin.Engine {
 
 			// user
 			protected.GET("/users/me", r.user.GetMe)
+			protected.GET("/users/me/qr", r.user.GetQR)
 			protected.PUT("/users/me", r.user.Update)
 			protected.DELETE("/users/me", r.user.Delete)
 
@@ -122,9 +126,16 @@ func (r *Router) Init() *gin.Engine {
 			// books
 			protected.GET("/books", r.book.List)
 			protected.GET("/books/:id", r.book.GetByID)
+			protected.GET("/books/:id/availability", r.book.GetAvailability)
 			protected.GET("/books/search", r.book.Search)
 			protected.GET("/books/author/:author_id", r.book.ListByAuthor)
 			protected.GET("/books/genre/:genre_id", r.book.ListByGenre)
+
+			// ai
+			if r.ai != nil {
+				protected.POST("/ai/recommend", r.ai.Recommend)
+				protected.POST("/ai/chat", r.ai.Chat)
+			}
 
 			// book files
 			protected.GET("/book-files/:id", r.bookFile.GetByID)
@@ -203,7 +214,7 @@ func (r *Router) Init() *gin.Engine {
 				admin.DELETE("/books/:id", r.book.Delete)
 
 				// book files
-				admin.POST("/book-files", r.bookFile.Create)
+				admin.POST("/book-files/upload", r.bookFile.Upload)
 				admin.DELETE("/book-files/:id", r.bookFile.Delete)
 
 				// libraries
@@ -226,8 +237,13 @@ func (r *Router) Init() *gin.Engine {
 				admin.PUT("/book-machine-books/:id", r.bookMachineBook.Update)
 				admin.DELETE("/book-machine-books/:id", r.bookMachineBook.Delete)
 
+				// users
+				admin.GET("/users", r.user.ListAll)
+				admin.PATCH("/users/:id/role", r.user.UpdateRole)
+				admin.DELETE("/users/:id", r.user.AdminDelete)
+
 				// reservations
-				admin.PATCH("/reservations/:id/status", r.reservation.UpdateStatus)
+				admin.PATCH("/reservations/:id/return", r.reservation.Return)
 			}
 		}
 	}

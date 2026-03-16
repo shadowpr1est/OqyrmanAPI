@@ -78,3 +78,19 @@ func (r *userRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+func (r *userRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.User, int, error) {
+	var users []*entity.User
+	var total int
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM users`); err != nil {
+		return nil, 0, fmt.Errorf("userRepo.ListAll count: %w", err)
+	}
+	if err := r.db.SelectContext(ctx, &users, `SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2`, limit, offset); err != nil {
+		return nil, 0, fmt.Errorf("userRepo.ListAll: %w", err)
+	}
+	return users, total, nil
+}
+
+func (r *userRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET role = $1 WHERE id = $2`, role, id)
+	return err
+}

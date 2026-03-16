@@ -17,3 +17,7 @@ type userResponse struct {
 	QRCode    string `json:"qr_code"`
 	CreatedAt string `json:"created_at"`
 }
+
+type updateRoleRequest struct {
+	Role string `json:"role" binding:"required,oneof=Admin User"`
+}

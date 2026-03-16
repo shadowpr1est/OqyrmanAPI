@@ -7,6 +7,10 @@ type Config struct {
 	DB    DBConfig
 	JWT   JWTConfig
 	Minio MinioConfig
+	AI    AIConfig
+}
+type AIConfig struct {
+	AnthropicKey string `env:"ANTHROPIC_API_KEY" env-default:""`
 }
 
 type AppConfig struct {

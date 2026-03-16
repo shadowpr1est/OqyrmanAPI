@@ -173,6 +173,25 @@ func (h *Handler) Cancel(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary     Отметить книгу как возвращённую
+// @Tags        reservations
+// @Security    BearerAuth
+// @Param       id path string true "ID брони"
+// @Success     204
+// @Router      /admin/reservations/:id/return [patch]
+func (h *Handler) Return(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if err := h.uc.Return(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func toReservationResponse(r *entity.Reservation) reservationResponse {
 	resp := reservationResponse{
 		ID:         r.ID.String(),

@@ -28,3 +28,15 @@ func (u *userUseCase) Update(ctx context.Context, user *entity.User) (*entity.Us
 func (u *userUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.userRepo.Delete(ctx, id)
 }
+
+func (u *userUseCase) ListAll(ctx context.Context, limit, offset int) ([]*entity.User, int, error) {
+	return u.userRepo.ListAll(ctx, limit, offset)
+}
+
+func (u *userUseCase) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role) error {
+	return u.userRepo.UpdateRole(ctx, id, role)
+}
+
+func (u *userUseCase) AdminDelete(ctx context.Context, id uuid.UUID) error {
+	return u.userRepo.Delete(ctx, id)
+}

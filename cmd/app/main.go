@@ -15,6 +15,7 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/config"
 	_ "github.com/shadowpr1est/OqyrmanAPI/docs"
 	httpDelivery "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http"
+	aiH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/ai"
 	authH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/auth"
 	authorH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/author"
 	bookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book"
@@ -31,6 +32,7 @@ import (
 	userH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/user"
 	wishlistH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/repository/postgres"
+	aiUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/ai"
 	authUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/auth"
 	authorUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/author"
 	bookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book"
@@ -47,6 +49,8 @@ import (
 	userUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/user"
 	wishlistUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm/anthropic"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/storage"
 )
 
 func main() {
@@ -62,6 +66,11 @@ func main() {
 		log.Fatalf("db error: %s", err)
 	}
 
+	// storage
+	minioStorage, err := storage.NewMinioStorage(cfg)
+	if err != nil {
+		log.Fatalf("minio error: %s", err)
+	}
 	// jwt
 	jwtManager := jwt.NewManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenTTL)
 
@@ -88,7 +97,7 @@ func main() {
 	authorUseCase := authorUC.NewAuthorUseCase(authorRepo)
 	genreUseCase := genreUC.NewGenreUseCase(genreRepo)
 	bookUseCase := bookUC.NewBookUseCase(bookRepo)
-	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo)
+	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo, minioStorage)
 	sessionUseCase := readingSessionUC.NewReadingSessionUseCase(sessionRepo)
 	wishlistUseCase := wishlistUC.NewWishlistUseCase(wishlistRepo)
 	noteUseCase := readingNoteUC.NewReadingNoteUseCase(noteRepo)
@@ -96,15 +105,25 @@ func main() {
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
 	machineUseCase := bookMachineUC.NewBookMachineUseCase(machineRepo)
 	machineBookUseCase := bookMachineBookUC.NewBookMachineBookUseCase(machineBookRepo)
-	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo)
+	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, libraryBookRepo, machineBookRepo)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo)
+
+	// AI
+	var aiHandler *aiH.Handler
+	if cfg.AI.AnthropicKey != "" {
+		llmClient := anthropic.NewClient(cfg.AI.AnthropicKey)
+		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, llmClient)
+		aiHandler = aiH.NewHandler(aiUseCase)
+	} else {
+		log.Println("ANTHROPIC_API_KEY not set, AI endpoints disabled")
+	}
 
 	// handlers
 	authHandler := authH.NewHandler(authUseCase)
 	userHandler := userH.NewHandler(userUseCase)
 	authorHandler := authorH.NewHandler(authorUseCase)
 	genreHandler := genreH.NewHandler(genreUseCase)
-	bookHandler := bookH.NewHandler(bookUseCase)
+	bookHandler := bookH.NewHandler(bookUseCase, libraryBookUseCase, machineBookUseCase)
 	bookFileHandler := bookFileH.NewHandler(bookFileUseCase)
 	sessionHandler := readingSessionH.NewHandler(sessionUseCase)
 	wishlistHandler := wishlistH.NewHandler(wishlistUseCase)
@@ -132,6 +151,7 @@ func main() {
 		machineHandler,
 		machineBookHandler,
 		reservHandler,
+		aiHandler,
 		reviewHandler,
 		jwtManager,
 	)

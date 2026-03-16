@@ -52,18 +52,22 @@ func (r *reservationRepo) ListByUser(ctx context.Context, userID uuid.UUID) ([]*
 	return items, nil
 }
 
-func (r *reservationRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error {
-	query := `UPDATE reservations SET status = $1 WHERE id = $2`
-	if _, err := r.db.ExecContext(ctx, query, status, id); err != nil {
-		return fmt.Errorf("reservationRepo.UpdateStatus: %w", err)
-	}
-	return nil
-}
-
 func (r *reservationRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM reservations WHERE id = $1`
 	if _, err := r.db.ExecContext(ctx, query, id); err != nil {
 		return fmt.Errorf("reservationRepo.Delete: %w", err)
 	}
 	return nil
+}
+
+func (r *reservationRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error {
+	var err error
+	if status == entity.ReservationCompleted {
+		_, err = r.db.ExecContext(ctx,
+			`UPDATE reservations SET status = $1, returned_at = now() WHERE id = $2`, status, id)
+	} else {
+		_, err = r.db.ExecContext(ctx,
+			`UPDATE reservations SET status = $1 WHERE id = $2`, status, id)
+	}
+	return err
 }

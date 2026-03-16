@@ -1,6 +1,7 @@
 package user
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -87,6 +88,96 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Список пользователей
+// @Tags        users
+// @Security    BearerAuth
+// @Produce     json
+// @Param       limit  query int false "Лимит"  default(20)
+// @Param       offset query int false "Смещение" default(0)
+// @Success     200 {object} map[string]interface{}
+// @Router      /admin/users [get]
+func (h *Handler) ListAll(c *gin.Context) {
+	limit := 20
+	offset := 0
+	if l := c.Query("limit"); l != "" {
+		fmt.Sscan(l, &limit)
+	}
+	if o := c.Query("offset"); o != "" {
+		fmt.Sscan(o, &offset)
+	}
+	users, total, err := h.uc.ListAll(c.Request.Context(), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	items := make([]userResponse, len(users))
+	for i, u := range users {
+		items[i] = toUserResponse(u)
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "limit": limit, "offset": offset})
+}
+
+// @Summary     Изменить роль пользователя
+// @Tags        users
+// @Security    BearerAuth
+// @Accept      json
+// @Param       id    path string          true "ID пользователя"
+// @Param       input body updateRoleRequest true "Новая роль"
+// @Success     204
+// @Router      /admin/users/:id/role [patch]
+func (h *Handler) UpdateRole(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var req updateRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.uc.UpdateRole(c.Request.Context(), id, entity.Role(req.Role)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Удалить пользователя (admin)
+// @Tags        users
+// @Security    BearerAuth
+// @Param       id path string true "ID пользователя"
+// @Success     204
+// @Router      /admin/users/:id [delete]
+func (h *Handler) AdminDelete(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if err := h.uc.AdminDelete(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary     QR-код читательского билета
+// @Tags        users
+// @Security    BearerAuth
+// @Produce     json
+// @Success     200 {object} map[string]string
+// @Router      /users/me/qr [get]
+func (h *Handler) GetQR(c *gin.Context) {
+	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	user, err := h.uc.GetByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"qr_code": user.QRCode})
 }
 
 func toUserResponse(u *entity.User) userResponse {

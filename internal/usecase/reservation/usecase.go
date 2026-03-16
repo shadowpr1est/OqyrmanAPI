@@ -13,10 +13,49 @@ import (
 
 type reservationUseCase struct {
 	reservationRepo repository.ReservationRepository
+	libBookRepo     repository.LibraryBookRepository     // NEW
+	machBookRepo    repository.BookMachineBookRepository // NEW
 }
 
-func NewReservationUseCase(reservationRepo repository.ReservationRepository) domainUseCase.ReservationUseCase {
-	return &reservationUseCase{reservationRepo: reservationRepo}
+func NewReservationUseCase(
+	reservationRepo repository.ReservationRepository,
+	libBookRepo repository.LibraryBookRepository,
+	machBookRepo repository.BookMachineBookRepository,
+) domainUseCase.ReservationUseCase {
+	return &reservationUseCase{reservationRepo, libBookRepo, machBookRepo}
+}
+
+func (u *reservationUseCase) Return(ctx context.Context, id uuid.UUID) error {
+	r, err := u.reservationRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	r.ReturnedAt = &now
+	r.Status = entity.ReservationCompleted
+	if err := u.reservationRepo.UpdateStatus(ctx, id, entity.ReservationCompleted); err != nil {
+		return err
+	}
+	// восстановить available_copies
+	if r.LibraryBookID != nil {
+		lb, err := u.libBookRepo.GetByID(ctx, *r.LibraryBookID)
+		if err != nil {
+			return err
+		}
+		lb.AvailableCopies++
+		_, err = u.libBookRepo.Update(ctx, lb)
+		return err
+	}
+	if r.MachineBookID != nil {
+		mb, err := u.machBookRepo.GetByID(ctx, *r.MachineBookID)
+		if err != nil {
+			return err
+		}
+		mb.AvailableCopies++
+		_, err = u.machBookRepo.Update(ctx, mb)
+		return err
+	}
+	return nil
 }
 
 func (u *reservationUseCase) Create(ctx context.Context, r *entity.Reservation) (*entity.Reservation, error) {
