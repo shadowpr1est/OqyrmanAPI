@@ -1,0 +1,31 @@
+package auth
+
+type registerRequest struct {
+	Email    string `json:"email"    binding:"required,email"`
+	Phone    string `json:"phone"    binding:"required"`
+	Password string `json:"password" binding:"required,min=6"`
+	FullName string `json:"full_name"`
+}
+
+type loginRequest struct {
+	Email    string `json:"email"    binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type tokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type userResponse struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	FullName  string `json:"full_name"`
+	AvatarURL string `json:"avatar_url"`
+	Role      string `json:"role"`
+}

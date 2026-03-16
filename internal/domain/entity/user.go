@@ -18,6 +18,7 @@ type User struct {
 	Email        string    `db:"email"`
 	PasswordHash string    `db:"password_hash"`
 	FullName     string    `db:"full_name"`
+	Phone        string    `db:"phone"`
 	AvatarURL    string    `db:"avatar_url"`
 	Role         Role      `db:"role"`
 	QRCode       string    `db:"qr_code"`
