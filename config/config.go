@@ -1,6 +1,10 @@
 package config
 
-import "github.com/ilyakaznacheev/cleanenv"
+import (
+	"log"
+
+	"github.com/ilyakaznacheev/cleanenv"
+)
 
 type Config struct {
 	App   AppConfig
@@ -40,8 +44,15 @@ type MinioConfig struct {
 
 func New() (*Config, error) {
 	cfg := &Config{}
+
+	// Пробуем загрузить .env файл — если нет, читаем из переменных окружения
+	// Это позволяет работать и локально (с .env) и в Docker (через env_file / -e)
 	if err := cleanenv.ReadConfig(".env", cfg); err != nil {
-		return nil, err
+		log.Println("no .env file found, reading from environment variables")
+		if err := cleanenv.ReadEnv(cfg); err != nil {
+			return nil, err
+		}
 	}
+
 	return cfg, nil
 }
