@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
 )
 
@@ -53,7 +54,7 @@ func AdminOnly() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
-		if role != "admin" {
+		if role != string(entity.RoleAdmin) {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}

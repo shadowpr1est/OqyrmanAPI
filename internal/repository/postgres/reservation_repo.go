@@ -71,3 +71,15 @@ func (r *reservationRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status
 	}
 	return err
 }
+func (r *reservationRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.Reservation, int, error) {
+	var items []*entity.Reservation
+	var total int
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM reservations`); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListAll count: %w", err)
+	}
+	query := `SELECT * FROM reservations ORDER BY reserved_at DESC LIMIT $1 OFFSET $2`
+	if err := r.db.SelectContext(ctx, &items, query, limit, offset); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListAll: %w", err)
+	}
+	return items, total, nil
+}

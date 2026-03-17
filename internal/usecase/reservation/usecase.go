@@ -83,3 +83,6 @@ func (u *reservationUseCase) UpdateStatus(ctx context.Context, id uuid.UUID, sta
 func (u *reservationUseCase) Cancel(ctx context.Context, id uuid.UUID) error {
 	return u.reservationRepo.UpdateStatus(ctx, id, entity.ReservationCancelled)
 }
+func (u *reservationUseCase) ListAll(ctx context.Context, limit, offset int) ([]*entity.Reservation, int, error) {
+	return u.reservationRepo.ListAll(ctx, limit, offset)
+}

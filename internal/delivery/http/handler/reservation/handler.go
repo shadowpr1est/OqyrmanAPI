@@ -2,6 +2,7 @@ package reservation
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -190,6 +191,39 @@ func (h *Handler) Return(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Все брони (admin)
+// @Tags        reservations
+// @Security    BearerAuth
+// @Produce     json
+// @Param       limit  query int false "Лимит"   default(20)
+// @Param       offset query int false "Смещение" default(0)
+// @Param       status query string false "Фильтр по статусу"
+// @Success     200 {object} map[string]interface{}
+// @Router      /admin/reservations [get]
+func (h *Handler) ListAll(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	items, total, err := h.uc.ListAll(c.Request.Context(), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp := make([]*reservationResponse, len(items))
+	for i, r := range items {
+		res := toReservationResponse(r)
+		resp[i] = &res
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items":  resp,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
 }
 
 func toReservationResponse(r *entity.Reservation) reservationResponse {

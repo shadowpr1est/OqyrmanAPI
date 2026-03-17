@@ -1,6 +1,8 @@
 package http
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	aiHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/ai"
 	authHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/auth"
@@ -16,6 +18,7 @@ import (
 	readingSessionHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reading_session"
 	reservationHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reservation"
 	reviewHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/review"
+	statsHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/stats"
 	userHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/user"
 	wishlistHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
@@ -32,6 +35,7 @@ type Router struct {
 	book            *bookHandler.Handler
 	bookFile        *bookFileHandler.Handler
 	readingSession  *readingSessionHandler.Handler
+	stats           *statsHandler.Handler
 	wishlist        *wishlistHandler.Handler
 	notes           *notesHandler.Handler
 	library         *libraryHandler.Handler
@@ -52,6 +56,7 @@ func NewRouter(
 	book *bookHandler.Handler,
 	bookFile *bookFileHandler.Handler,
 	readingSession *readingSessionHandler.Handler,
+	stats *statsHandler.Handler,
 	wishlist *wishlistHandler.Handler,
 	notes *notesHandler.Handler,
 	library *libraryHandler.Handler,
@@ -71,6 +76,7 @@ func NewRouter(
 		book:            book,
 		bookFile:        bookFile,
 		readingSession:  readingSession,
+		stats:           stats,
 		wishlist:        wishlist,
 		notes:           notes,
 		library:         library,
@@ -94,6 +100,7 @@ func (r *Router) Init() *gin.Engine {
 	{
 		// auth — публичные
 		auth := api.Group("/auth")
+		auth.Use(middleware.RateLimit(10, time.Minute))
 		{
 			auth.POST("/register", r.auth.Register)
 			auth.POST("/login", r.auth.Login)
@@ -133,8 +140,8 @@ func (r *Router) Init() *gin.Engine {
 
 			// ai
 			if r.ai != nil {
-				protected.POST("/ai/recommend", r.ai.Recommend)
-				protected.POST("/ai/chat", r.ai.Chat)
+				protected.POST("/ai/recommend", middleware.RateLimit(30, time.Minute), r.ai.Recommend)
+				protected.POST("/ai/chat", middleware.RateLimit(30, time.Minute), r.ai.Chat)
 			}
 
 			// book files
@@ -198,6 +205,10 @@ func (r *Router) Init() *gin.Engine {
 			admin := protected.Group("/admin")
 			admin.Use(middleware.AdminOnly())
 			{
+				// stats
+				admin.GET("/stats", r.stats.GetStats)
+				admin.GET("/reservations", r.reservation.ListAll)
+
 				// authors
 				admin.POST("/authors", r.author.Create)
 				admin.PUT("/authors/:id", r.author.Update)

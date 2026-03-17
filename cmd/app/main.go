@@ -29,6 +29,7 @@ import (
 	readingSessionH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reading_session"
 	reservationH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reservation"
 	reviewH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/review"
+	statsH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/stats"
 	userH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/user"
 	wishlistH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/repository/postgres"
@@ -46,6 +47,7 @@ import (
 	readingSessionUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/reading_session"
 	reservationUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/reservation"
 	reviewUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/review"
+	statsUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/stats"
 	userUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/user"
 	wishlistUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
@@ -82,6 +84,7 @@ func main() {
 	bookRepo := postgres.NewBookRepo(db)
 	bookFileRepo := postgres.NewBookFileRepo(db)
 	sessionRepo := postgres.NewReadingSessionRepo(db)
+	statsRepo := postgres.NewStatsRepo(db)
 	wishlistRepo := postgres.NewWishlistRepo(db)
 	noteRepo := postgres.NewReadingNoteRepo(db)
 	libraryRepo := postgres.NewLibraryRepo(db)
@@ -99,6 +102,7 @@ func main() {
 	bookUseCase := bookUC.NewBookUseCase(bookRepo)
 	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo, minioStorage)
 	sessionUseCase := readingSessionUC.NewReadingSessionUseCase(sessionRepo)
+	statsUseCase := statsUC.NewStatsUseCase(statsRepo)
 	wishlistUseCase := wishlistUC.NewWishlistUseCase(wishlistRepo)
 	noteUseCase := readingNoteUC.NewReadingNoteUseCase(noteRepo)
 	libraryUseCase := libraryUC.NewLibraryUseCase(libraryRepo)
@@ -126,6 +130,7 @@ func main() {
 	bookHandler := bookH.NewHandler(bookUseCase, libraryBookUseCase, machineBookUseCase)
 	bookFileHandler := bookFileH.NewHandler(bookFileUseCase)
 	sessionHandler := readingSessionH.NewHandler(sessionUseCase)
+	statsHandler := statsH.NewHandler(statsUseCase)
 	wishlistHandler := wishlistH.NewHandler(wishlistUseCase)
 	notesHandler := notesH.NewHandler(noteUseCase)
 	libraryHandler := libraryH.NewHandler(libraryUseCase)
@@ -144,6 +149,7 @@ func main() {
 		bookHandler,
 		bookFileHandler,
 		sessionHandler,
+		statsHandler,
 		wishlistHandler,
 		notesHandler,
 		libraryHandler,
