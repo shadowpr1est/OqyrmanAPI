@@ -37,3 +37,7 @@ func (u *authorUseCase) Update(ctx context.Context, author *entity.Author) (*ent
 func (u *authorUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.authorRepo.Delete(ctx, id)
 }
+
+func (u *authorUseCase) Search(ctx context.Context, query string, limit, offset int) ([]*entity.Author, int, error) {
+	return u.authorRepo.Search(ctx, query, limit, offset)
+}

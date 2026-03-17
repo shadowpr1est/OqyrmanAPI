@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type Handler struct {
@@ -84,12 +85,16 @@ func (h *Handler) Upload(c *gin.Context) {
 		contentType = "application/octet-stream"
 	}
 
-	result, err := h.uc.Upload(c.Request.Context(), bookID, format, isAudio, fh.Filename, f, fh.Size, contentType)
+	result, err := h.uc.Upload(c.Request.Context(), bookID, format, isAudio, &fileupload.File{
+		Filename:    fh.Filename,
+		Reader:      f,
+		Size:        fh.Size,
+		ContentType: contentType,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusCreated, toBookFileResponse(result))
 }
 

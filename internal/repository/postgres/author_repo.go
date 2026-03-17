@@ -82,3 +82,17 @@ func (r *authorRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
+func (r *authorRepo) Search(ctx context.Context, query string, limit, offset int) ([]*entity.Author, int, error) {
+	var authors []*entity.Author
+	var total int
+	q := `SELECT * FROM authors WHERE name ILIKE $1 OR bio ILIKE $1 ORDER BY name LIMIT $2 OFFSET $3`
+	if err := r.db.SelectContext(ctx, &authors, q, "%"+query+"%", limit, offset); err != nil {
+		return nil, 0, fmt.Errorf("authorRepo.Search: %w", err)
+	}
+	cq := `SELECT COUNT(*) FROM authors WHERE name ILIKE $1 OR bio ILIKE $1`
+	if err := r.db.GetContext(ctx, &total, cq, "%"+query+"%"); err != nil {
+		return nil, 0, fmt.Errorf("authorRepo.Search count: %w", err)
+	}
+	return authors, total, nil
+}

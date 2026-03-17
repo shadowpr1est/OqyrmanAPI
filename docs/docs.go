@@ -457,7 +457,7 @@ const docTemplate = `{
                     }
                 ],
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -468,13 +468,61 @@ const docTemplate = `{
                 "summary": "Создать книгу",
                 "parameters": [
                     {
-                        "description": "Данные книги",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/book.createBookRequest"
-                        }
+                        "type": "string",
+                        "description": "ID автора",
+                        "name": "author_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID жанра",
+                        "name": "genre_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Название",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ISBN",
+                        "name": "isbn",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Описание",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Язык",
+                        "name": "language",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Год",
+                        "name": "year",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "number",
+                        "description": "Рейтинг",
+                        "name": "avg_rating",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Обложка (jpg, png)",
+                        "name": "cover",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -486,6 +534,15 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -571,6 +628,67 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/admin/books/{id}/cover": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Загрузить обложку книги",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID книги",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Обложка (jpg, png)",
+                        "name": "cover",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/book.bookResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -917,6 +1035,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/reservations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reservations"
+                ],
+                "summary": "Все брони (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Лимит",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Смещение",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Фильтр по статусу",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/admin/reservations/:id/return": {
             "patch": {
                 "security": [
@@ -982,6 +1147,30 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/admin/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Статистика платформы",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/stats.statsResponse"
+                        }
                     }
                 }
             }
@@ -1390,11 +1579,6 @@ const docTemplate = `{
         },
         "/authors": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1437,13 +1621,59 @@ const docTemplate = `{
                 }
             }
         },
-        "/authors/{id}": {
+        "/authors/search": {
             "get": {
-                "security": [
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "authors"
+                ],
+                "summary": "Поиск авторов",
+                "parameters": [
                     {
-                        "BearerAuth": []
+                        "type": "string",
+                        "description": "Поисковый запрос",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Лимит",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Смещение",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/author.listAuthorResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/authors/{id}": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -1649,11 +1879,6 @@ const docTemplate = `{
         },
         "/book-machines": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1689,11 +1914,6 @@ const docTemplate = `{
         },
         "/book-machines/nearby": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1737,11 +1957,6 @@ const docTemplate = `{
         },
         "/book-machines/{id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1770,11 +1985,6 @@ const docTemplate = `{
         },
         "/books": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1808,47 +2018,8 @@ const docTemplate = `{
                 }
             }
         },
-        "/books/:id/availability": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "books"
-                ],
-                "summary": "Наличие книги в библиотеках и книгоматах",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID книги",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/books/author/{author_id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1878,11 +2049,6 @@ const docTemplate = `{
         },
         "/books/genre/{genre_id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1912,11 +2078,6 @@ const docTemplate = `{
         },
         "/books/search": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1942,7 +2103,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "default": 0,
-                        "description": "Отступ",
+                        "description": "Смещение",
                         "name": "offset",
                         "in": "query"
                     }
@@ -1953,17 +2114,21 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/book.listBookResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
         },
         "/books/{id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1999,13 +2164,37 @@ const docTemplate = `{
                 }
             }
         },
-        "/genres": {
+        "/books/{id}/availability": {
             "get": {
-                "security": [
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "Наличие книги в библиотеках и книгоматах",
+                "parameters": [
                     {
-                        "BearerAuth": []
+                        "type": "string",
+                        "description": "ID книги",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/genres": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -2026,11 +2215,6 @@ const docTemplate = `{
         },
         "/genres/slug/{slug}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -2068,11 +2252,6 @@ const docTemplate = `{
         },
         "/genres/{id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -2110,11 +2289,6 @@ const docTemplate = `{
         },
         "/libraries": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -2150,11 +2324,6 @@ const docTemplate = `{
         },
         "/libraries/nearby": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -2198,11 +2367,6 @@ const docTemplate = `{
         },
         "/libraries/{id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -2785,11 +2949,6 @@ const docTemplate = `{
         },
         "/reviews/book/{book_id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -2815,7 +2974,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "default": 0,
-                        "description": "Отступ",
+                        "description": "Смещение",
                         "name": "offset",
                         "in": "query"
                     }
@@ -3049,6 +3208,60 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me/avatar": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Загрузить аватар пользователя",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Изображение аватара (jpg, png)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.userResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -3429,43 +3642,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
-                },
-                "isbn": {
-                    "type": "string"
-                },
-                "language": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "year": {
-                    "type": "integer"
-                }
-            }
-        },
-        "book.createBookRequest": {
-            "type": "object",
-            "required": [
-                "author_id",
-                "genre_id",
-                "title"
-            ],
-            "properties": {
-                "author_id": {
-                    "type": "string"
-                },
-                "avg_rating": {
-                    "type": "number"
-                },
-                "cover_url": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "genre_id": {
                     "type": "string"
                 },
                 "isbn": {
@@ -4141,6 +4317,32 @@ const docTemplate = `{
                 }
             }
         },
+        "stats.statsResponse": {
+            "type": "object",
+            "properties": {
+                "authors_total": {
+                    "type": "integer"
+                },
+                "books_total": {
+                    "type": "integer"
+                },
+                "reservations_active": {
+                    "type": "integer"
+                },
+                "reservations_pending": {
+                    "type": "integer"
+                },
+                "reservations_total": {
+                    "type": "integer"
+                },
+                "reviews_total": {
+                    "type": "integer"
+                },
+                "users_total": {
+                    "type": "integer"
+                }
+            }
+        },
         "user.updateRoleRequest": {
             "type": "object",
             "required": [
@@ -4244,7 +4446,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
+	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "OqyrmanAPI",

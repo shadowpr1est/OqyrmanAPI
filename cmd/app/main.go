@@ -1,9 +1,9 @@
 // @title           OqyrmanAPI
 // @version         1.0
 // @description     API для книжной платформы Oqyrman
-// @host            localhost:8080
 // @BasePath        /api/v1
 // @securityDefinitions.apikey BearerAuth
+// @host localhost:8080
 // @in header
 // @name Authorization
 // @description JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"
@@ -96,10 +96,10 @@ func main() {
 
 	// usecases
 	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
-	userUseCase := userUC.NewUserUseCase(userRepo)
+	bookUseCase := bookUC.NewBookUseCase(bookRepo, minioStorage)
+	userUseCase := userUC.NewUserUseCase(userRepo, minioStorage)
 	authorUseCase := authorUC.NewAuthorUseCase(authorRepo)
 	genreUseCase := genreUC.NewGenreUseCase(genreRepo)
-	bookUseCase := bookUC.NewBookUseCase(bookRepo)
 	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo, minioStorage)
 	sessionUseCase := readingSessionUC.NewReadingSessionUseCase(sessionRepo)
 	statsUseCase := statsUC.NewStatsUseCase(statsRepo)

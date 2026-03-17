@@ -3,7 +3,6 @@ package book_file
 import (
 	"context"
 	"fmt"
-	"io"
 	"path/filepath"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/repository"
 	domainStorage "github.com/shadowpr1est/OqyrmanAPI/internal/domain/storage"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type bookFileUseCase struct {
@@ -28,11 +28,14 @@ func (u *bookFileUseCase) Create(ctx context.Context, file *entity.BookFile) (*e
 	return u.bookFileRepo.Create(ctx, file)
 }
 
-func (u *bookFileUseCase) Upload(ctx context.Context, bookID uuid.UUID, format string, isAudio bool, filename string, reader io.Reader, size int64, contentType string) (*entity.BookFile, error) {
-	ext := strings.ToLower(filepath.Ext(filename))
+func (u *bookFileUseCase) Upload(ctx context.Context, bookID uuid.UUID, format string, isAudio bool, file *fileupload.File) (*entity.BookFile, error) {
+	if u.storage == nil {
+		return nil, fmt.Errorf("file storage is not configured")
+	}
+	ext := strings.ToLower(filepath.Ext(file.Filename))
 	objectKey := fmt.Sprintf("books/%s/%s%s", bookID.String(), uuid.New().String(), ext)
 
-	fileURL, err := u.storage.Upload(ctx, objectKey, reader, size, contentType)
+	fileURL, err := u.storage.Upload(ctx, objectKey, file.Reader, file.Size, file.ContentType)
 	if err != nil {
 		return nil, err
 	}

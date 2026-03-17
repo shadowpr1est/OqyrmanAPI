@@ -88,6 +88,11 @@ func (r *bookRepo) Search(ctx context.Context, query string, limit, offset int) 
 	return books, total, nil
 }
 
+func (r *bookRepo) UpdateCoverURL(ctx context.Context, id uuid.UUID, coverURL string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE books SET cover_url = $1 WHERE id = $2`, coverURL, id)
+	return err
+}
+
 func (r *bookRepo) Update(ctx context.Context, book *entity.Book) (*entity.Book, error) {
 	query := `
 		UPDATE books

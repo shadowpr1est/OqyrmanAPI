@@ -52,7 +52,6 @@ func (h *Handler) Create(c *gin.Context) {
 
 // @Summary     Получить библиотеку
 // @Tags        libraries
-// @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID библиотеки"
 // @Success     200 {object} libraryResponse
@@ -75,7 +74,6 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 // @Summary     Список библиотек
 // @Tags        libraries
-// @Security    BearerAuth
 // @Produce     json
 // @Param       limit  query int false "Лимит"  default(20)
 // @Param       offset query int false "Отступ" default(0)
@@ -107,7 +105,6 @@ func (h *Handler) List(c *gin.Context) {
 
 // @Summary     Библиотеки рядом
 // @Tags        libraries
-// @Security    BearerAuth
 // @Produce     json
 // @Param       lat    query number true  "Широта"
 // @Param       lng    query number true  "Долгота"

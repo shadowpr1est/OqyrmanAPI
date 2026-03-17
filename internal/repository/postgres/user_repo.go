@@ -90,6 +90,11 @@ func (r *userRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.Us
 	return users, total, nil
 }
 
+func (r *userRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, avatarURL string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET avatar_url = $1 WHERE id = $2`, avatarURL, id)
+	return err
+}
+
 func (r *userRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE users SET role = $1 WHERE id = $2`, role, id)
 	return err

@@ -9,6 +9,7 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type Handler struct {
@@ -178,6 +179,50 @@ func (h *Handler) GetQR(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"qr_code": user.QRCode})
+}
+
+// @Summary     Загрузить аватар пользователя
+// @Tags        users
+// @Security    BearerAuth
+// @Accept      multipart/form-data
+// @Produce     json
+// @Param       file formData file true "Изображение аватара (jpg, png)"
+// @Success     200 {object} userResponse
+// @Failure     400 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /users/me/avatar [post]
+func (h *Handler) UploadAvatar(c *gin.Context) {
+	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+
+	fh, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		return
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open file"})
+		return
+	}
+	defer f.Close()
+
+	contentType := fh.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+
+	user, err := h.uc.UploadAvatar(c.Request.Context(), userID, &fileupload.File{
+		Filename:    fh.Filename,
+		Reader:      f,
+		Size:        fh.Size,
+		ContentType: contentType,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, toUserResponse(user))
 }
 
 func toUserResponse(u *entity.User) userResponse {

@@ -49,7 +49,6 @@ func (h *Handler) Create(c *gin.Context) {
 
 // @Summary     Получить жанр
 // @Tags        genres
-// @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID жанра"
 // @Success     200 {object} genreResponse
@@ -73,7 +72,6 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 // @Summary     Получить жанр по slug
 // @Tags        genres
-// @Security    BearerAuth
 // @Produce     json
 // @Param       slug path string true "Slug жанра"
 // @Success     200 {object} genreResponse
@@ -93,7 +91,6 @@ func (h *Handler) GetBySlug(c *gin.Context) {
 
 // @Summary     Список жанров
 // @Tags        genres
-// @Security    BearerAuth
 // @Produce     json
 // @Success     200 {object} map[string]interface{}
 // @Router      /genres [get]

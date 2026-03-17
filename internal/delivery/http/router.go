@@ -89,7 +89,6 @@ func NewRouter(
 		jwt:             jwt,
 	}
 }
-
 func (r *Router) Init() *gin.Engine {
 	engine := gin.Default()
 
@@ -107,6 +106,41 @@ func (r *Router) Init() *gin.Engine {
 			auth.POST("/refresh", r.auth.RefreshToken)
 		}
 
+		// публичный каталог — без авторизации
+		public := api.Group("/")
+		{
+			// authors
+			public.GET("/authors", r.author.List)
+			public.GET("/authors/:id", r.author.GetByID)
+			public.GET("/authors/search", r.author.Search)
+
+			// genres
+			public.GET("/genres", r.genre.List)
+			public.GET("/genres/:id", r.genre.GetByID)
+			public.GET("/genres/slug/:slug", r.genre.GetBySlug)
+
+			// books
+			public.GET("/books", r.book.List)
+			public.GET("/books/:id", r.book.GetByID)
+			public.GET("/books/:id/availability", r.book.GetAvailability)
+			public.GET("/books/search", r.book.Search)
+			public.GET("/books/author/:author_id", r.book.ListByAuthor)
+			public.GET("/books/genre/:genre_id", r.book.ListByGenre)
+
+			// libraries
+			public.GET("/libraries", r.library.List)
+			public.GET("/libraries/:id", r.library.GetByID)
+			public.GET("/libraries/nearby", r.library.ListNearby)
+
+			// book machines
+			public.GET("/book-machines", r.bookMachine.List)
+			public.GET("/book-machines/:id", r.bookMachine.GetByID)
+			public.GET("/book-machines/nearby", r.bookMachine.ListNearby)
+
+			// reviews
+			public.GET("/reviews/book/:book_id", r.review.ListByBook)
+		}
+
 		// защищённые маршруты
 		protected := api.Group("/")
 		protected.Use(middleware.Auth(r.jwt))
@@ -117,26 +151,10 @@ func (r *Router) Init() *gin.Engine {
 
 			// user
 			protected.GET("/users/me", r.user.GetMe)
+			protected.POST("/users/me/avatar", r.user.UploadAvatar)
 			protected.GET("/users/me/qr", r.user.GetQR)
 			protected.PUT("/users/me", r.user.Update)
 			protected.DELETE("/users/me", r.user.Delete)
-
-			// authors
-			protected.GET("/authors", r.author.List)
-			protected.GET("/authors/:id", r.author.GetByID)
-
-			// genres
-			protected.GET("/genres", r.genre.List)
-			protected.GET("/genres/:id", r.genre.GetByID)
-			protected.GET("/genres/slug/:slug", r.genre.GetBySlug)
-
-			// books
-			protected.GET("/books", r.book.List)
-			protected.GET("/books/:id", r.book.GetByID)
-			protected.GET("/books/:id/availability", r.book.GetAvailability)
-			protected.GET("/books/search", r.book.Search)
-			protected.GET("/books/author/:author_id", r.book.ListByAuthor)
-			protected.GET("/books/genre/:genre_id", r.book.ListByGenre)
 
 			// ai
 			if r.ai != nil {
@@ -147,6 +165,16 @@ func (r *Router) Init() *gin.Engine {
 			// book files
 			protected.GET("/book-files/:id", r.bookFile.GetByID)
 			protected.GET("/book-files/book/:book_id", r.bookFile.ListByBook)
+
+			// library books
+			protected.GET("/library-books/:id", r.libraryBook.GetByID)
+			protected.GET("/library-books/library/:library_id", r.libraryBook.ListByLibrary)
+			protected.GET("/library-books/book/:book_id", r.libraryBook.ListByBook)
+
+			// book machine books
+			protected.GET("/book-machine-books/:id", r.bookMachineBook.GetByID)
+			protected.GET("/book-machine-books/machine/:machine_id", r.bookMachineBook.ListByMachine)
+			protected.GET("/book-machine-books/book/:book_id", r.bookMachineBook.ListByBook)
 
 			// reading sessions
 			protected.POST("/reading-sessions", r.readingSession.Upsert)
@@ -167,26 +195,6 @@ func (r *Router) Init() *gin.Engine {
 			protected.PUT("/notes/:id", r.notes.Update)
 			protected.DELETE("/notes/:id", r.notes.Delete)
 
-			// libraries
-			protected.GET("/libraries", r.library.List)
-			protected.GET("/libraries/:id", r.library.GetByID)
-			protected.GET("/libraries/nearby", r.library.ListNearby)
-
-			// library books
-			protected.GET("/library-books/:id", r.libraryBook.GetByID)
-			protected.GET("/library-books/library/:library_id", r.libraryBook.ListByLibrary)
-			protected.GET("/library-books/book/:book_id", r.libraryBook.ListByBook)
-
-			// book machines
-			protected.GET("/book-machines", r.bookMachine.List)
-			protected.GET("/book-machines/:id", r.bookMachine.GetByID)
-			protected.GET("/book-machines/nearby", r.bookMachine.ListNearby)
-
-			// book machine books
-			protected.GET("/book-machine-books/:id", r.bookMachineBook.GetByID)
-			protected.GET("/book-machine-books/machine/:machine_id", r.bookMachineBook.ListByMachine)
-			protected.GET("/book-machine-books/book/:book_id", r.bookMachineBook.ListByBook)
-
 			// reservations
 			protected.POST("/reservations", r.reservation.Create)
 			protected.GET("/reservations/:id", r.reservation.GetByID)
@@ -196,7 +204,6 @@ func (r *Router) Init() *gin.Engine {
 			// reviews
 			protected.POST("/reviews", r.review.Create)
 			protected.GET("/reviews/:id", r.review.GetByID)
-			protected.GET("/reviews/book/:book_id", r.review.ListByBook)
 			protected.GET("/reviews/user", r.review.ListByUser)
 			protected.PUT("/reviews/:id", r.review.Update)
 			protected.DELETE("/reviews/:id", r.review.Delete)
@@ -223,9 +230,10 @@ func (r *Router) Init() *gin.Engine {
 				admin.POST("/books", r.book.Create)
 				admin.PUT("/books/:id", r.book.Update)
 				admin.DELETE("/books/:id", r.book.Delete)
+				admin.POST("/books/:id/cover", r.book.UploadCover)
 
 				// book files
-				admin.POST("/book-files/upload", r.bookFile.Upload)
+				admin.POST("/book-files/upload", middleware.RateLimit(20, time.Hour), r.bookFile.Upload)
 				admin.DELETE("/book-files/:id", r.bookFile.Delete)
 
 				// libraries
@@ -254,6 +262,7 @@ func (r *Router) Init() *gin.Engine {
 				admin.DELETE("/users/:id", r.user.AdminDelete)
 
 				// reservations
+				admin.PATCH("/reservations/:id/status", r.reservation.UpdateStatus)
 				admin.PATCH("/reservations/:id/return", r.reservation.Return)
 			}
 		}

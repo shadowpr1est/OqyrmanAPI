@@ -83,11 +83,10 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 // @Summary     Отзывы на книгу
 // @Tags        reviews
-// @Security    BearerAuth
 // @Produce     json
 // @Param       book_id path string true  "ID книги"
-// @Param       limit   query int   false "Лимит"  default(20)
-// @Param       offset  query int   false "Отступ" default(0)
+// @Param       limit   query int    false "Лимит"    default(20)
+// @Param       offset  query int    false "Смещение" default(0)
 // @Success     200 {object} listReviewResponse
 // @Router      /reviews/book/{book_id} [get]
 func (h *Handler) ListByBook(c *gin.Context) {

@@ -15,5 +15,6 @@ type BookRepository interface {
 	ListByGenre(ctx context.Context, genreID uuid.UUID) ([]*entity.Book, error)
 	Search(ctx context.Context, query string, limit, offset int) ([]*entity.Book, int, error)
 	Update(ctx context.Context, book *entity.Book) (*entity.Book, error)
+	UpdateCoverURL(ctx context.Context, id uuid.UUID, coverURL string) error // NEW
 	Delete(ctx context.Context, id uuid.UUID) error
 }

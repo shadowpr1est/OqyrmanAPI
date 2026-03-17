@@ -70,7 +70,6 @@ func (h *Handler) Create(c *gin.Context) {
 
 // @Summary     Получить автора
 // @Tags        authors
-// @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID автора"
 // @Success     200 {object} authorResponse
@@ -94,7 +93,6 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 // @Summary     Список авторов
 // @Tags        authors
-// @Security    BearerAuth
 // @Produce     json
 // @Param       limit  query int false "Лимит"  default(20)
 // @Param       offset query int false "Отступ" default(0)
@@ -209,6 +207,45 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Поиск авторов
+// @Tags        authors
+// @Produce     json
+// @Param       q      query string true  "Поисковый запрос"
+// @Param       limit  query int    false "Лимит"    default(20)
+// @Param       offset query int    false "Смещение" default(0)
+// @Success     200 {object} listAuthorResponse
+// @Failure     400 {object} map[string]string
+// @Router      /authors/search [get]
+func (h *Handler) Search(c *gin.Context) {
+	q := c.Query("q")
+	if q == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "q is required"})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	authors, total, err := h.uc.Search(c.Request.Context(), q, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	items := make([]*authorResponse, len(authors))
+	for i, a := range authors {
+		resp := toAuthorResponse(a)
+		items[i] = &resp
+	}
+
+	c.JSON(http.StatusOK, listAuthorResponse{
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
 }
 
 func toAuthorResponse(a *entity.Author) authorResponse {

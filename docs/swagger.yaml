@@ -153,31 +153,6 @@ definitions:
       year:
         type: integer
     type: object
-  book.createBookRequest:
-    properties:
-      author_id:
-        type: string
-      avg_rating:
-        type: number
-      cover_url:
-        type: string
-      description:
-        type: string
-      genre_id:
-        type: string
-      isbn:
-        type: string
-      language:
-        type: string
-      title:
-        type: string
-      year:
-        type: integer
-    required:
-    - author_id
-    - genre_id
-    - title
-    type: object
   book.listBookResponse:
     properties:
       items:
@@ -618,6 +593,23 @@ definitions:
         minimum: 1
         type: integer
     type: object
+  stats.statsResponse:
+    properties:
+      authors_total:
+        type: integer
+      books_total:
+        type: integer
+      reservations_active:
+        type: integer
+      reservations_pending:
+        type: integer
+      reservations_total:
+        type: integer
+      reviews_total:
+        type: integer
+      users_total:
+        type: integer
+    type: object
   user.updateRoleRequest:
     properties:
       role:
@@ -676,7 +668,6 @@ definitions:
       user_id:
         type: string
     type: object
-host: localhost:8080
 info:
   contact: {}
   description: API для книжной платформы Oqyrman
@@ -954,14 +945,47 @@ paths:
   /admin/books:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       parameters:
-      - description: Данные книги
-        in: body
-        name: input
+      - description: ID автора
+        in: formData
+        name: author_id
         required: true
-        schema:
-          $ref: '#/definitions/book.createBookRequest'
+        type: string
+      - description: ID жанра
+        in: formData
+        name: genre_id
+        required: true
+        type: string
+      - description: Название
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: ISBN
+        in: formData
+        name: isbn
+        type: string
+      - description: Описание
+        in: formData
+        name: description
+        type: string
+      - description: Язык
+        in: formData
+        name: language
+        type: string
+      - description: Год
+        in: formData
+        name: year
+        type: integer
+      - description: Рейтинг
+        in: formData
+        name: avg_rating
+        type: number
+      - description: Обложка (jpg, png)
+        in: formData
+        name: cover
+        type: file
       produces:
       - application/json
       responses:
@@ -971,6 +995,12 @@ paths:
             $ref: '#/definitions/book.bookResponse'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
           schema:
             additionalProperties:
               type: string
@@ -1027,6 +1057,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Обновить книгу
+      tags:
+      - books
+  /admin/books/{id}/cover:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: ID книги
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Обложка (jpg, png)
+        in: formData
+        name: cover
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.bookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Загрузить обложку книги
       tags:
       - books
   /admin/genres:
@@ -1239,6 +1308,36 @@ paths:
       summary: Обновить копии
       tags:
       - library-books
+  /admin/reservations:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      - description: Фильтр по статусу
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Все брони (admin)
+      tags:
+      - reservations
   /admin/reservations/:id/return:
     patch:
       parameters:
@@ -1281,6 +1380,20 @@ paths:
       summary: Обновить статус брони
       tags:
       - reservations
+  /admin/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/stats.statsResponse'
+      security:
+      - BearerAuth: []
+      summary: Статистика платформы
+      tags:
+      - stats
   /admin/users:
     get:
       parameters:
@@ -1559,8 +1672,6 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
       summary: Список авторов
       tags:
       - authors
@@ -1585,9 +1696,41 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
       summary: Получить автора
+      tags:
+      - authors
+  /authors/search:
+    get:
+      parameters:
+      - description: Поисковый запрос
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/author.listAuthorResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Поиск авторов
       tags:
       - authors
   /book-files/{id}:
@@ -1713,8 +1856,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/book_machine.listBookMachineResponse'
-      security:
-      - BearerAuth: []
       summary: Список книгоматов
       tags:
       - book-machines
@@ -1733,8 +1874,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/book_machine.bookMachineResponse'
-      security:
-      - BearerAuth: []
       summary: Получить книгомат
       tags:
       - book-machines
@@ -1764,8 +1903,6 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
       summary: Книгоматы рядом
       tags:
       - book-machines
@@ -1789,30 +1926,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/book.listBookResponse'
-      security:
-      - BearerAuth: []
       summary: Список книг
-      tags:
-      - books
-  /books/:id/availability:
-    get:
-      parameters:
-      - description: ID книги
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Наличие книги в библиотеках и книгоматах
       tags:
       - books
   /books/{id}:
@@ -1836,9 +1950,26 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
       summary: Получить книгу
+      tags:
+      - books
+  /books/{id}/availability:
+    get:
+      parameters:
+      - description: ID книги
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Наличие книги в библиотеках и книгоматах
       tags:
       - books
   /books/author/{author_id}:
@@ -1857,8 +1988,6 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
       summary: Книги по автору
       tags:
       - books
@@ -1878,8 +2007,6 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
       summary: Книги по жанру
       tags:
       - books
@@ -1897,7 +2024,7 @@ paths:
         name: limit
         type: integer
       - default: 0
-        description: Отступ
+        description: Смещение
         in: query
         name: offset
         type: integer
@@ -1908,8 +2035,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/book.listBookResponse'
-      security:
-      - BearerAuth: []
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Поиск книг
       tags:
       - books
@@ -1923,8 +2054,6 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
       summary: Список жанров
       tags:
       - genres
@@ -1949,8 +2078,6 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
       summary: Получить жанр
       tags:
       - genres
@@ -1975,8 +2102,6 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
       summary: Получить жанр по slug
       tags:
       - genres
@@ -2000,8 +2125,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/library.listLibraryResponse'
-      security:
-      - BearerAuth: []
       summary: Список библиотек
       tags:
       - libraries
@@ -2020,8 +2143,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/library.libraryResponse'
-      security:
-      - BearerAuth: []
       summary: Получить библиотеку
       tags:
       - libraries
@@ -2051,8 +2172,6 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
       summary: Библиотеки рядом
       tags:
       - libraries
@@ -2469,7 +2588,7 @@ paths:
         name: limit
         type: integer
       - default: 0
-        description: Отступ
+        description: Смещение
         in: query
         name: offset
         type: integer
@@ -2480,8 +2599,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/review.listReviewResponse'
-      security:
-      - BearerAuth: []
       summary: Отзывы на книгу
       tags:
       - reviews
@@ -2561,6 +2678,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Обновить профиль
+      tags:
+      - users
+  /users/me/avatar:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Изображение аватара (jpg, png)
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.userResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Загрузить аватар пользователя
       tags:
       - users
   /users/me/qr:

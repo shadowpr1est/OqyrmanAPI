@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type Handler struct {
@@ -22,11 +23,10 @@ func NewHandler(uc domainUseCase.BookUseCase, libBookUC domainUseCase.LibraryBoo
 
 // @Summary     Наличие книги в библиотеках и книгоматах
 // @Tags        books
-// @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID книги"
 // @Success     200 {object} map[string]interface{}
-// @Router      /books/:id/availability [get]
+// @Router      /books/{id}/availability [get]
 func (h *Handler) GetAvailability(c *gin.Context) {
 	bookID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -74,15 +74,24 @@ func (h *Handler) GetAvailability(c *gin.Context) {
 // @Summary     Создать книгу
 // @Tags        books
 // @Security    BearerAuth
-// @Accept      json
+// @Accept      multipart/form-data
 // @Produce     json
-// @Param       input body createBookRequest true "Данные книги"
+// @Param       author_id   formData string true  "ID автора"
+// @Param       genre_id    formData string true  "ID жанра"
+// @Param       title       formData string true  "Название"
+// @Param       isbn        formData string false "ISBN"
+// @Param       description formData string false "Описание"
+// @Param       language    formData string false "Язык"
+// @Param       year        formData int    false "Год"
+// @Param       avg_rating  formData number false "Рейтинг"
+// @Param       cover       formData file   false "Обложка (jpg, png)"
 // @Success     201 {object} bookResponse
 // @Failure     400 {object} map[string]string
+// @Failure     500 {object} map[string]string
 // @Router      /admin/books [post]
 func (h *Handler) Create(c *gin.Context) {
 	var req createBookRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -92,7 +101,6 @@ func (h *Handler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid author_id"})
 		return
 	}
-
 	genreID, err := uuid.Parse(req.GenreID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid genre_id"})
@@ -104,25 +112,91 @@ func (h *Handler) Create(c *gin.Context) {
 		GenreID:     genreID,
 		Title:       req.Title,
 		ISBN:        req.ISBN,
-		CoverURL:    req.CoverURL,
 		Description: req.Description,
 		Language:    req.Language,
 		Year:        req.Year,
 		AvgRating:   req.AvgRating,
 	}
 
-	result, err := h.uc.Create(c.Request.Context(), book)
+	var cover *fileupload.File
+	if fh, err := c.FormFile("cover"); err == nil {
+		f, err := fh.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
+			return
+		}
+		defer f.Close()
+		contentType := fh.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "image/jpeg"
+		}
+		cover = &fileupload.File{
+			Filename:    fh.Filename,
+			Reader:      f,
+			Size:        fh.Size,
+			ContentType: contentType,
+		}
+	}
+
+	result, err := h.uc.Create(c.Request.Context(), book, cover)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusCreated, toBookResponse(result))
+}
+
+// @Summary     Загрузить обложку книги
+// @Tags        books
+// @Security    BearerAuth
+// @Accept      multipart/form-data
+// @Produce     json
+// @Param       id    path     string true "ID книги"
+// @Param       cover formData file   true "Обложка (jpg, png)"
+// @Success     200 {object} bookResponse
+// @Failure     400 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /admin/books/{id}/cover [post]
+func (h *Handler) UploadCover(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	fh, err := c.FormFile("cover")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cover file is required"})
+		return
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
+		return
+	}
+	defer f.Close()
+
+	contentType := fh.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+
+	book, err := h.uc.UploadCover(c.Request.Context(), id, &fileupload.File{
+		Filename:    fh.Filename,
+		Reader:      f,
+		Size:        fh.Size,
+		ContentType: contentType,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, toBookResponse(book))
 }
 
 // @Summary     Получить книгу
 // @Tags        books
-// @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID книги"
 // @Success     200 {object} bookResponse
@@ -146,7 +220,6 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 // @Summary     Список книг
 // @Tags        books
-// @Security    BearerAuth
 // @Produce     json
 // @Param       limit  query int false "Лимит"  default(20)
 // @Param       offset query int false "Отступ" default(0)
@@ -178,7 +251,6 @@ func (h *Handler) List(c *gin.Context) {
 
 // @Summary     Книги по автору
 // @Tags        books
-// @Security    BearerAuth
 // @Produce     json
 // @Param       author_id path string true "ID автора"
 // @Success     200 {object} map[string]interface{}
@@ -207,7 +279,6 @@ func (h *Handler) ListByAuthor(c *gin.Context) {
 
 // @Summary     Книги по жанру
 // @Tags        books
-// @Security    BearerAuth
 // @Produce     json
 // @Param       genre_id path string true "ID жанра"
 // @Success     200 {object} map[string]interface{}
@@ -236,12 +307,12 @@ func (h *Handler) ListByGenre(c *gin.Context) {
 
 // @Summary     Поиск книг
 // @Tags        books
-// @Security    BearerAuth
 // @Produce     json
 // @Param       q      query string true  "Поисковый запрос"
-// @Param       limit  query int    false "Лимит"  default(20)
-// @Param       offset query int    false "Отступ" default(0)
+// @Param       limit  query int    false "Лимит"    default(20)
+// @Param       offset query int    false "Смещение" default(0)
 // @Success     200 {object} listBookResponse
+// @Failure     400 {object} map[string]string
 // @Router      /books/search [get]
 func (h *Handler) Search(c *gin.Context) {
 	query := c.Query("q")
