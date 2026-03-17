@@ -52,15 +52,14 @@ INSERT INTO library_books (id, library_id, book_id, total_copies, available_copi
                                                                                         ('f1000000-0000-0000-0000-000000000002',
                                                                                          'e1000000-0000-0000-0000-000000000001',
                                                                                          'c1000000-0000-0000-0000-000000000002', 3, 3);
-
 -- book_machines
 INSERT INTO book_machines (id, name, address, lat, lng, status) VALUES
-    ('g1000000-0000-0000-0000-000000000001',
+    ('e2000000-0000-0000-0000-000000000001',
      'Книгомат №1', 'Алматы, ТРЦ Мега',
      43.2140, 76.9095, 'active');
 
 -- book_machine_books
 INSERT INTO book_machine_books (id, machine_id, book_id, total_copies, available_copies) VALUES
-    ('h1000000-0000-0000-0000-000000000001',
-     'g1000000-0000-0000-0000-000000000001',
+    ('e3000000-0000-0000-0000-000000000001',
+     'e2000000-0000-0000-0000-000000000001',
      'c1000000-0000-0000-0000-000000000003', 2, 2);
