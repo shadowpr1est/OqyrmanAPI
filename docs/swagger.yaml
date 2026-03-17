@@ -618,6 +618,23 @@ definitions:
         minimum: 1
         type: integer
     type: object
+  stats.statsResponse:
+    properties:
+      authors_total:
+        type: integer
+      books_total:
+        type: integer
+      reservations_active:
+        type: integer
+      reservations_pending:
+        type: integer
+      reservations_total:
+        type: integer
+      reviews_total:
+        type: integer
+      users_total:
+        type: integer
+    type: object
   user.updateRoleRequest:
     properties:
       role:
@@ -1239,6 +1256,36 @@ paths:
       summary: Обновить копии
       tags:
       - library-books
+  /admin/reservations:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      - description: Фильтр по статусу
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Все брони (admin)
+      tags:
+      - reservations
   /admin/reservations/:id/return:
     patch:
       parameters:
@@ -1281,6 +1328,20 @@ paths:
       summary: Обновить статус брони
       tags:
       - reservations
+  /admin/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/stats.statsResponse'
+      security:
+      - BearerAuth: []
+      summary: Статистика платформы
+      tags:
+      - stats
   /admin/users:
     get:
       parameters:

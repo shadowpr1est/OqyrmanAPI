@@ -917,6 +917,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/reservations": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reservations"
+                ],
+                "summary": "Все брони (admin)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Лимит",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Смещение",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Фильтр по статусу",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/admin/reservations/:id/return": {
             "patch": {
                 "security": [
@@ -982,6 +1029,30 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    }
+                }
+            }
+        },
+        "/admin/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stats"
+                ],
+                "summary": "Статистика платформы",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/stats.statsResponse"
+                        }
                     }
                 }
             }
@@ -4138,6 +4209,32 @@ const docTemplate = `{
                     "type": "integer",
                     "maximum": 5,
                     "minimum": 1
+                }
+            }
+        },
+        "stats.statsResponse": {
+            "type": "object",
+            "properties": {
+                "authors_total": {
+                    "type": "integer"
+                },
+                "books_total": {
+                    "type": "integer"
+                },
+                "reservations_active": {
+                    "type": "integer"
+                },
+                "reservations_pending": {
+                    "type": "integer"
+                },
+                "reservations_total": {
+                    "type": "integer"
+                },
+                "reviews_total": {
+                    "type": "integer"
+                },
+                "users_total": {
+                    "type": "integer"
                 }
             }
         },
