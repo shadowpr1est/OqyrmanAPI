@@ -7,7 +7,7 @@ CREATE TABLE users (
                        password_hash TEXT         NOT NULL,
                        full_name     VARCHAR(255) NOT NULL DEFAULT '',
                        avatar_url    TEXT         NOT NULL DEFAULT '',
-                       role          VARCHAR(20)  NOT NULL DEFAULT 'user',
+                       role          VARCHAR(20)  NOT NULL DEFAULT 'User',
                        qr_code       TEXT         NOT NULL DEFAULT '',
                        created_at    TIMESTAMP    NOT NULL DEFAULT now()
 );

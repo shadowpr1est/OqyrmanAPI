@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -91,7 +92,7 @@ func (h *Handler) GetAvailability(c *gin.Context) {
 // @Router      /admin/books [post]
 func (h *Handler) Create(c *gin.Context) {
 	var req createBookRequest
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindWith(&req, binding.FormMultipart); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
