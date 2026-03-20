@@ -1,10 +1,13 @@
 package user
 
 type updateUserRequest struct {
-	Email     *string `json:"email"`
-	Phone     *string `json:"phone"`
-	FullName  *string `json:"full_name"`
-	AvatarURL *string `json:"avatar_url"`
+	Email    *string `json:"email"`
+	Phone    *string `json:"phone"`
+	FullName *string `json:"full_name"`
+	// avatar_url убран — аватар обновляется только через POST /users/me/avatar
+	// (multipart/form-data с загрузкой в MinIO).
+	// Если оставить здесь, пользователь получает 200 OK но аватар не меняется —
+	// вводящее в заблуждение поведение.
 }
 
 type userResponse struct {

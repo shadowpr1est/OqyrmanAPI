@@ -57,7 +57,6 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	// fetch existing to avoid overwriting untouched fields
 	existing, err := h.uc.GetByID(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -73,9 +72,11 @@ func (h *Handler) Update(c *gin.Context) {
 	if req.FullName != nil {
 		existing.FullName = *req.FullName
 	}
-	if req.AvatarURL != nil {
-		existing.AvatarURL = *req.AvatarURL
-	}
+	// FIX: avatar_url убран из updateUserRequest и из этого хендлера.
+	// Раньше пользователь мог передать avatar_url в теле запроса,
+	// получить 200 OK, но аватар не менялся — user_repo.Update не включает
+	// avatar_url в SQL. Теперь поле отсутствует в DTO — нет ложных ожиданий.
+	// Для смены аватара: POST /users/me/avatar (multipart/form-data).
 
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
@@ -90,7 +91,7 @@ func (h *Handler) Update(c *gin.Context) {
 // @Tags        users
 // @Security    BearerAuth
 // @Produce     json
-// @Param       limit  query int false "Лимит"  default(20)
+// @Param       limit  query int false "Лимит"    default(20)
 // @Param       offset query int false "Смещение" default(0)
 // @Success     200 {object} map[string]interface{}
 // @Router      /admin/users [get]
@@ -122,7 +123,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 // @Param       id    path string          true "ID пользователя"
 // @Param       input body updateRoleRequest true "Новая роль"
 // @Success     204
-// @Router      /admin/users/:id/role [patch]
+// @Router      /admin/users/{id}/role [patch]
 func (h *Handler) UpdateRole(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -146,7 +147,7 @@ func (h *Handler) UpdateRole(c *gin.Context) {
 // @Security    BearerAuth
 // @Param       id path string true "ID пользователя"
 // @Success     204
-// @Router      /admin/users/:id [delete]
+// @Router      /admin/users/{id} [delete]
 func (h *Handler) AdminDelete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

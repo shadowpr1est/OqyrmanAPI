@@ -74,8 +74,9 @@ func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.R
 		}
 	}
 
-	// Вставляем бронь — используем именованный запрос через sqlx.
-	// tx.NamedQuery работает так же, как db.NamedQueryContext, но в транзакции.
+	// sqlx.NamedQueryContext вместо tx.NamedQuery — передаём контекст,
+	// чтобы запрос корректно отменялся при таймауте или отмене запроса клиентом.
+	// tx.NamedQuery не принимает контекст — это намеренно исправлено.
 	query := `
 		INSERT INTO reservations
 			(id, user_id, library_book_id, machine_book_id, source_type, status, reserved_at, due_date, returned_at)
@@ -83,7 +84,7 @@ func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.R
 			(:id, :user_id, :library_book_id, :machine_book_id, :source_type, :status, :reserved_at, :due_date, :returned_at)
 		RETURNING *`
 
-	rows, err := tx.NamedQuery(query, res)
+	rows, err := sqlx.NamedQueryContext(ctx, tx, query, res)
 	if err != nil {
 		return nil, fmt.Errorf("reservationRepo.CreateWithDecrement insert: %w", err)
 	}
