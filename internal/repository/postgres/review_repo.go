@@ -27,7 +27,12 @@ func (r *reviewRepo) Create(ctx context.Context, review *entity.Review) (*entity
 		return nil, fmt.Errorf("reviewRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("reviewRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("reviewRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(review); err != nil {
 		return nil, fmt.Errorf("reviewRepo.Create scan: %w", err)
 	}
@@ -76,7 +81,12 @@ func (r *reviewRepo) Update(ctx context.Context, review *entity.Review) (*entity
 		return nil, fmt.Errorf("reviewRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("reviewRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("reviewRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(review); err != nil {
 		return nil, fmt.Errorf("reviewRepo.Update scan: %w", err)
 	}

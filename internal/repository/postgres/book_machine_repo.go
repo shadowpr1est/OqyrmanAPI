@@ -27,7 +27,12 @@ func (r *bookMachineRepo) Create(ctx context.Context, machine *entity.BookMachin
 		return nil, fmt.Errorf("bookMachineRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("bookMachineRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("bookMachineRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(machine); err != nil {
 		return nil, fmt.Errorf("bookMachineRepo.Create scan: %w", err)
 	}
@@ -58,10 +63,11 @@ func (r *bookMachineRepo) List(ctx context.Context, limit, offset int) ([]*entit
 
 func (r *bookMachineRepo) ListNearby(ctx context.Context, lat, lng, radiusKm float64) ([]*entity.BookMachine, error) {
 	var machines []*entity.BookMachine
+	// LEAST(1.0, ...) защищает acos от NaN при точном совпадении координат
 	query := `
 		SELECT * FROM book_machines
-		WHERE (6371 * acos(cos(radians($1)) * cos(radians(lat)) *
-		cos(radians(lng) - radians($2)) + sin(radians($1)) * sin(radians(lat)))) < $3
+		WHERE (6371 * acos(LEAST(1.0, cos(radians($1)) * cos(radians(lat)) *
+		cos(radians(lng) - radians($2)) + sin(radians($1)) * sin(radians(lat))))) < $3
 		ORDER BY name`
 	if err := r.db.SelectContext(ctx, &machines, query, lat, lng, radiusKm); err != nil {
 		return nil, fmt.Errorf("bookMachineRepo.ListNearby: %w", err)
@@ -80,7 +86,12 @@ func (r *bookMachineRepo) Update(ctx context.Context, machine *entity.BookMachin
 		return nil, fmt.Errorf("bookMachineRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("bookMachineRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("bookMachineRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(machine); err != nil {
 		return nil, fmt.Errorf("bookMachineRepo.Update scan: %w", err)
 	}

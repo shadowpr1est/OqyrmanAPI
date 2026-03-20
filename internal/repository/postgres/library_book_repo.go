@@ -27,7 +27,12 @@ func (r *libraryBookRepo) Create(ctx context.Context, lb *entity.LibraryBook) (*
 		return nil, fmt.Errorf("libraryBookRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("libraryBookRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("libraryBookRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(lb); err != nil {
 		return nil, fmt.Errorf("libraryBookRepo.Create scan: %w", err)
 	}
@@ -72,7 +77,12 @@ func (r *libraryBookRepo) Update(ctx context.Context, lb *entity.LibraryBook) (*
 		return nil, fmt.Errorf("libraryBookRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("libraryBookRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("libraryBookRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(lb); err != nil {
 		return nil, fmt.Errorf("libraryBookRepo.Update scan: %w", err)
 	}

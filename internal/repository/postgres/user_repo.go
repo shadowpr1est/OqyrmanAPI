@@ -27,7 +27,12 @@ func (r *userRepo) Create(ctx context.Context, user *entity.User) (*entity.User,
 		return nil, fmt.Errorf("userRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("userRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("userRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(user); err != nil {
 		return nil, fmt.Errorf("userRepo.Create scan: %w", err)
 	}
@@ -53,10 +58,12 @@ func (r *userRepo) GetByEmail(ctx context.Context, email string) (*entity.User, 
 }
 
 func (r *userRepo) Update(ctx context.Context, user *entity.User) (*entity.User, error) {
-	// role and qr_code are intentionally excluded — they must not be changed via user profile update
+	// role и qr_code намеренно исключены — не должны меняться через профиль пользователя.
+	// avatar_url тоже исключён — обновляется только через UpdateAvatarURL,
+	// чтобы случайный Update с пустым avatar_url не затёр ранее загруженный аватар.
 	query := `
 		UPDATE users
-		SET email = :email, phone = :phone, full_name = :full_name, avatar_url = :avatar_url
+		SET email = :email, phone = :phone, full_name = :full_name
 		WHERE id = :id
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, user)
@@ -64,7 +71,12 @@ func (r *userRepo) Update(ctx context.Context, user *entity.User) (*entity.User,
 		return nil, fmt.Errorf("userRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("userRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("userRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(user); err != nil {
 		return nil, fmt.Errorf("userRepo.Update scan: %w", err)
 	}
@@ -93,10 +105,16 @@ func (r *userRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.Us
 
 func (r *userRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, avatarURL string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE users SET avatar_url = $1 WHERE id = $2`, avatarURL, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("userRepo.UpdateAvatarURL: %w", err)
+	}
+	return nil
 }
 
 func (r *userRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE users SET role = $1 WHERE id = $2`, role, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("userRepo.UpdateRole: %w", err)
+	}
+	return nil
 }

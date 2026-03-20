@@ -27,7 +27,12 @@ func (r *bookMachineBookRepo) Create(ctx context.Context, mb *entity.BookMachine
 		return nil, fmt.Errorf("bookMachineBookRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("bookMachineBookRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("bookMachineBookRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(mb); err != nil {
 		return nil, fmt.Errorf("bookMachineBookRepo.Create scan: %w", err)
 	}
@@ -72,7 +77,12 @@ func (r *bookMachineBookRepo) Update(ctx context.Context, mb *entity.BookMachine
 		return nil, fmt.Errorf("bookMachineBookRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("bookMachineBookRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("bookMachineBookRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(mb); err != nil {
 		return nil, fmt.Errorf("bookMachineBookRepo.Update scan: %w", err)
 	}

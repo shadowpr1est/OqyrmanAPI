@@ -27,7 +27,12 @@ func (r *readingNoteRepo) Create(ctx context.Context, note *entity.ReadingNote) 
 		return nil, fmt.Errorf("readingNoteRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("readingNoteRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("readingNoteRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(note); err != nil {
 		return nil, fmt.Errorf("readingNoteRepo.Create scan: %w", err)
 	}
@@ -63,7 +68,12 @@ func (r *readingNoteRepo) Update(ctx context.Context, note *entity.ReadingNote) 
 		return nil, fmt.Errorf("readingNoteRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("readingNoteRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("readingNoteRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(note); err != nil {
 		return nil, fmt.Errorf("readingNoteRepo.Update scan: %w", err)
 	}

@@ -27,7 +27,12 @@ func (r *bookRepo) Create(ctx context.Context, book *entity.Book) (*entity.Book,
 		return nil, fmt.Errorf("bookRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("bookRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("bookRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(book); err != nil {
 		return nil, fmt.Errorf("bookRepo.Create scan: %w", err)
 	}
@@ -90,7 +95,10 @@ func (r *bookRepo) Search(ctx context.Context, query string, limit, offset int) 
 
 func (r *bookRepo) UpdateCoverURL(ctx context.Context, id uuid.UUID, coverURL string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE books SET cover_url = $1 WHERE id = $2`, coverURL, id)
-	return err
+	if err != nil {
+		return fmt.Errorf("bookRepo.UpdateCoverURL: %w", err)
+	}
+	return nil
 }
 
 func (r *bookRepo) Update(ctx context.Context, book *entity.Book) (*entity.Book, error) {
@@ -106,7 +114,12 @@ func (r *bookRepo) Update(ctx context.Context, book *entity.Book) (*entity.Book,
 		return nil, fmt.Errorf("bookRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("bookRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("bookRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(book); err != nil {
 		return nil, fmt.Errorf("bookRepo.Update scan: %w", err)
 	}

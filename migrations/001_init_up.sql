@@ -38,7 +38,9 @@ CREATE TABLE genres (
 CREATE TABLE books (
                        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                        author_id   UUID         NOT NULL REFERENCES authors(id) ON DELETE CASCADE,
-                       genre_id    UUID         NOT NULL REFERENCES genres(id)  ON DELETE SET NULL,
+    -- FIX: было NOT NULL + ON DELETE SET NULL — противоречие, PostgreSQL выбрасывал ошибку
+    -- при удалении жанра. Теперь RESTRICT: нельзя удалить жанр, пока к нему привязаны книги.
+                       genre_id    UUID         NOT NULL REFERENCES genres(id)  ON DELETE RESTRICT,
                        title       VARCHAR(255) NOT NULL,
                        isbn        VARCHAR(20)  NOT NULL DEFAULT '',
                        cover_url   TEXT         NOT NULL DEFAULT '',
@@ -121,8 +123,8 @@ CREATE TABLE book_machine_books (
 
 CREATE TABLE reservations (
                               id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                              user_id         UUID        NOT NULL REFERENCES users(id)         ON DELETE CASCADE,
-                              library_book_id UUID                 REFERENCES library_books(id) ON DELETE SET NULL,
+                              user_id         UUID        NOT NULL REFERENCES users(id)             ON DELETE CASCADE,
+                              library_book_id UUID                 REFERENCES library_books(id)     ON DELETE SET NULL,
                               machine_book_id UUID                 REFERENCES book_machine_books(id) ON DELETE SET NULL,
                               source_type     VARCHAR(20) NOT NULL,
                               status          VARCHAR(20) NOT NULL DEFAULT 'pending',

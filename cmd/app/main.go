@@ -73,6 +73,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("minio error: %s", err)
 	}
+
 	// jwt
 	jwtManager := jwt.NewManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenTTL)
 
@@ -109,7 +110,12 @@ func main() {
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
 	machineUseCase := bookMachineUC.NewBookMachineUseCase(machineRepo)
 	machineBookUseCase := bookMachineBookUC.NewBookMachineBookUseCase(machineBookRepo)
-	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, libraryBookRepo, machineBookRepo)
+
+	// FIX: убраны libraryBookRepo и machineBookRepo — логика возврата/отмены копий
+	// перенесена в reservationRepo (атомарные транзакции ReturnWithIncrement,
+	// CancelWithIncrement). usecase больше не нуждается в этих зависимостях.
+	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo)
+
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo)
 
 	// AI

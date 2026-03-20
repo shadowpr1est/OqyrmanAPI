@@ -27,7 +27,12 @@ func (r *genreRepo) Create(ctx context.Context, genre *entity.Genre) (*entity.Ge
 		return nil, fmt.Errorf("genreRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("genreRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("genreRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(genre); err != nil {
 		return nil, fmt.Errorf("genreRepo.Create scan: %w", err)
 	}
@@ -72,7 +77,12 @@ func (r *genreRepo) Update(ctx context.Context, genre *entity.Genre) (*entity.Ge
 		return nil, fmt.Errorf("genreRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("genreRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("genreRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(genre); err != nil {
 		return nil, fmt.Errorf("genreRepo.Update scan: %w", err)
 	}

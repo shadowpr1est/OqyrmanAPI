@@ -27,7 +27,12 @@ func (r *authorRepo) Create(ctx context.Context, author *entity.Author) (*entity
 		return nil, fmt.Errorf("authorRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("authorRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("authorRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(author); err != nil {
 		return nil, fmt.Errorf("authorRepo.Create scan: %w", err)
 	}
@@ -68,7 +73,12 @@ func (r *authorRepo) Update(ctx context.Context, author *entity.Author) (*entity
 		return nil, fmt.Errorf("authorRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("authorRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("authorRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(author); err != nil {
 		return nil, fmt.Errorf("authorRepo.Update scan: %w", err)
 	}

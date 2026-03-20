@@ -27,7 +27,12 @@ func (r *bookFileRepo) Create(ctx context.Context, file *entity.BookFile) (*enti
 		return nil, fmt.Errorf("bookFileRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("bookFileRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("bookFileRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(file); err != nil {
 		return nil, fmt.Errorf("bookFileRepo.Create scan: %w", err)
 	}

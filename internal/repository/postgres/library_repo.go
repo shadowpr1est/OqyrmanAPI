@@ -27,7 +27,12 @@ func (r *libraryRepo) Create(ctx context.Context, library *entity.Library) (*ent
 		return nil, fmt.Errorf("libraryRepo.Create: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("libraryRepo.Create rows error: %w", err)
+		}
+		return nil, fmt.Errorf("libraryRepo.Create: no rows returned")
+	}
 	if err := rows.StructScan(library); err != nil {
 		return nil, fmt.Errorf("libraryRepo.Create scan: %w", err)
 	}
@@ -58,10 +63,11 @@ func (r *libraryRepo) List(ctx context.Context, limit, offset int) ([]*entity.Li
 
 func (r *libraryRepo) ListNearby(ctx context.Context, lat, lng, radiusKm float64) ([]*entity.Library, error) {
 	var libraries []*entity.Library
+	// LEAST(1.0, ...) защищает acos от NaN при точном совпадении координат
 	query := `
 		SELECT * FROM libraries
-		WHERE (6371 * acos(cos(radians($1)) * cos(radians(lat)) *
-		cos(radians(lng) - radians($2)) + sin(radians($1)) * sin(radians(lat)))) < $3
+		WHERE (6371 * acos(LEAST(1.0, cos(radians($1)) * cos(radians(lat)) *
+		cos(radians(lng) - radians($2)) + sin(radians($1)) * sin(radians(lat))))) < $3
 		ORDER BY name`
 	if err := r.db.SelectContext(ctx, &libraries, query, lat, lng, radiusKm); err != nil {
 		return nil, fmt.Errorf("libraryRepo.ListNearby: %w", err)
@@ -80,7 +86,12 @@ func (r *libraryRepo) Update(ctx context.Context, library *entity.Library) (*ent
 		return nil, fmt.Errorf("libraryRepo.Update: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("libraryRepo.Update rows error: %w", err)
+		}
+		return nil, fmt.Errorf("libraryRepo.Update: no rows returned")
+	}
 	if err := rows.StructScan(library); err != nil {
 		return nil, fmt.Errorf("libraryRepo.Update scan: %w", err)
 	}

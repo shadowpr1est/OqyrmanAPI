@@ -1,6 +1,8 @@
 package http
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -88,6 +90,7 @@ func NewRouter(
 		ai:              ai,
 	}
 }
+
 func (r *Router) Init() *gin.Engine {
 	engine := gin.Default()
 	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -107,15 +110,15 @@ func (r *Router) Init() *gin.Engine {
 			protected.POST("/auth/logout", r.auth.Logout)
 			protected.GET("/auth/me", r.auth.Me)
 
-			// users — сначала специфичные пути, потом /me
+			// users
 			protected.GET("/users/me", r.user.GetMe)
 			protected.PUT("/users/me", r.user.Update)
 			protected.DELETE("/users/me", r.user.Delete)
-			protected.POST("/users/me/avatar", r.user.UploadAvatar) // ← добавлено
-			protected.GET("/users/me/qr", r.user.GetQR)             // ← добавлено
+			protected.POST("/users/me/avatar", r.user.UploadAvatar)
+			protected.GET("/users/me/qr", r.user.GetQR)
 
 			// authors — /search ПЕРЕД /:id
-			protected.GET("/authors/search", r.author.Search) // ← добавлено
+			protected.GET("/authors/search", r.author.Search)
 			protected.GET("/authors", r.author.List)
 			protected.GET("/authors/:id", r.author.GetByID)
 
@@ -124,13 +127,13 @@ func (r *Router) Init() *gin.Engine {
 			protected.GET("/genres/:id", r.genre.GetByID)
 			protected.GET("/genres/by-slug/:slug", r.genre.GetBySlug)
 
-			// books — статичные маршруты ПЕРЕД /:id и /:id/...
+			// books — статичные маршруты ПЕРЕД /:id
 			protected.GET("/books", r.book.List)
 			protected.GET("/books/search", r.book.Search)
 			protected.GET("/books/by-author/:author_id", r.book.ListByAuthor)
 			protected.GET("/books/by-genre/:genre_id", r.book.ListByGenre)
 			protected.GET("/books/:id", r.book.GetByID)
-			protected.GET("/books/:id/availability", r.book.GetAvailability) // ← добавлено
+			protected.GET("/books/:id/availability", r.book.GetAvailability)
 
 			// book files
 			protected.GET("/book-files/:id", r.bookFile.GetByID)
@@ -189,22 +192,30 @@ func (r *Router) Init() *gin.Engine {
 			protected.PUT("/reviews/:id", r.review.Update)
 			protected.DELETE("/reviews/:id", r.review.Delete)
 
-			// ai — только если ключ задан
-			if r.ai != nil { // ← добавлено
-				protected.POST("/ai/recommend", r.ai.Recommend)
-				protected.POST("/ai/chat", r.ai.Chat)
+			// FIX: AI эндпоинты вынесены в отдельную группу с rate limit.
+			// Каждый запрос к Claude API — платный. Без ограничений любой
+			// авторизованный пользователь мог отправлять неограниченное число
+			// запросов и опустошить Anthropic-баланс.
+			// Лимит: 10 запросов в минуту с одного IP.
+			if r.ai != nil {
+				aiGroup := protected.Group("/ai")
+				aiGroup.Use(middleware.RateLimit(10, time.Minute))
+				{
+					aiGroup.POST("/recommend", r.ai.Recommend)
+					aiGroup.POST("/chat", r.ai.Chat)
+				}
 			}
 
 			// admin
 			admin := protected.Group("/admin")
 			admin.Use(middleware.AdminOnly())
 			{
-				admin.GET("/stats", r.stats.GetStats) // ← добавлено
+				admin.GET("/stats", r.stats.GetStats)
 
 				// users
-				admin.GET("/users", r.user.ListAll)               // ← добавлено
-				admin.PATCH("/users/:id/role", r.user.UpdateRole) // ← добавлено
-				admin.DELETE("/users/:id", r.user.AdminDelete)    // ← добавлено
+				admin.GET("/users", r.user.ListAll)
+				admin.PATCH("/users/:id/role", r.user.UpdateRole)
+				admin.DELETE("/users/:id", r.user.AdminDelete)
 
 				admin.POST("/authors", r.author.Create)
 				admin.PUT("/authors/:id", r.author.Update)
@@ -216,7 +227,7 @@ func (r *Router) Init() *gin.Engine {
 
 				admin.POST("/books", r.book.Create)
 				admin.PUT("/books/:id", r.book.Update)
-				admin.POST("/books/:id/cover", r.book.UploadCover) // ← добавлено
+				admin.POST("/books/:id/cover", r.book.UploadCover)
 				admin.DELETE("/books/:id", r.book.Delete)
 
 				admin.POST("/book-files/upload", r.bookFile.Upload)
@@ -239,7 +250,7 @@ func (r *Router) Init() *gin.Engine {
 				admin.DELETE("/book-machine-books/:id", r.bookMachineBook.Delete)
 
 				admin.PATCH("/reservations/:id/status", r.reservation.UpdateStatus)
-				admin.PATCH("/reservations/:id/return", r.reservation.Return) // ← добавлено
+				admin.PATCH("/reservations/:id/return", r.reservation.Return)
 				admin.GET("/reservations", r.reservation.ListAll)
 			}
 		}

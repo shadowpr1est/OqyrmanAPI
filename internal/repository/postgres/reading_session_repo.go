@@ -29,7 +29,12 @@ func (r *readingSessionRepo) Upsert(ctx context.Context, session *entity.Reading
 		return nil, fmt.Errorf("readingSessionRepo.Upsert: %w", err)
 	}
 	defer rows.Close()
-	rows.Next()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("readingSessionRepo.Upsert rows error: %w", err)
+		}
+		return nil, fmt.Errorf("readingSessionRepo.Upsert: no rows returned")
+	}
 	if err := rows.StructScan(session); err != nil {
 		return nil, fmt.Errorf("readingSessionRepo.Upsert scan: %w", err)
 	}
