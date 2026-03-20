@@ -29,11 +29,22 @@ func NewAIUseCase(
 func (u *aiUseCase) Recommend(ctx context.Context, userIDStr string) (string, error) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("aiUseCase.Recommend invalid userID: %w", err)
 	}
 
-	sessions, _ := u.sessionRepo.ListByUser(ctx, userID)
-	wishlist, _ := u.wishlistRepo.ListByUser(ctx, userID)
+	// FIX: ошибки игнорировались через `_`.
+	// При недоступной БД usecase получал пустые данные и генерировал
+	// бессмысленные рекомендации без каких-либо признаков ошибки.
+	// Теперь ошибки возвращаются — клиент получает 500 вместо мусора.
+	sessions, err := u.sessionRepo.ListByUser(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("aiUseCase.Recommend get sessions: %w", err)
+	}
+
+	wishlist, err := u.wishlistRepo.ListByUser(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("aiUseCase.Recommend get wishlist: %w", err)
+	}
 
 	prompt := fmt.Sprintf(
 		"Дай 5 персональных рекомендаций книг. У пользователя %d книг в истории чтения и %d в вишлисте.",

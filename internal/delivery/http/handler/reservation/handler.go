@@ -179,17 +179,19 @@ func (h *Handler) Cancel(c *gin.Context) {
 // @Security    BearerAuth
 // @Param       id path string true "ID брони"
 // @Success     204
-// @Router      /admin/reservations/:id/return [patch]
+// @Router      /admin/reservations/{id}/return [patch]
 func (h *Handler) Return(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+
 	if err := h.uc.Return(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.Status(http.StatusNoContent)
 }
 
@@ -197,16 +199,24 @@ func (h *Handler) Return(c *gin.Context) {
 // @Tags        reservations
 // @Security    BearerAuth
 // @Produce     json
-// @Param       limit  query int false "Лимит"   default(20)
-// @Param       offset query int false "Смещение" default(0)
-// @Param       status query string false "Фильтр по статусу"
+// @Param       limit  query int    false "Лимит"            default(20)
+// @Param       offset query int    false "Смещение"         default(0)
+// @Param       status query string false "Фильтр по статусу (pending, active, completed, cancelled)"
 // @Success     200 {object} map[string]interface{}
 // @Router      /admin/reservations [get]
 func (h *Handler) ListAll(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	items, total, err := h.uc.ListAll(c.Request.Context(), limit, offset)
+	// FIX: status раньше читался из query но никуда не передавался.
+	// Теперь пробрасывается через usecase в репозиторий.
+	// nil = без фильтра, &status = фильтровать по конкретному статусу.
+	var statusPtr *string
+	if status := c.Query("status"); status != "" {
+		statusPtr = &status
+	}
+
+	items, total, err := h.uc.ListAll(c.Request.Context(), limit, offset, statusPtr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

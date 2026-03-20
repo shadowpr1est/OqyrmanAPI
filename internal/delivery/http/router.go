@@ -97,16 +97,51 @@ func (r *Router) Init() *gin.Engine {
 
 	api := engine.Group("/api/v1")
 	{
-		auth := api.Group("/auth")
+		// ─── Публичные маршруты — без токена ───────────────────────────────
+		public := api.Group("/")
 		{
-			auth.POST("/register", r.auth.Register)
-			auth.POST("/login", r.auth.Login)
-			auth.POST("/refresh", r.auth.RefreshToken)
+			// auth
+			public.POST("/auth/register", r.auth.Register)
+			public.POST("/auth/login", r.auth.Login)
+			public.POST("/auth/refresh", r.auth.RefreshToken)
+
+			// authors
+			public.GET("/authors", r.author.List)
+			public.GET("/authors/search", r.author.Search)
+			public.GET("/authors/:id", r.author.GetByID)
+
+			// genres
+			public.GET("/genres", r.genre.List)
+			public.GET("/genres/slug/:slug", r.genre.GetBySlug)
+			public.GET("/genres/:id", r.genre.GetByID)
+
+			// books
+			public.GET("/books", r.book.List)
+			public.GET("/books/search", r.book.Search)
+			public.GET("/books/author/:author_id", r.book.ListByAuthor)
+			public.GET("/books/genre/:genre_id", r.book.ListByGenre)
+			public.GET("/books/:id", r.book.GetByID)
+			public.GET("/books/:id/availability", r.book.GetAvailability)
+
+			// libraries
+			public.GET("/libraries", r.library.List)
+			public.GET("/libraries/nearby", r.library.ListNearby)
+			public.GET("/libraries/:id", r.library.GetByID)
+
+			// book machines
+			public.GET("/book-machines", r.bookMachine.List)
+			public.GET("/book-machines/nearby", r.bookMachine.ListNearby)
+			public.GET("/book-machines/:id", r.bookMachine.GetByID)
+
+			// reviews — читать без токена, писать только авторизованным
+			public.GET("/reviews/book/:book_id", r.review.ListByBook)
 		}
 
+		// ─── Защищённые маршруты — нужен JWT токен ────────────────────────
 		protected := api.Group("/")
 		protected.Use(middleware.Auth(r.jwt))
 		{
+			// auth
 			protected.POST("/auth/logout", r.auth.Logout)
 			protected.GET("/auth/me", r.auth.Me)
 
@@ -117,32 +152,24 @@ func (r *Router) Init() *gin.Engine {
 			protected.POST("/users/me/avatar", r.user.UploadAvatar)
 			protected.GET("/users/me/qr", r.user.GetQR)
 
-			// authors — /search ПЕРЕД /:id
-			protected.GET("/authors/search", r.author.Search)
-			protected.GET("/authors", r.author.List)
-			protected.GET("/authors/:id", r.author.GetByID)
-
-			// genres
-			protected.GET("/genres", r.genre.List)
-			protected.GET("/genres/:id", r.genre.GetByID)
-			protected.GET("/genres/by-slug/:slug", r.genre.GetBySlug)
-
-			// books — статичные маршруты ПЕРЕД /:id
-			protected.GET("/books", r.book.List)
-			protected.GET("/books/search", r.book.Search)
-			protected.GET("/books/by-author/:author_id", r.book.ListByAuthor)
-			protected.GET("/books/by-genre/:genre_id", r.book.ListByGenre)
-			protected.GET("/books/:id", r.book.GetByID)
-			protected.GET("/books/:id/availability", r.book.GetAvailability)
-
-			// book files
+			// book files — детальные данные только для авторизованных
 			protected.GET("/book-files/:id", r.bookFile.GetByID)
-			protected.GET("/book-files/by-book/:book_id", r.bookFile.ListByBook)
+			protected.GET("/book-files/book/:book_id", r.bookFile.ListByBook)
+
+			// library books
+			protected.GET("/library-books/library/:library_id", r.libraryBook.ListByLibrary)
+			protected.GET("/library-books/book/:book_id", r.libraryBook.ListByBook)
+			protected.GET("/library-books/:id", r.libraryBook.GetByID)
+
+			// book machine books
+			protected.GET("/book-machine-books/machine/:machine_id", r.bookMachineBook.ListByMachine)
+			protected.GET("/book-machine-books/book/:book_id", r.bookMachineBook.ListByBook)
+			protected.GET("/book-machine-books/:id", r.bookMachineBook.GetByID)
 
 			// reading sessions
 			protected.POST("/reading-sessions", r.readingSession.Upsert)
 			protected.GET("/reading-sessions", r.readingSession.ListByUser)
-			protected.GET("/reading-sessions/by-book/:book_id", r.readingSession.GetByBook)
+			protected.GET("/reading-sessions/book/:book_id", r.readingSession.GetByBook)
 			protected.DELETE("/reading-sessions/:id", r.readingSession.Delete)
 
 			// wishlist
@@ -153,30 +180,10 @@ func (r *Router) Init() *gin.Engine {
 
 			// notes
 			protected.POST("/notes", r.notes.Create)
-			protected.GET("/notes/by-book/:book_id", r.notes.ListByBook)
+			protected.GET("/notes/book/:book_id", r.notes.ListByBook)
 			protected.GET("/notes/:id", r.notes.GetByID)
 			protected.PUT("/notes/:id", r.notes.Update)
 			protected.DELETE("/notes/:id", r.notes.Delete)
-
-			// libraries
-			protected.GET("/libraries", r.library.List)
-			protected.GET("/libraries/nearby", r.library.ListNearby)
-			protected.GET("/libraries/:id", r.library.GetByID)
-
-			// library books
-			protected.GET("/library-books/by-library/:library_id", r.libraryBook.ListByLibrary)
-			protected.GET("/library-books/by-book/:book_id", r.libraryBook.ListByBook)
-			protected.GET("/library-books/:id", r.libraryBook.GetByID)
-
-			// book machines
-			protected.GET("/book-machines", r.bookMachine.List)
-			protected.GET("/book-machines/nearby", r.bookMachine.ListNearby)
-			protected.GET("/book-machines/:id", r.bookMachine.GetByID)
-
-			// book machine books
-			protected.GET("/book-machine-books/by-machine/:machine_id", r.bookMachineBook.ListByMachine)
-			protected.GET("/book-machine-books/by-book/:book_id", r.bookMachineBook.ListByBook)
-			protected.GET("/book-machine-books/:id", r.bookMachineBook.GetByID)
 
 			// reservations
 			protected.POST("/reservations", r.reservation.Create)
@@ -184,19 +191,14 @@ func (r *Router) Init() *gin.Engine {
 			protected.GET("/reservations/:id", r.reservation.GetByID)
 			protected.PATCH("/reservations/:id/cancel", r.reservation.Cancel)
 
-			// reviews
+			// reviews — писать и управлять только авторизованным
 			protected.POST("/reviews", r.review.Create)
-			protected.GET("/reviews/by-book/:book_id", r.review.ListByBook)
-			protected.GET("/reviews/my", r.review.ListByUser)
+			protected.GET("/reviews/user", r.review.ListByUser)
 			protected.GET("/reviews/:id", r.review.GetByID)
 			protected.PUT("/reviews/:id", r.review.Update)
 			protected.DELETE("/reviews/:id", r.review.Delete)
 
-			// FIX: AI эндпоинты вынесены в отдельную группу с rate limit.
-			// Каждый запрос к Claude API — платный. Без ограничений любой
-			// авторизованный пользователь мог отправлять неограниченное число
-			// запросов и опустошить Anthropic-баланс.
-			// Лимит: 10 запросов в минуту с одного IP.
+			// AI — rate limit 10 req/min на IP
 			if r.ai != nil {
 				aiGroup := protected.Group("/ai")
 				aiGroup.Use(middleware.RateLimit(10, time.Minute))
@@ -206,7 +208,7 @@ func (r *Router) Init() *gin.Engine {
 				}
 			}
 
-			// admin
+			// ─── Admin маршруты — нужен JWT + роль Admin ──────────────────
 			admin := protected.Group("/admin")
 			admin.Use(middleware.AdminOnly())
 			{
@@ -217,41 +219,50 @@ func (r *Router) Init() *gin.Engine {
 				admin.PATCH("/users/:id/role", r.user.UpdateRole)
 				admin.DELETE("/users/:id", r.user.AdminDelete)
 
+				// authors
 				admin.POST("/authors", r.author.Create)
 				admin.PUT("/authors/:id", r.author.Update)
 				admin.DELETE("/authors/:id", r.author.Delete)
 
+				// genres
 				admin.POST("/genres", r.genre.Create)
 				admin.PUT("/genres/:id", r.genre.Update)
 				admin.DELETE("/genres/:id", r.genre.Delete)
 
+				// books
 				admin.POST("/books", r.book.Create)
 				admin.PUT("/books/:id", r.book.Update)
 				admin.POST("/books/:id/cover", r.book.UploadCover)
 				admin.DELETE("/books/:id", r.book.Delete)
 
+				// book files
 				admin.POST("/book-files/upload", r.bookFile.Upload)
 				admin.DELETE("/book-files/:id", r.bookFile.Delete)
 
+				// libraries
 				admin.POST("/libraries", r.library.Create)
 				admin.PUT("/libraries/:id", r.library.Update)
 				admin.DELETE("/libraries/:id", r.library.Delete)
 
+				// library books
 				admin.POST("/library-books", r.libraryBook.Create)
 				admin.PUT("/library-books/:id", r.libraryBook.Update)
 				admin.DELETE("/library-books/:id", r.libraryBook.Delete)
 
+				// book machines
 				admin.POST("/book-machines", r.bookMachine.Create)
 				admin.PUT("/book-machines/:id", r.bookMachine.Update)
 				admin.DELETE("/book-machines/:id", r.bookMachine.Delete)
 
+				// book machine books
 				admin.POST("/book-machine-books", r.bookMachineBook.Create)
 				admin.PUT("/book-machine-books/:id", r.bookMachineBook.Update)
 				admin.DELETE("/book-machine-books/:id", r.bookMachineBook.Delete)
 
+				// reservations
+				admin.GET("/reservations", r.reservation.ListAll)
 				admin.PATCH("/reservations/:id/status", r.reservation.UpdateStatus)
 				admin.PATCH("/reservations/:id/return", r.reservation.Return)
-				admin.GET("/reservations", r.reservation.ListAll)
 			}
 		}
 	}

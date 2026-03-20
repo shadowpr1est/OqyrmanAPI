@@ -46,6 +46,10 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 	user.PasswordHash = string(hash)
 	user.Role = entity.RoleUser
 	user.CreatedAt = time.Now()
+	// FIX: QR-код не генерировался — поле всегда было пустым.
+	// QR содержит userID — достаточно для идентификации читателя.
+	// Фронт рендерит QR-картинку из этой строки через любую QR-библиотеку.
+	user.QRCode = user.ID.String()
 
 	return u.userRepo.Create(ctx, user)
 }

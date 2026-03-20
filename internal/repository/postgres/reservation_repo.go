@@ -176,8 +176,6 @@ func (r *reservationRepo) closeAndIncrement(
 		); err != nil {
 			return fmt.Errorf("reservationRepo.closeAndIncrement increment machine: %w", err)
 		}
-	} else {
-		return fmt.Errorf("reservation %s has no associated book copy", id)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -233,16 +231,27 @@ func (r *reservationRepo) ListByUser(ctx context.Context, userID uuid.UUID) ([]*
 	return items, nil
 }
 
-func (r *reservationRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.Reservation, int, error) {
+func (r *reservationRepo) ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error) {
 	var items []*entity.Reservation
 	var total int
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM reservations`); err != nil {
+
+	// Один запрос для обоих случаев: фильтр по статусу и без.
+	// $3::text IS NULL — если статус не передан (nil), условие всегда true.
+	// Это исключает дублирование SQL для двух ветвей логики.
+	countQuery := `SELECT COUNT(*) FROM reservations WHERE ($1::text IS NULL OR status = $1)`
+	if err := r.db.GetContext(ctx, &total, countQuery, status); err != nil {
 		return nil, 0, fmt.Errorf("reservationRepo.ListAll count: %w", err)
 	}
-	query := `SELECT * FROM reservations ORDER BY reserved_at DESC LIMIT $1 OFFSET $2`
-	if err := r.db.SelectContext(ctx, &items, query, limit, offset); err != nil {
+
+	query := `
+		SELECT * FROM reservations
+		WHERE ($1::text IS NULL OR status = $1)
+		ORDER BY reserved_at DESC
+		LIMIT $2 OFFSET $3`
+	if err := r.db.SelectContext(ctx, &items, query, status, limit, offset); err != nil {
 		return nil, 0, fmt.Errorf("reservationRepo.ListAll: %w", err)
 	}
+
 	return items, total, nil
 }
 

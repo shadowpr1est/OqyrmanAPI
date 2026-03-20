@@ -10,8 +10,12 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm"
 )
 
-const apiURL = "https://api.anthropic.com/v1/messages"
-const model = "claude-sonnet-4-20250514"
+const (
+	apiURL = "https://api.anthropic.com/v1/messages"
+	// FIX: было claude-sonnet-4-20250514 — устаревший идентификатор модели.
+	// Актуальная модель на март 2026: claude-sonnet-4-6
+	model = "claude-sonnet-4-6"
+)
 
 type Client struct {
 	apiKey     string
@@ -37,7 +41,7 @@ func (c *Client) Complete(ctx context.Context, system string, messages []llm.Mes
 
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(body))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("anthropic.Complete create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("x-api-key", c.apiKey)
@@ -45,7 +49,7 @@ func (c *Client) Complete(ctx context.Context, system string, messages []llm.Mes
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("anthropic.Complete do request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -58,13 +62,13 @@ func (c *Client) Complete(ctx context.Context, system string, messages []llm.Mes
 		} `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
+		return "", fmt.Errorf("anthropic.Complete decode response: %w", err)
 	}
 	if result.Error != nil {
 		return "", fmt.Errorf("anthropic error: %s", result.Error.Message)
 	}
 	if len(result.Content) == 0 {
-		return "", fmt.Errorf("empty response")
+		return "", fmt.Errorf("anthropic.Complete: empty response")
 	}
 	return result.Content[0].Text, nil
 }

@@ -24,7 +24,9 @@ type ReservationRepository interface {
 
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Reservation, error)
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Reservation, error)
-	ListAll(ctx context.Context, limit, offset int) ([]*entity.Reservation, int, error)
+	// ListAll возвращает все брони с пагинацией.
+	// status — необязательный фильтр: nil = все брони, значение = фильтр по статусу.
+	ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
