@@ -93,6 +93,24 @@ func (r *bookRepo) Search(ctx context.Context, query string, limit, offset int) 
 	return books, total, nil
 }
 
+func (r *bookRepo) UpdateRating(ctx context.Context, bookID uuid.UUID) error {
+	// Пересчитываем avg_rating как среднее всех оценок отзывов.
+	// COALESCE(AVG(rating), 0) — возвращает 0 если отзывов нет (книга только создана
+	// или все отзывы удалены), вместо NULL который сломал бы float64 поле.
+	query := `
+		UPDATE books
+		SET avg_rating = (
+			SELECT COALESCE(AVG(rating), 0)
+			FROM reviews
+			WHERE book_id = $1
+		)
+		WHERE id = $1`
+	if _, err := r.db.ExecContext(ctx, query, bookID); err != nil {
+		return fmt.Errorf("bookRepo.UpdateRating: %w", err)
+	}
+	return nil
+}
+
 func (r *bookRepo) UpdateCoverURL(ctx context.Context, id uuid.UUID, coverURL string) error {
 	_, err := r.db.ExecContext(ctx, `UPDATE books SET cover_url = $1 WHERE id = $2`, coverURL, id)
 	if err != nil {

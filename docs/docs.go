@@ -513,12 +513,6 @@ const docTemplate = `{
                         "in": "formData"
                     },
                     {
-                        "type": "number",
-                        "description": "Рейтинг",
-                        "name": "avg_rating",
-                        "in": "formData"
-                    },
-                    {
                         "type": "file",
                         "description": "Обложка (jpg, png)",
                         "name": "cover",
@@ -1066,7 +1060,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Фильтр по статусу",
+                        "description": "Фильтр по статусу (pending, active, completed, cancelled)",
                         "name": "status",
                         "in": "query"
                     }
@@ -1082,7 +1076,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/reservations/:id/return": {
+        "/admin/reservations/{id}/return": {
             "patch": {
                 "security": [
                     {
@@ -1216,7 +1210,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/users/:id": {
+        "/admin/users/{id}": {
             "delete": {
                 "security": [
                     {
@@ -1243,7 +1237,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/admin/users/:id/role": {
+        "/admin/users/{id}/role": {
             "patch": {
                 "security": [
                     {
@@ -4361,9 +4355,6 @@ const docTemplate = `{
         "user.updateUserRequest": {
             "type": "object",
             "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
                 "email": {
                     "type": "string"
                 },

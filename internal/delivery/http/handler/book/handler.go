@@ -84,7 +84,6 @@ func (h *Handler) GetAvailability(c *gin.Context) {
 // @Param       description formData string false "Описание"
 // @Param       language    formData string false "Язык"
 // @Param       year        formData int    false "Год"
-// @Param       avg_rating  formData number false "Рейтинг"
 // @Param       cover       formData file   false "Обложка (jpg, png)"
 // @Success     201 {object} bookResponse
 // @Failure     400 {object} map[string]string
@@ -116,7 +115,6 @@ func (h *Handler) Create(c *gin.Context) {
 		Description: req.Description,
 		Language:    req.Language,
 		Year:        req.Year,
-		AvgRating:   req.AvgRating,
 	}
 
 	var cover *fileupload.File

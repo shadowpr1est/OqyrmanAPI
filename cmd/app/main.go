@@ -116,7 +116,8 @@ func main() {
 	// CancelWithIncrement). usecase больше не нуждается в этих зависимостях.
 	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo)
 
-	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo)
+	// reviewUseCase получает bookRepo для пересчёта avg_rating после каждого отзыва
+	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
 
 	// AI
 	var aiHandler *aiH.Handler

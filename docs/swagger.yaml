@@ -622,8 +622,6 @@ definitions:
     type: object
   user.updateUserRequest:
     properties:
-      avatar_url:
-        type: string
       email:
         type: string
       full_name:
@@ -978,10 +976,6 @@ paths:
         in: formData
         name: year
         type: integer
-      - description: Рейтинг
-        in: formData
-        name: avg_rating
-        type: number
       - description: Обложка (jpg, png)
         in: formData
         name: cover
@@ -1321,7 +1315,7 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Фильтр по статусу
+      - description: Фильтр по статусу (pending, active, completed, cancelled)
         in: query
         name: status
         type: string
@@ -1338,7 +1332,7 @@ paths:
       summary: Все брони (admin)
       tags:
       - reservations
-  /admin/reservations/:id/return:
+  /admin/reservations/{id}/return:
     patch:
       parameters:
       - description: ID брони
@@ -1420,7 +1414,7 @@ paths:
       summary: Список пользователей
       tags:
       - users
-  /admin/users/:id:
+  /admin/users/{id}:
     delete:
       parameters:
       - description: ID пользователя
@@ -1436,7 +1430,7 @@ paths:
       summary: Удалить пользователя (admin)
       tags:
       - users
-  /admin/users/:id/role:
+  /admin/users/{id}/role:
     patch:
       consumes:
       - application/json
