@@ -149,7 +149,6 @@ func main() {
 		bookHandler,
 		bookFileHandler,
 		sessionHandler,
-		statsHandler,
 		wishlistHandler,
 		notesHandler,
 		libraryHandler,
@@ -157,9 +156,10 @@ func main() {
 		machineHandler,
 		machineBookHandler,
 		reservHandler,
-		aiHandler,
 		reviewHandler,
 		jwtManager,
+		statsHandler,
+		aiHandler,
 	)
 
 	engine := router.Init()
