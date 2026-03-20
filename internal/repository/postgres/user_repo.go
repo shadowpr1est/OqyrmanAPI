@@ -53,10 +53,10 @@ func (r *userRepo) GetByEmail(ctx context.Context, email string) (*entity.User, 
 }
 
 func (r *userRepo) Update(ctx context.Context, user *entity.User) (*entity.User, error) {
+	// role and qr_code are intentionally excluded — they must not be changed via user profile update
 	query := `
 		UPDATE users
-		SET email = :email, phone = :phone, full_name = :full_name,
-		    avatar_url = :avatar_url, role = :role, qr_code = :qr_code
+		SET email = :email, phone = :phone, full_name = :full_name, avatar_url = :avatar_url
 		WHERE id = :id
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, user)
@@ -78,6 +78,7 @@ func (r *userRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
 func (r *userRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.User, int, error) {
 	var users []*entity.User
 	var total int

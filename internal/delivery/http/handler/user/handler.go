@@ -57,38 +57,33 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	user := &entity.User{
-		ID:        userID,
-		Email:     req.Email,
-		Phone:     req.Phone,
-		FullName:  req.FullName,
-		AvatarURL: req.AvatarURL,
+	// fetch existing to avoid overwriting untouched fields
+	existing, err := h.uc.GetByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
 	}
 
-	result, err := h.uc.Update(c.Request.Context(), user)
+	if req.Email != nil {
+		existing.Email = *req.Email
+	}
+	if req.Phone != nil {
+		existing.Phone = *req.Phone
+	}
+	if req.FullName != nil {
+		existing.FullName = *req.FullName
+	}
+	if req.AvatarURL != nil {
+		existing.AvatarURL = *req.AvatarURL
+	}
+
+	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, toUserResponse(result))
-}
-
-// @Summary     Удалить аккаунт
-// @Tags        users
-// @Security    BearerAuth
-// @Success     204
-// @Failure     401 {object} map[string]string
-// @Router      /users/me [delete]
-func (h *Handler) Delete(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
-
-	if err := h.uc.Delete(c.Request.Context(), userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
 }
 
 // @Summary     Список пользователей
@@ -223,6 +218,23 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, toUserResponse(user))
+}
+
+// @Summary     Удалить аккаунт
+// @Tags        users
+// @Security    BearerAuth
+// @Success     204
+// @Failure     401 {object} map[string]string
+// @Router      /users/me [delete]
+func (h *Handler) Delete(c *gin.Context) {
+	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+
+	if err := h.uc.Delete(c.Request.Context(), userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
 
 func toUserResponse(u *entity.User) userResponse {

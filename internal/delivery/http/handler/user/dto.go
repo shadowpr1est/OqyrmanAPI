@@ -1,10 +1,10 @@
 package user
 
 type updateUserRequest struct {
-	Email     string `json:"email"`
-	Phone     string `json:"phone"`
-	FullName  string `json:"full_name"`
-	AvatarURL string `json:"avatar_url"`
+	Email     *string `json:"email"`
+	Phone     *string `json:"phone"`
+	FullName  *string `json:"full_name"`
+	AvatarURL *string `json:"avatar_url"`
 }
 
 type userResponse struct {
