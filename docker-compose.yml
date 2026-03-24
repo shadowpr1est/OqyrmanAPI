@@ -17,7 +17,28 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+    networks:
+      - oqyrman_net
+
+  # Migrations
+  migrate:
+    image: migrate/migrate:latest
+    container_name: oqyrman_migrate
+    volumes:
+      - ./migrations:/migrations
+    command: >
+      -path=/migrations
+      -database=postgres://${DB_USER}:${DB_PASSWORD}@postgres:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}
+      up
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    restart: on-failure
     networks:
       - oqyrman_net
 
