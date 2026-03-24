@@ -3,7 +3,6 @@
 // @description     API для книжной платформы Oqyrman
 // @BasePath        /api/v1
 // @securityDefinitions.apikey BearerAuth
-// @host localhost:8080
 // @in header
 // @name Authorization
 // @description JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"
@@ -15,7 +14,7 @@ import (
 	"time"
 
 	"github.com/shadowpr1est/OqyrmanAPI/config"
-	_ "github.com/shadowpr1est/OqyrmanAPI/docs"
+	"github.com/shadowpr1est/OqyrmanAPI/docs"
 	httpDelivery "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http"
 	aiH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/ai"
 	authH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/auth"
@@ -64,6 +63,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("config error: %s", err)
 	}
+
+	// Swagger host задаётся в рантайме из конфига — не хардкодится в аннотации.
+	// Локально: SWAGGER_HOST=localhost:8080
+	// На сервере: SWAGGER_HOST=<публичный_ip>:8080
+	docs.SwaggerInfo.Host = cfg.App.SwaggerHost
 
 	// db
 	db, err := postgres.NewPostgresDB(cfg)
@@ -172,7 +176,7 @@ func main() {
 
 	engine := router.Init()
 
-	log.Printf("server starting on %s:%s", cfg.App.Host, cfg.App.Port)
+	log.Printf("server starting on %s:%s (swagger host: %s)", cfg.App.Host, cfg.App.Port, cfg.App.SwaggerHost)
 	if err := engine.Run(cfg.App.Host + ":" + cfg.App.Port); err != nil {
 		log.Fatalf("server error: %s", err)
 	}

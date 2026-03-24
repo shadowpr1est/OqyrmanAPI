@@ -47,8 +47,8 @@ func (u *reservationUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity
 	return u.reservationRepo.GetByID(ctx, id)
 }
 
-func (u *reservationUseCase) ListByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Reservation, error) {
-	return u.reservationRepo.ListByUser(ctx, userID)
+func (u *reservationUseCase) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.Reservation, int, error) {
+	return u.reservationRepo.ListByUser(ctx, userID, limit, offset)
 }
 
 func (u *reservationUseCase) ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error) {

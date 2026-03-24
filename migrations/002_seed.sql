@@ -67,7 +67,7 @@ VALUES (
            'd1000000-0000-0000-0000-000000000001',
            'admin@oqyrman.kz',
            '+77000000000',
-           '$2a$10$QPOA.nCDgSyI7X5C12nJmua2zblZ1fJNiljvr77JWm1TAfKluAoRq',
+           '$2a$10$pkuCyarRqZadZxgKs8LoCuf6zWGS.ZlFkv5Jpo.MNNTlyOuMVKrxq',
            'Admin',
            'Admin',
            -- FIX: было 'QR-d1000000' — не соответствовало формату остальных пользователей.

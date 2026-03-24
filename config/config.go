@@ -18,9 +18,10 @@ type AIConfig struct {
 }
 
 type AppConfig struct {
-	Host string `env:"APP_HOST" env-default:"0.0.0.0"`
-	Port string `env:"APP_PORT" env-default:"8080"`
-	Env  string `env:"APP_ENV"  env-default:"local"`
+	Host        string `env:"APP_HOST" env-default:"0.0.0.0"`
+	Port        string `env:"APP_PORT" env-default:"8080"`
+	Env         string `env:"APP_ENV"  env-default:"local"`
+	SwaggerHost string `env:"SWAGGER_HOST"     env-default:"localhost:8080"`
 }
 
 type DBConfig struct {
