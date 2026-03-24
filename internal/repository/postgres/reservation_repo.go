@@ -22,20 +22,15 @@ func NewReservationRepo(db *sqlx.DB) *reservationRepo {
 // 2. Проверяет available_copies > 0
 // 3. Уменьшает available_copies на 1
 // 4. Создаёт запись бронирования
-// Всё в одной транзакции — либо всё, либо ничего.
 func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.Reservation) (*entity.Reservation, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("reservationRepo.CreateWithDecrement begin tx: %w", err)
 	}
-	// Откатываем транзакцию при любой ошибке.
-	// После успешного Commit() этот вызов — no-op.
 	defer tx.Rollback()
 
 	if res.LibraryBookID != nil {
 		var available int
-		// FOR UPDATE блокирует строку до конца транзакции —
-		// параллельный запрос будет ждать, а не читать устаревшие данные.
 		err := tx.GetContext(ctx, &available,
 			`SELECT available_copies FROM library_books WHERE id = $1 FOR UPDATE`,
 			*res.LibraryBookID,
@@ -74,9 +69,6 @@ func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.R
 		}
 	}
 
-	// sqlx.NamedQueryContext вместо tx.NamedQuery — передаём контекст,
-	// чтобы запрос корректно отменялся при таймауте или отмене запроса клиентом.
-	// tx.NamedQuery не принимает контекст — это намеренно исправлено.
 	query := `
 		INSERT INTO reservations
 			(id, user_id, library_book_id, machine_book_id, source_type, status, reserved_at, due_date, returned_at)
@@ -90,7 +82,6 @@ func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.R
 	}
 	defer rows.Close()
 
-	// FIX ПРИОРИТЕТ 4: проверяем rows.Next() — без этого StructScan паникует
 	if !rows.Next() {
 		if err := rows.Err(); err != nil {
 			return nil, fmt.Errorf("reservationRepo.CreateWithDecrement rows error: %w", err)
@@ -109,15 +100,6 @@ func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.R
 }
 
 // closeAndIncrement — приватный хелпер для атомарного закрытия брони.
-// Выполняет в одной транзакции:
-//  1. SELECT FOR UPDATE — блокирует строку, читает актуальный статус
-//  2. Валидация — проверяет что переход из текущего статуса допустим
-//  3. UPDATE reservations — меняет статус; returned_at проставляется
-//     автоматически только для completed
-//  4. UPDATE copies — увеличивает available_copies на 1
-//
-// Статус не используется как bool-флаг — returned_at выводится из него:
-// completed → returned_at = now(), cancelled → returned_at остаётся NULL.
 func (r *reservationRepo) closeAndIncrement(
 	ctx context.Context,
 	id uuid.UUID,
@@ -130,7 +112,6 @@ func (r *reservationRepo) closeAndIncrement(
 	}
 	defer tx.Rollback()
 
-	// FOR UPDATE блокирует строку — параллельный запрос будет ждать
 	var res entity.Reservation
 	if err := tx.GetContext(ctx, &res,
 		`SELECT * FROM reservations WHERE id = $1 FOR UPDATE`, id,
@@ -138,14 +119,11 @@ func (r *reservationRepo) closeAndIncrement(
 		return fmt.Errorf("reservationRepo.closeAndIncrement get reservation: %w", err)
 	}
 
-	// Валидация перехода статуса — защита от двойного возврата/отмены
 	if !containsStatus(allowedStatuses, res.Status) {
 		return fmt.Errorf("cannot transition reservation from '%s' to '%s'",
 			res.Status, targetStatus)
 	}
 
-	// returned_at проставляем только при completed — выводим из статуса,
-	// не передаём как bool-параметр
 	if targetStatus == entity.ReservationCompleted {
 		if _, err := tx.ExecContext(ctx,
 			`UPDATE reservations SET status = $1, returned_at = now() WHERE id = $2`,
@@ -162,7 +140,6 @@ func (r *reservationRepo) closeAndIncrement(
 		}
 	}
 
-	// Возвращаем копию в наличие
 	if res.LibraryBookID != nil {
 		if _, err := tx.ExecContext(ctx,
 			`UPDATE library_books SET available_copies = available_copies + 1 WHERE id = $1`,
@@ -186,7 +163,6 @@ func (r *reservationRepo) closeAndIncrement(
 	return nil
 }
 
-// containsStatus — вспомогательная функция для проверки допустимости перехода
 func containsStatus(allowed []entity.ReservationStatus, current entity.ReservationStatus) bool {
 	for _, s := range allowed {
 		if s == current {
@@ -196,8 +172,6 @@ func containsStatus(allowed []entity.ReservationStatus, current entity.Reservati
 	return false
 }
 
-// ReturnWithIncrement — пользователь вернул физическую книгу.
-// Допустимые исходные статусы: pending, active.
 func (r *reservationRepo) ReturnWithIncrement(ctx context.Context, id uuid.UUID) error {
 	return r.closeAndIncrement(ctx, id,
 		entity.ReservationCompleted,
@@ -205,13 +179,66 @@ func (r *reservationRepo) ReturnWithIncrement(ctx context.Context, id uuid.UUID)
 	)
 }
 
-// CancelWithIncrement — пользователь отменил бронь до получения книги.
-// Допустимый исходный статус: только pending.
 func (r *reservationRepo) CancelWithIncrement(ctx context.Context, id uuid.UUID) error {
 	return r.closeAndIncrement(ctx, id,
 		entity.ReservationCancelled,
 		[]entity.ReservationStatus{entity.ReservationPending},
 	)
+}
+
+// CancelOverdue в одной транзакции:
+// 1. Блокирует все активные просроченные брони (FOR UPDATE)
+// 2. Меняет статус на cancelled
+// 3. Восстанавливает available_copies для каждой брони
+func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("reservationRepo.CancelOverdue begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var overdue []entity.Reservation
+	if err := tx.SelectContext(ctx, &overdue,
+		`SELECT * FROM reservations
+		 WHERE due_date < now() AND status = 'active'
+		 FOR UPDATE`,
+	); err != nil {
+		return 0, fmt.Errorf("reservationRepo.CancelOverdue select: %w", err)
+	}
+
+	if len(overdue) == 0 {
+		return 0, nil
+	}
+
+	for _, res := range overdue {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE reservations SET status = 'cancelled' WHERE id = $1`, res.ID,
+		); err != nil {
+			return 0, fmt.Errorf("reservationRepo.CancelOverdue update status id=%s: %w", res.ID, err)
+		}
+
+		if res.LibraryBookID != nil {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE library_books SET available_copies = available_copies + 1 WHERE id = $1`,
+				*res.LibraryBookID,
+			); err != nil {
+				return 0, fmt.Errorf("reservationRepo.CancelOverdue increment library id=%s: %w", *res.LibraryBookID, err)
+			}
+		} else if res.MachineBookID != nil {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE book_machine_books SET available_copies = available_copies + 1 WHERE id = $1`,
+				*res.MachineBookID,
+			); err != nil {
+				return 0, fmt.Errorf("reservationRepo.CancelOverdue increment machine id=%s: %w", *res.MachineBookID, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("reservationRepo.CancelOverdue commit: %w", err)
+	}
+
+	return len(overdue), nil
 }
 
 func (r *reservationRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Reservation, error) {
@@ -223,22 +250,32 @@ func (r *reservationRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Re
 	return &res, nil
 }
 
-func (r *reservationRepo) ListByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Reservation, error) {
-	var items []*entity.Reservation
-	query := `SELECT * FROM reservations WHERE user_id = $1 ORDER BY reserved_at DESC`
-	if err := r.db.SelectContext(ctx, &items, query, userID); err != nil {
-		return nil, fmt.Errorf("reservationRepo.ListByUser: %w", err)
+// ListByUser возвращает брони пользователя с пагинацией и общим количеством.
+func (r *reservationRepo) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.Reservation, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM reservations WHERE user_id = $1`, userID,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListByUser count: %w", err)
 	}
-	return items, nil
+
+	var items []*entity.Reservation
+	if err := r.db.SelectContext(ctx, &items,
+		`SELECT * FROM reservations WHERE user_id = $1
+		 ORDER BY reserved_at DESC
+		 LIMIT $2 OFFSET $3`,
+		userID, limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListByUser: %w", err)
+	}
+
+	return items, total, nil
 }
 
 func (r *reservationRepo) ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error) {
 	var items []*entity.Reservation
 	var total int
 
-	// Один запрос для обоих случаев: фильтр по статусу и без.
-	// $3::text IS NULL — если статус не передан (nil), условие всегда true.
-	// Это исключает дублирование SQL для двух ветвей логики.
 	countQuery := `SELECT COUNT(*) FROM reservations WHERE ($1::text IS NULL OR status = $1)`
 	if err := r.db.GetContext(ctx, &total, countQuery, status); err != nil {
 		return nil, 0, fmt.Errorf("reservationRepo.ListAll count: %w", err)

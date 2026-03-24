@@ -10,7 +10,9 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
 	"github.com/shadowpr1est/OqyrmanAPI/config"
 	_ "github.com/shadowpr1est/OqyrmanAPI/docs"
@@ -53,6 +55,7 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm/anthropic"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/storage"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/worker"
 )
 
 func main() {
@@ -110,13 +113,7 @@ func main() {
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
 	machineUseCase := bookMachineUC.NewBookMachineUseCase(machineRepo)
 	machineBookUseCase := bookMachineBookUC.NewBookMachineBookUseCase(machineBookRepo)
-
-	// FIX: убраны libraryBookRepo и machineBookRepo — логика возврата/отмены копий
-	// перенесена в reservationRepo (атомарные транзакции ReturnWithIncrement,
-	// CancelWithIncrement). usecase больше не нуждается в этих зависимостях.
 	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo)
-
-	// reviewUseCase получает bookRepo для пересчёта avg_rating после каждого отзыва
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
 
 	// AI
@@ -146,6 +143,10 @@ func main() {
 	machineBookHandler := bookMachineBookH.NewHandler(machineBookUseCase)
 	reservHandler := reservationH.NewHandler(reservUseCase)
 	reviewHandler := reviewH.NewHandler(reviewUseCase)
+
+	// background workers
+	overdueCanceller := worker.NewOverdueCanceller(reservationRepo, 24*time.Hour)
+	go overdueCanceller.Run(context.Background())
 
 	// router
 	router := httpDelivery.NewRouter(
