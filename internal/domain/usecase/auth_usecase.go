@@ -17,5 +17,4 @@ type AuthUseCase interface {
 	Login(ctx context.Context, email, password string) (*TokenPair, error)
 	Logout(ctx context.Context, userID uuid.UUID) error
 	RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error)
-	Me(ctx context.Context, userID uuid.UUID) (*entity.User, error)
 }

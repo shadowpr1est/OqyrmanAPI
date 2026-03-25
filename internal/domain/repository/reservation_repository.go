@@ -18,7 +18,7 @@ type ReservationRepository interface {
 
 	// CancelWithIncrement атомарно переводит бронь pending → cancelled
 	// и увеличивает available_copies на 1.
-	CancelWithIncrement(ctx context.Context, id uuid.UUID) error
+	CancelWithIncrement(ctx context.Context, id uuid.UUID, callerID *uuid.UUID) error
 
 	// CancelOverdue находит все брони где due_date < now() AND status = 'active',
 	// переводит в cancelled и восстанавливает available_copies.

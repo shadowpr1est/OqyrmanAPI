@@ -66,6 +66,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Success     200 {object} reviewResponse
 // @Router      /reviews/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
+	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -77,7 +78,10 @@ func (h *Handler) GetByID(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
-
+	if review.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	c.JSON(http.StatusOK, toReviewResponse(review))
 }
 
@@ -153,6 +157,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 // @Success     200 {object} reviewResponse
 // @Router      /reviews/{id} [put]
 func (h *Handler) Update(c *gin.Context) {
+	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -168,6 +173,10 @@ func (h *Handler) Update(c *gin.Context) {
 	existing, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	if existing.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -194,17 +203,26 @@ func (h *Handler) Update(c *gin.Context) {
 // @Success     204
 // @Router      /reviews/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
+	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
+	existing, err := h.uc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	if existing.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.Status(http.StatusNoContent)
 }
 

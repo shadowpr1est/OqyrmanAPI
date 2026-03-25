@@ -134,7 +134,3 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 		RefreshToken: newRefreshToken,
 	}, nil
 }
-
-func (u *authUseCase) Me(ctx context.Context, userID uuid.UUID) (*entity.User, error) {
-	return u.userRepo.GetByID(ctx, userID)
-}

@@ -1,6 +1,7 @@
 package reservation
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -27,6 +28,8 @@ func NewHandler(uc domainUseCase.ReservationUseCase) *Handler {
 // @Produce     json
 // @Param       input body createReservationRequest true "Данные брони"
 // @Success     201 {object} reservationResponse
+// @Failure     400 {object} map[string]string
+// @Failure     409 {object} map[string]string "Нет доступных копий"
 // @Router      /reservations [post]
 func (h *Handler) Create(c *gin.Context) {
 	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
@@ -40,6 +43,11 @@ func (h *Handler) Create(c *gin.Context) {
 	dueDate, err := time.Parse("2006-01-02", req.DueDate)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid due_date format, use YYYY-MM-DD"})
+		return
+	}
+
+	if dueDate.Before(time.Now().Truncate(24 * time.Hour)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be in the past"})
 		return
 	}
 
@@ -69,6 +77,14 @@ func (h *Handler) Create(c *gin.Context) {
 
 	result, err := h.uc.Create(c.Request.Context(), r)
 	if err != nil {
+		if errors.Is(err, entity.ErrNoAvailableCopies) {
+			c.JSON(http.StatusConflict, gin.H{"error": "no available copies"})
+			return
+		}
+		if errors.Is(err, entity.ErrDuplicateReservation) {
+			c.JSON(http.StatusConflict, gin.H{"error": "you already have an active reservation for this book"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -82,6 +98,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Produce     json
 // @Param       id path string true "ID брони"
 // @Success     200 {object} reservationResponse
+// @Failure     404 {object} map[string]string
 // @Router      /reservations/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -92,7 +109,11 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 	r, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		if errors.Is(err, entity.ErrReservationNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "reservation not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -132,6 +153,73 @@ func (h *Handler) ListByUser(c *gin.Context) {
 	})
 }
 
+// @Summary     Отменить бронь
+// @Tags        reservations
+// @Security    BearerAuth
+// @Param       id path string true "ID брони"
+// @Success     204
+// @Failure     403 {object} map[string]string "Чужая бронь"
+// @Failure     404 {object} map[string]string
+// @Router      /reservations/{id}/cancel [patch]
+func (h *Handler) Cancel(c *gin.Context) {
+	callerID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := h.uc.Cancel(c.Request.Context(), id, callerID); err != nil {
+		if errors.Is(err, entity.ErrForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "you can only cancel your own reservations"})
+			return
+		}
+		if errors.Is(err, entity.ErrReservationNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "reservation not found"})
+			return
+		}
+		if errors.Is(err, entity.ErrInvalidStatusTransition) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Отметить книгу как возвращённую
+// @Tags        reservations
+// @Security    BearerAuth
+// @Param       id path string true "ID брони"
+// @Success     204
+// @Failure     404 {object} map[string]string
+// @Router      /admin/reservations/{id}/return [patch]
+func (h *Handler) Return(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := h.uc.Return(c.Request.Context(), id); err != nil {
+		if errors.Is(err, entity.ErrReservationNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "reservation not found"})
+			return
+		}
+		if errors.Is(err, entity.ErrInvalidStatusTransition) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 // @Summary     Обновить статус брони
 // @Tags        reservations
 // @Security    BearerAuth
@@ -162,54 +250,12 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// @Summary     Отменить бронь
-// @Tags        reservations
-// @Security    BearerAuth
-// @Param       id path string true "ID брони"
-// @Success     204
-// @Router      /reservations/{id}/cancel [patch]
-func (h *Handler) Cancel(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if err := h.uc.Cancel(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
-}
-
-// @Summary     Отметить книгу как возвращённую
-// @Tags        reservations
-// @Security    BearerAuth
-// @Param       id path string true "ID брони"
-// @Success     204
-// @Router      /admin/reservations/{id}/return [patch]
-func (h *Handler) Return(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if err := h.uc.Return(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.Status(http.StatusNoContent)
-}
-
 // @Summary     Все брони (admin)
 // @Tags        reservations
 // @Security    BearerAuth
 // @Produce     json
-// @Param       limit  query int    false "Лимит"            default(20)
-// @Param       offset query int    false "Смещение"         default(0)
+// @Param       limit  query int    false "Лимит"    default(20)
+// @Param       offset query int    false "Смещение" default(0)
 // @Param       status query string false "Фильтр по статусу (pending, active, completed, cancelled)"
 // @Success     200 {object} map[string]interface{}
 // @Router      /admin/reservations [get]
@@ -251,7 +297,6 @@ func toReservationResponse(r *entity.Reservation) reservationResponse {
 		ReservedAt: r.ReservedAt.Format("2006-01-02T15:04:05Z"),
 		DueDate:    r.DueDate.Format("2006-01-02"),
 	}
-
 	if r.LibraryBookID != nil {
 		s := r.LibraryBookID.String()
 		resp.LibraryBookID = &s
@@ -264,6 +309,5 @@ func toReservationResponse(r *entity.Reservation) reservationResponse {
 		s := r.ReturnedAt.Format("2006-01-02T15:04:05Z")
 		resp.ReturnedAt = &s
 	}
-
 	return resp
 }

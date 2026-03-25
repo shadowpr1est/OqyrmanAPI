@@ -57,21 +57,6 @@ definitions:
       refresh_token:
         type: string
     type: object
-  auth.userResponse:
-    properties:
-      avatar_url:
-        type: string
-      email:
-        type: string
-      full_name:
-        type: string
-      id:
-        type: string
-      phone:
-        type: string
-      role:
-        type: string
-    type: object
   author.authorResponse:
     properties:
       bio:
@@ -1343,6 +1328,12 @@ paths:
       responses:
         "204":
           description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: Отметить книгу как возвращённую
@@ -1566,26 +1557,6 @@ paths:
       summary: Выход
       tags:
       - auth
-  /auth/me:
-    get:
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.userResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Текущий пользователь
-      tags:
-      - auth
   /auth/refresh:
     post:
       consumes:
@@ -1630,7 +1601,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/auth.userResponse'
+            $ref: '#/definitions/auth.tokenResponse'
         "400":
           description: Bad Request
           schema:
@@ -2453,6 +2424,18 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/reservation.reservationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Нет доступных копий
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: Создать бронь
@@ -2473,6 +2456,12 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/reservation.reservationResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: Получить бронь
@@ -2489,6 +2478,18 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Чужая бронь
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: Отменить бронь

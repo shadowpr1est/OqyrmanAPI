@@ -113,9 +113,21 @@ func (h *Handler) ListByUser(c *gin.Context) {
 // @Success     204
 // @Router      /reading-sessions/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
+	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	existing, err := h.uc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+	if existing.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -126,7 +138,6 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-
 func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 	return readingSessionResponse{
 		ID:          s.ID.String(),

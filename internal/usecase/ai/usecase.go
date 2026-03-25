@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/repository"
@@ -10,20 +11,30 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm"
 )
 
-const systemPrompt = "Ты — книжный ассистент платформы Oqyrman. Отвечай на русском языке."
+const (
+	systemPrompt     = "Ты — книжный ассистент платформы Oqyrman. Отвечай на русском языке."
+	maxBooksInPrompt = 10 // лимит книг для промпта
+)
 
 type aiUseCase struct {
 	sessionRepo  repository.ReadingSessionRepository
 	wishlistRepo repository.WishlistRepository
+	bookRepo     repository.BookRepository // ДОБАВИТЬ
 	llm          llm.LLMClient
 }
 
 func NewAIUseCase(
 	sessionRepo repository.ReadingSessionRepository,
 	wishlistRepo repository.WishlistRepository,
+	bookRepo repository.BookRepository, // ДОБАВИТЬ
 	llm llm.LLMClient,
 ) domainUseCase.AIUseCase {
-	return &aiUseCase{sessionRepo: sessionRepo, wishlistRepo: wishlistRepo, llm: llm}
+	return &aiUseCase{
+		sessionRepo:  sessionRepo,
+		wishlistRepo: wishlistRepo,
+		bookRepo:     bookRepo,
+		llm:          llm,
+	}
 }
 
 func (u *aiUseCase) Recommend(ctx context.Context, userIDStr string) (string, error) {
@@ -32,10 +43,6 @@ func (u *aiUseCase) Recommend(ctx context.Context, userIDStr string) (string, er
 		return "", fmt.Errorf("aiUseCase.Recommend invalid userID: %w", err)
 	}
 
-	// FIX: ошибки игнорировались через `_`.
-	// При недоступной БД usecase получал пустые данные и генерировал
-	// бессмысленные рекомендации без каких-либо признаков ошибки.
-	// Теперь ошибки возвращаются — клиент получает 500 вместо мусора.
 	sessions, err := u.sessionRepo.ListByUser(ctx, userID)
 	if err != nil {
 		return "", fmt.Errorf("aiUseCase.Recommend get sessions: %w", err)
@@ -46,13 +53,51 @@ func (u *aiUseCase) Recommend(ctx context.Context, userIDStr string) (string, er
 		return "", fmt.Errorf("aiUseCase.Recommend get wishlist: %w", err)
 	}
 
-	prompt := fmt.Sprintf(
-		"Дай 5 персональных рекомендаций книг. У пользователя %d книг в истории чтения и %d в вишлисте.",
-		len(sessions), len(wishlist),
-	)
+	// Собираем названия прочитанных книг
+	readTitles := make([]string, 0, min(len(sessions), maxBooksInPrompt))
+	for i, s := range sessions {
+		if i >= maxBooksInPrompt {
+			break
+		}
+		book, err := u.bookRepo.GetByID(ctx, s.BookID)
+		if err != nil {
+			continue
+		}
+		readTitles = append(readTitles, fmt.Sprintf("«%s»", book.Title))
+	}
+
+	// Собираем названия книг из вишлиста
+	wishTitles := make([]string, 0, min(len(wishlist), maxBooksInPrompt))
+	for i, w := range wishlist {
+		if i >= maxBooksInPrompt {
+			break
+		}
+		book, err := u.bookRepo.GetByID(ctx, w.BookID)
+		if err != nil {
+			continue
+		}
+		wishTitles = append(wishTitles, fmt.Sprintf("«%s»", book.Title))
+	}
+
+	var prompt strings.Builder
+	prompt.WriteString("Дай 5 персональных рекомендаций книг для чтения.\n\n")
+
+	if len(readTitles) > 0 {
+		prompt.WriteString(fmt.Sprintf("История чтения пользователя: %s.\n", strings.Join(readTitles, ", ")))
+	} else {
+		prompt.WriteString("История чтения пользователя пуста.\n")
+	}
+
+	if len(wishTitles) > 0 {
+		prompt.WriteString(fmt.Sprintf("Вишлист пользователя: %s.\n", strings.Join(wishTitles, ", ")))
+	} else {
+		prompt.WriteString("Вишлист пользователя пуст.\n")
+	}
+
+	prompt.WriteString("\nПорекомендуй 5 книг которые могут понравиться, объясни кратко почему каждая.")
 
 	return u.llm.Complete(ctx, systemPrompt, []llm.Message{
-		{Role: "user", Content: prompt},
+		{Role: "user", Content: prompt.String()},
 	})
 }
 

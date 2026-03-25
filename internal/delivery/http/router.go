@@ -1,6 +1,7 @@
 package http
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -93,8 +94,10 @@ func NewRouter(
 
 func (r *Router) Init() *gin.Engine {
 	engine := gin.Default()
+	engine.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
 	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-
 	api := engine.Group("/api/v1")
 	{
 		// ─── Публичные маршруты — без токена ───────────────────────────────
@@ -143,7 +146,6 @@ func (r *Router) Init() *gin.Engine {
 		{
 			// auth
 			protected.POST("/auth/logout", r.auth.Logout)
-			protected.GET("/auth/me", r.auth.Me)
 
 			// users
 			protected.GET("/users/me", r.user.GetMe)

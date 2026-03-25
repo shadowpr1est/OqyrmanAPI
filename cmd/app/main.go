@@ -10,7 +10,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/shadowpr1est/OqyrmanAPI/config"
@@ -124,7 +128,7 @@ func main() {
 	var aiHandler *aiH.Handler
 	if cfg.AI.AnthropicKey != "" {
 		llmClient := anthropic.NewClient(cfg.AI.AnthropicKey)
-		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, llmClient)
+		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, llmClient)
 		aiHandler = aiH.NewHandler(aiUseCase)
 	} else {
 		log.Println("ANTHROPIC_API_KEY not set, AI endpoints disabled")
@@ -148,10 +152,14 @@ func main() {
 	reservHandler := reservationH.NewHandler(reservUseCase)
 	reviewHandler := reviewH.NewHandler(reviewUseCase)
 
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM,
+	)
+	defer stop()
+
 	// background workers
 	overdueCanceller := worker.NewOverdueCanceller(reservationRepo, 24*time.Hour)
-	go overdueCanceller.Run(context.Background())
-
+	go overdueCanceller.Run(ctx)
 	// router
 	router := httpDelivery.NewRouter(
 		authHandler,
@@ -175,9 +183,28 @@ func main() {
 	)
 
 	engine := router.Init()
-
-	log.Printf("server starting on %s:%s (swagger host: %s)", cfg.App.Host, cfg.App.Port, cfg.App.SwaggerHost)
-	if err := engine.Run(cfg.App.Host + ":" + cfg.App.Port); err != nil {
-		log.Fatalf("server error: %s", err)
+	srv := &http.Server{
+		Addr:    cfg.App.Host + ":" + cfg.App.Port,
+		Handler: engine,
 	}
+
+	go func() {
+		log.Printf("server starting on %s:%s (swagger host: %s)",
+			cfg.App.Host, cfg.App.Port, cfg.App.SwaggerHost)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server error: %s", err)
+		}
+	}()
+
+	// ждём сигнала
+	<-ctx.Done()
+	log.Println("shutting down...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("forced shutdown: %s", err)
+	}
+	log.Println("server stopped")
 }

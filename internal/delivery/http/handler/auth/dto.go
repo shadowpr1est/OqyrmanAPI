@@ -20,12 +20,3 @@ type tokenResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
-
-type userResponse struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	Phone     string `json:"phone"`
-	FullName  string `json:"full_name"`
-	AvatarURL string `json:"avatar_url"`
-	Role      string `json:"role"`
-}

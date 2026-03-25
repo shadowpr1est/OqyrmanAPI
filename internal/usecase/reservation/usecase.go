@@ -31,16 +31,12 @@ func (u *reservationUseCase) Create(ctx context.Context, r *entity.Reservation) 
 	return u.reservationRepo.CreateWithDecrement(ctx, r)
 }
 
-func (u *reservationUseCase) Return(ctx context.Context, id uuid.UUID) error {
-	// Атомарно: pending/active → completed + available_copies + 1
-	return u.reservationRepo.ReturnWithIncrement(ctx, id)
+func (u *reservationUseCase) Cancel(ctx context.Context, id uuid.UUID, callerID uuid.UUID) error {
+	return u.reservationRepo.CancelWithIncrement(ctx, id, &callerID)
 }
 
-func (u *reservationUseCase) Cancel(ctx context.Context, id uuid.UUID) error {
-	// Было: UpdateStatus(cancelled) — просто меняло статус, available_copies
-	// не возвращался. Копия терялась навсегда при отмене брони.
-	// Теперь: атомарно pending → cancelled + available_copies + 1
-	return u.reservationRepo.CancelWithIncrement(ctx, id)
+func (u *reservationUseCase) Return(ctx context.Context, id uuid.UUID) error {
+	return u.reservationRepo.ReturnWithIncrement(ctx, id)
 }
 
 func (u *reservationUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity.Reservation, error) {

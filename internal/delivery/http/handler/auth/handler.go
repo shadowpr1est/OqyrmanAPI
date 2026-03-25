@@ -23,7 +23,7 @@ func NewHandler(uc domainUseCase.AuthUseCase) *Handler {
 // @Accept      json
 // @Produce     json
 // @Param       input body registerRequest true "Данные для регистрации"
-// @Success     201 {object} userResponse
+// @Success     201 {object} tokenResponse
 // @Failure     400 {object} map[string]string
 // @Router      /auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
@@ -39,14 +39,22 @@ func (h *Handler) Register(c *gin.Context) {
 		PasswordHash: req.Password,
 		FullName:     req.FullName,
 	}
-
-	result, err := h.uc.Register(c.Request.Context(), user)
-	if err != nil {
+	if _, err := h.uc.Register(c.Request.Context(), user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, toUserResponse(result))
+	// Сразу логиним после регистрации
+	pair, err := h.uc.Login(c.Request.Context(), req.Email, req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, tokenResponse{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
+	})
 }
 
 // @Summary     Вход
@@ -118,34 +126,4 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		AccessToken:  pair.AccessToken,
 		RefreshToken: pair.RefreshToken,
 	})
-}
-
-// @Summary     Текущий пользователь
-// @Tags        auth
-// @Security    BearerAuth
-// @Produce     json
-// @Success     200 {object} userResponse
-// @Failure     401 {object} map[string]string
-// @Router      /auth/me [get]
-func (h *Handler) Me(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
-
-	user, err := h.uc.Me(c.Request.Context(), userID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, toUserResponse(user))
-}
-
-func toUserResponse(u *entity.User) userResponse {
-	return userResponse{
-		ID:        u.ID.String(),
-		Email:     u.Email,
-		Phone:     u.Phone,
-		FullName:  u.FullName,
-		AvatarURL: u.AvatarURL,
-		Role:      string(u.Role),
-	}
 }

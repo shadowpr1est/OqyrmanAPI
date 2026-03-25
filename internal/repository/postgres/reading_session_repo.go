@@ -41,6 +41,15 @@ func (r *readingSessionRepo) Upsert(ctx context.Context, session *entity.Reading
 	return session, nil
 }
 
+func (r *readingSessionRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.ReadingSession, error) {
+	var session entity.ReadingSession
+	query := `SELECT * FROM reading_sessions WHERE id = $1`
+	if err := r.db.GetContext(ctx, &session, query, id); err != nil {
+		return nil, fmt.Errorf("readingSessionRepo.GetByID: %w", err)
+	}
+	return &session, nil
+}
+
 func (r *readingSessionRepo) GetByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) (*entity.ReadingSession, error) {
 	var session entity.ReadingSession
 	query := `SELECT * FROM reading_sessions WHERE user_id = $1 AND book_id = $2`

@@ -26,6 +26,10 @@ func (u *readingSessionUseCase) Upsert(ctx context.Context, session *entity.Read
 	return u.sessionRepo.Upsert(ctx, session)
 }
 
+func (u *readingSessionUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity.ReadingSession, error) {
+	return u.sessionRepo.GetByID(ctx, id)
+}
+
 func (u *readingSessionUseCase) GetByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) (*entity.ReadingSession, error) {
 	return u.sessionRepo.GetByUserAndBook(ctx, userID, bookID)
 }
