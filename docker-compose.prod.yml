@@ -105,8 +105,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - /etc/letsencrypt/live/oqyrman.app:/etc/nginx/certs/main:ro
-      - /etc/letsencrypt/live/api.oqyrman.app:/etc/nginx/certs/api:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - app
     restart: unless-stopped
