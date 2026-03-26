@@ -8,32 +8,26 @@ import (
 )
 
 type ReservationRepository interface {
-	// CreateWithDecrement атомарно проверяет наличие копий, уменьшает
-	// available_copies и создаёт бронь в одной транзакции.
-	CreateWithDecrement(ctx context.Context, r *entity.Reservation) (*entity.Reservation, error)
-
-	// ReturnWithIncrement атомарно переводит бронь pending/active → completed,
-	// проставляет returned_at и увеличивает available_copies на 1.
-	ReturnWithIncrement(ctx context.Context, id uuid.UUID) error
-
-	// CancelWithIncrement атомарно переводит бронь pending → cancelled
-	// и увеличивает available_copies на 1.
-	CancelWithIncrement(ctx context.Context, id uuid.UUID, callerID *uuid.UUID) error
-
-	// CancelOverdue находит все брони где due_date < now() AND status = 'active',
-	// переводит в cancelled и восстанавливает available_copies.
-	// Возвращает количество отменённых броней.
-	CancelOverdue(ctx context.Context) (int, error)
-
+	CreateWithDecrement(ctx context.Context, res *entity.Reservation) (*entity.Reservation, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Reservation, error)
 
-	// ListByUser возвращает брони пользователя с пагинацией.
+	// Пользователь видит только свои
 	ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.Reservation, int, error)
 
-	// ListAll возвращает все брони с пагинацией.
-	// status — необязательный фильтр: nil = все брони, значение = фильтр по статусу.
+	// Admin — всё без фильтрации
 	ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error)
+	AdminReturn(ctx context.Context, id uuid.UUID) error
+
+	// Staff — только своя библиотека
+	ListByLibrary(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.Reservation, int, error)
+	StaffCancel(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
+	StaffReturn(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
+	// callerID != nil → проверка владельца (user cancel)
+	// libraryID != nil → проверка принадлежности библиотеке (staff cancel/return)
+	// оба nil → без проверки (admin)
+	CancelWithIncrement(ctx context.Context, id uuid.UUID, callerID uuid.UUID) error
 
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
+	CancelOverdue(ctx context.Context) (int, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }

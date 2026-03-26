@@ -25,8 +25,6 @@ import (
 	authorH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/author"
 	bookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book"
 	bookFileH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_file"
-	bookMachineH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_machine"
-	bookMachineBookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_machine_book"
 	genreH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/genre"
 	libraryH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library"
 	libraryBookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library_book"
@@ -43,8 +41,6 @@ import (
 	authorUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/author"
 	bookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book"
 	bookFileUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book_file"
-	bookMachineUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book_machine"
-	bookMachineBookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book_machine_book"
 	genreUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/genre"
 	libraryUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/library"
 	libraryBookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/library_book"
@@ -101,8 +97,6 @@ func main() {
 	noteRepo := postgres.NewReadingNoteRepo(db)
 	libraryRepo := postgres.NewLibraryRepo(db)
 	libraryBookRepo := postgres.NewLibraryBookRepo(db)
-	machineRepo := postgres.NewBookMachineRepo(db)
-	machineBookRepo := postgres.NewBookMachineBookRepo(db)
 	reservationRepo := postgres.NewReservationRepo(db)
 	reviewRepo := postgres.NewReviewRepo(db)
 
@@ -119,8 +113,6 @@ func main() {
 	noteUseCase := readingNoteUC.NewReadingNoteUseCase(noteRepo)
 	libraryUseCase := libraryUC.NewLibraryUseCase(libraryRepo)
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
-	machineUseCase := bookMachineUC.NewBookMachineUseCase(machineRepo)
-	machineBookUseCase := bookMachineBookUC.NewBookMachineBookUseCase(machineBookRepo)
 	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
 
@@ -139,7 +131,7 @@ func main() {
 	userHandler := userH.NewHandler(userUseCase)
 	authorHandler := authorH.NewHandler(authorUseCase)
 	genreHandler := genreH.NewHandler(genreUseCase)
-	bookHandler := bookH.NewHandler(bookUseCase, libraryBookUseCase, machineBookUseCase)
+	bookHandler := bookH.NewHandler(bookUseCase, libraryBookUseCase)
 	bookFileHandler := bookFileH.NewHandler(bookFileUseCase)
 	sessionHandler := readingSessionH.NewHandler(sessionUseCase)
 	statsHandler := statsH.NewHandler(statsUseCase)
@@ -147,8 +139,6 @@ func main() {
 	notesHandler := notesH.NewHandler(noteUseCase)
 	libraryHandler := libraryH.NewHandler(libraryUseCase)
 	libraryBookHandler := libraryBookH.NewHandler(libraryBookUseCase)
-	machineHandler := bookMachineH.NewHandler(machineUseCase)
-	machineBookHandler := bookMachineBookH.NewHandler(machineBookUseCase)
 	reservHandler := reservationH.NewHandler(reservUseCase)
 	reviewHandler := reviewH.NewHandler(reviewUseCase)
 
@@ -173,8 +163,6 @@ func main() {
 		notesHandler,
 		libraryHandler,
 		libraryBookHandler,
-		machineHandler,
-		machineBookHandler,
 		reservHandler,
 		reviewHandler,
 		jwtManager,

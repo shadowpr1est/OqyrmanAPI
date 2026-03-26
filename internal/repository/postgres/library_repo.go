@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -19,9 +21,9 @@ func NewLibraryRepo(db *sqlx.DB) *libraryRepo {
 
 func (r *libraryRepo) Create(ctx context.Context, library *entity.Library) (*entity.Library, error) {
 	query := `
-		INSERT INTO libraries (id, name, address, lat, lng, phone)
-		VALUES (:id, :name, :address, :lat, :lng, :phone)
-		RETURNING *`
+        INSERT INTO libraries (id, name, address, lat, lng, phone)
+        VALUES (:id, :name, :address, :lat, :lng, :phone)
+        RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, library)
 	if err != nil {
 		return nil, fmt.Errorf("libraryRepo.Create: %w", err)
@@ -41,35 +43,53 @@ func (r *libraryRepo) Create(ctx context.Context, library *entity.Library) (*ent
 
 func (r *libraryRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Library, error) {
 	var library entity.Library
-	query := `SELECT * FROM libraries WHERE id = $1`
-	if err := r.db.GetContext(ctx, &library, query, id); err != nil {
+	err := r.db.GetContext(ctx, &library,
+		`SELECT * FROM libraries WHERE id = $1 AND deleted_at IS NULL`, id,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
 		return nil, fmt.Errorf("libraryRepo.GetByID: %w", err)
 	}
 	return &library, nil
 }
 
 func (r *libraryRepo) List(ctx context.Context, limit, offset int) ([]*entity.Library, int, error) {
-	var libraries []*entity.Library
 	var total int
-	query := `SELECT * FROM libraries ORDER BY name LIMIT $1 OFFSET $2`
-	if err := r.db.SelectContext(ctx, &libraries, query, limit, offset); err != nil {
-		return nil, 0, fmt.Errorf("libraryRepo.List: %w", err)
-	}
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM libraries`); err != nil {
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM libraries WHERE deleted_at IS NULL`,
+	); err != nil {
 		return nil, 0, fmt.Errorf("libraryRepo.List count: %w", err)
 	}
+
+	var libraries []*entity.Library
+	if err := r.db.SelectContext(ctx, &libraries, `
+        SELECT * FROM libraries
+        WHERE deleted_at IS NULL
+        ORDER BY name
+        LIMIT $1 OFFSET $2`,
+		limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("libraryRepo.List: %w", err)
+	}
+
 	return libraries, total, nil
 }
 
 func (r *libraryRepo) ListNearby(ctx context.Context, lat, lng, radiusKm float64) ([]*entity.Library, error) {
 	var libraries []*entity.Library
-	// LEAST(1.0, ...) защищает acos от NaN при точном совпадении координат
-	query := `
-		SELECT * FROM libraries
-		WHERE (6371 * acos(LEAST(1.0, cos(radians($1)) * cos(radians(lat)) *
-		cos(radians(lng) - radians($2)) + sin(radians($1)) * sin(radians(lat))))) < $3
-		ORDER BY name`
-	if err := r.db.SelectContext(ctx, &libraries, query, lat, lng, radiusKm); err != nil {
+	if err := r.db.SelectContext(ctx, &libraries, `
+        SELECT * FROM libraries
+        WHERE deleted_at IS NULL
+          AND (6371 * acos(LEAST(1.0,
+                cos(radians($1)) * cos(radians(lat)) *
+                cos(radians(lng) - radians($2)) +
+                sin(radians($1)) * sin(radians(lat))
+              ))) < $3
+        ORDER BY name`,
+		lat, lng, radiusKm,
+	); err != nil {
 		return nil, fmt.Errorf("libraryRepo.ListNearby: %w", err)
 	}
 	return libraries, nil
@@ -77,10 +97,10 @@ func (r *libraryRepo) ListNearby(ctx context.Context, lat, lng, radiusKm float64
 
 func (r *libraryRepo) Update(ctx context.Context, library *entity.Library) (*entity.Library, error) {
 	query := `
-		UPDATE libraries
-		SET name = :name, address = :address, lat = :lat, lng = :lng, phone = :phone
-		WHERE id = :id
-		RETURNING *`
+        UPDATE libraries
+        SET name = :name, address = :address, lat = :lat, lng = :lng, phone = :phone
+        WHERE id = :id AND deleted_at IS NULL
+        RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, library)
 	if err != nil {
 		return nil, fmt.Errorf("libraryRepo.Update: %w", err)
@@ -90,7 +110,7 @@ func (r *libraryRepo) Update(ctx context.Context, library *entity.Library) (*ent
 		if err := rows.Err(); err != nil {
 			return nil, fmt.Errorf("libraryRepo.Update rows error: %w", err)
 		}
-		return nil, fmt.Errorf("libraryRepo.Update: no rows returned")
+		return nil, entity.ErrNotFound
 	}
 	if err := rows.StructScan(library); err != nil {
 		return nil, fmt.Errorf("libraryRepo.Update scan: %w", err)
@@ -98,10 +118,22 @@ func (r *libraryRepo) Update(ctx context.Context, library *entity.Library) (*ent
 	return library, nil
 }
 
+// Delete — soft delete.
+// После удаления библиотеки staff теряет доступ автоматически —
+// middleware проверяет deleted_at через JOIN при каждом запросе.
 func (r *libraryRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM libraries WHERE id = $1`
-	if _, err := r.db.ExecContext(ctx, query, id); err != nil {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE libraries SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id,
+	)
+	if err != nil {
 		return fmt.Errorf("libraryRepo.Delete: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("libraryRepo.Delete rows affected: %w", err)
+	}
+	if rows == 0 {
+		return entity.ErrNotFound
 	}
 	return nil
 }

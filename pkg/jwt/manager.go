@@ -14,8 +14,9 @@ type Manager struct {
 }
 
 type Claims struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID    string     `json:"user_id"`
+	Role      string     `json:"role"`
+	LibraryID *uuid.UUID `json:"library_id,omitempty"` // ← НОВОЕ
 	jwt.RegisteredClaims
 }
 
@@ -26,10 +27,11 @@ func NewManager(secretKey string, accessTTLMin int) *Manager {
 	}
 }
 
-func (m *Manager) GenerateAccessToken(userID uuid.UUID, role string) (string, error) {
+func (m *Manager) GenerateAccessToken(userID uuid.UUID, role string, libraryID *uuid.UUID) (string, error) {
 	claims := &Claims{
-		UserID: userID.String(),
-		Role:   role,
+		UserID:    userID.String(),
+		Role:      role,
+		LibraryID: libraryID, // ← НОВОЕ
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -50,11 +52,9 @@ func (m *Manager) ParseAccessToken(tokenStr string) (*Claims, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
 		return nil, errors.New("invalid token")
 	}
-
 	return claims, nil
 }

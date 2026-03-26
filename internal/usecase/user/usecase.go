@@ -40,8 +40,15 @@ func (u *userUseCase) ListAll(ctx context.Context, limit, offset int) ([]*entity
 	return u.userRepo.ListAll(ctx, limit, offset)
 }
 
-func (u *userUseCase) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role) error {
-	return u.userRepo.UpdateRole(ctx, id, role)
+func (u *userUseCase) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role, libraryID *uuid.UUID) error {
+	// libraryID обязателен для Staff, должен быть nil для Admin и User
+	if role == entity.RoleStaff && libraryID == nil {
+		return errors.New("library_id is required for Staff role")
+	}
+	if role != entity.RoleStaff && libraryID != nil {
+		return errors.New("library_id must be null for non-Staff roles")
+	}
+	return u.userRepo.UpdateRole(ctx, id, role, libraryID)
 }
 
 func (u *userUseCase) AdminDelete(ctx context.Context, id uuid.UUID) error {

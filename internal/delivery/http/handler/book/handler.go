@@ -13,63 +13,12 @@ import (
 )
 
 type Handler struct {
-	uc         domainUseCase.BookUseCase
-	libBookUC  domainUseCase.LibraryBookUseCase     // NEW
-	machBookUC domainUseCase.BookMachineBookUseCase // NEW
+	uc        domainUseCase.BookUseCase
+	libBookUC domainUseCase.LibraryBookUseCase
 }
 
-func NewHandler(uc domainUseCase.BookUseCase, libBookUC domainUseCase.LibraryBookUseCase, machBookUC domainUseCase.BookMachineBookUseCase) *Handler {
-	return &Handler{uc: uc, libBookUC: libBookUC, machBookUC: machBookUC}
-}
-
-// @Summary     Наличие книги в библиотеках и книгоматах
-// @Tags        books
-// @Produce     json
-// @Param       id path string true "ID книги"
-// @Success     200 {object} map[string]interface{}
-// @Router      /books/{id}/availability [get]
-func (h *Handler) GetAvailability(c *gin.Context) {
-	bookID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-	ctx := c.Request.Context()
-
-	libBooks, err := h.libBookUC.ListByBook(ctx, bookID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	machBooks, err := h.machBookUC.ListByBook(ctx, bookID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	type libEntry struct {
-		LibraryBookID   string `json:"library_book_id"`
-		LibraryID       string `json:"library_id"`
-		TotalCopies     int    `json:"total_copies"`
-		AvailableCopies int    `json:"available_copies"`
-	}
-	type machEntry struct {
-		MachineBookID   string `json:"machine_book_id"`
-		MachineID       string `json:"machine_id"`
-		TotalCopies     int    `json:"total_copies"`
-		AvailableCopies int    `json:"available_copies"`
-	}
-
-	libs := make([]libEntry, len(libBooks))
-	for i, lb := range libBooks {
-		libs[i] = libEntry{lb.ID.String(), lb.LibraryID.String(), lb.TotalCopies, lb.AvailableCopies}
-	}
-	machs := make([]machEntry, len(machBooks))
-	for i, mb := range machBooks {
-		machs[i] = machEntry{mb.ID.String(), mb.MachineID.String(), mb.TotalCopies, mb.AvailableCopies}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"libraries": libs, "machines": machs})
+func NewHandler(uc domainUseCase.BookUseCase, libBookUC domainUseCase.LibraryBookUseCase) *Handler {
+	return &Handler{uc: uc, libBookUC: libBookUC}
 }
 
 // @Summary     Создать книгу

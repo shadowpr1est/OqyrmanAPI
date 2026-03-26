@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -41,23 +43,63 @@ func (r *authorRepo) Create(ctx context.Context, author *entity.Author) (*entity
 
 func (r *authorRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Author, error) {
 	var author entity.Author
-	query := `SELECT * FROM authors WHERE id = $1`
-	if err := r.db.GetContext(ctx, &author, query, id); err != nil {
+	err := r.db.GetContext(ctx, &author,
+		`SELECT * FROM authors WHERE id = $1 AND deleted_at IS NULL`, id,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
 		return nil, fmt.Errorf("authorRepo.GetByID: %w", err)
 	}
 	return &author, nil
 }
 
 func (r *authorRepo) List(ctx context.Context, limit, offset int) ([]*entity.Author, int, error) {
-	var authors []*entity.Author
 	var total int
-	query := `SELECT * FROM authors ORDER BY name LIMIT $1 OFFSET $2`
-	if err := r.db.SelectContext(ctx, &authors, query, limit, offset); err != nil {
-		return nil, 0, fmt.Errorf("authorRepo.List: %w", err)
-	}
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM authors`); err != nil {
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM authors WHERE deleted_at IS NULL`,
+	); err != nil {
 		return nil, 0, fmt.Errorf("authorRepo.List count: %w", err)
 	}
+
+	var authors []*entity.Author
+	if err := r.db.SelectContext(ctx, &authors, `
+		SELECT * FROM authors
+		WHERE deleted_at IS NULL
+		ORDER BY name
+		LIMIT $1 OFFSET $2`,
+		limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("authorRepo.List: %w", err)
+	}
+
+	return authors, total, nil
+}
+
+func (r *authorRepo) Search(ctx context.Context, query string, limit, offset int) ([]*entity.Author, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(*) FROM authors
+		WHERE deleted_at IS NULL
+		  AND (name ILIKE $1 OR bio ILIKE $1)`,
+		"%"+query+"%",
+	); err != nil {
+		return nil, 0, fmt.Errorf("authorRepo.Search count: %w", err)
+	}
+
+	var authors []*entity.Author
+	if err := r.db.SelectContext(ctx, &authors, `
+		SELECT * FROM authors
+		WHERE deleted_at IS NULL
+		  AND (name ILIKE $1 OR bio ILIKE $1)
+		ORDER BY name
+		LIMIT $2 OFFSET $3`,
+		"%"+query+"%", limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("authorRepo.Search: %w", err)
+	}
+
 	return authors, total, nil
 }
 
@@ -66,7 +108,7 @@ func (r *authorRepo) Update(ctx context.Context, author *entity.Author) (*entity
 		UPDATE authors
 		SET name = :name, bio = :bio, birth_date = :birth_date,
 		    death_date = :death_date, photo_url = :photo_url
-		WHERE id = :id
+		WHERE id = :id AND deleted_at IS NULL
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, author)
 	if err != nil {
@@ -77,7 +119,7 @@ func (r *authorRepo) Update(ctx context.Context, author *entity.Author) (*entity
 		if err := rows.Err(); err != nil {
 			return nil, fmt.Errorf("authorRepo.Update rows error: %w", err)
 		}
-		return nil, fmt.Errorf("authorRepo.Update: no rows returned")
+		return nil, entity.ErrNotFound
 	}
 	if err := rows.StructScan(author); err != nil {
 		return nil, fmt.Errorf("authorRepo.Update scan: %w", err)
@@ -86,23 +128,18 @@ func (r *authorRepo) Update(ctx context.Context, author *entity.Author) (*entity
 }
 
 func (r *authorRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM authors WHERE id = $1`
-	if _, err := r.db.ExecContext(ctx, query, id); err != nil {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE authors SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id,
+	)
+	if err != nil {
 		return fmt.Errorf("authorRepo.Delete: %w", err)
 	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("authorRepo.Delete rows affected: %w", err)
+	}
+	if rows == 0 {
+		return entity.ErrNotFound
+	}
 	return nil
-}
-
-func (r *authorRepo) Search(ctx context.Context, query string, limit, offset int) ([]*entity.Author, int, error) {
-	var authors []*entity.Author
-	var total int
-	q := `SELECT * FROM authors WHERE name ILIKE $1 OR bio ILIKE $1 ORDER BY name LIMIT $2 OFFSET $3`
-	if err := r.db.SelectContext(ctx, &authors, q, "%"+query+"%", limit, offset); err != nil {
-		return nil, 0, fmt.Errorf("authorRepo.Search: %w", err)
-	}
-	cq := `SELECT COUNT(*) FROM authors WHERE name ILIKE $1 OR bio ILIKE $1`
-	if err := r.db.GetContext(ctx, &total, cq, "%"+query+"%"); err != nil {
-		return nil, 0, fmt.Errorf("authorRepo.Search count: %w", err)
-	}
-	return authors, total, nil
 }

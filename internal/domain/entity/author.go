@@ -13,4 +13,6 @@ type Author struct {
 	BirthDate *time.Time `db:"birth_date"`
 	DeathDate *time.Time `db:"death_date"`
 	PhotoURL  string     `db:"photo_url"`
+	CreatedAt time.Time  `db:"created_at"`
+	DeletedAt *time.Time `db:"deleted_at"`
 }

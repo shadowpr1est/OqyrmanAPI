@@ -22,4 +22,5 @@ var (
 	// ErrDuplicateReservation - если пользователь попытается забронировать одну книгу дважды
 	ErrDuplicateReservation = errors.New("active reservation for this book already exists") // ДОБАВИТЬ
 
+	ErrNotFound = errors.New("entity not found")
 )

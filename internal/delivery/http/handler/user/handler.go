@@ -130,15 +130,28 @@ func (h *Handler) UpdateRole(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+
 	var req updateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.uc.UpdateRole(c.Request.Context(), id, entity.Role(req.Role)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+	var libraryID *uuid.UUID
+	if req.LibraryID != nil {
+		parsed, err := uuid.Parse(*req.LibraryID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid library_id"})
+			return
+		}
+		libraryID = &parsed
+	}
+
+	if err := h.uc.UpdateRole(c.Request.Context(), id, entity.Role(req.Role), libraryID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.Status(http.StatusNoContent)
 }
 

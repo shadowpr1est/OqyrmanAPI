@@ -64,7 +64,7 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 		return nil, errors.New("invalid credentials")
 	}
 
-	accessToken, err := u.jwt.GenerateAccessToken(user.ID, string(user.Role))
+	accessToken, err := u.jwt.GenerateAccessToken(user.ID, string(user.Role), user.LibraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 		return nil, err
 	}
 
-	accessToken, err := u.jwt.GenerateAccessToken(user.ID, string(user.Role))
+	accessToken, err := u.jwt.GenerateAccessToken(user.ID, string(user.Role), user.LibraryID)
 	if err != nil {
 		return nil, err
 	}

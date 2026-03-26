@@ -1,24 +1,39 @@
 package reservation
 
+import "strconv"
+import "errors"
+import "github.com/gin-gonic/gin"
+
 type createReservationRequest struct {
-	LibraryBookID *string `json:"library_book_id"`
-	MachineBookID *string `json:"machine_book_id"`
-	SourceType    string  `json:"source_type" binding:"required,oneof=library machine"`
-	DueDate       string  `json:"due_date"    binding:"required"` // "2006-01-02"
+	LibraryBookID string `json:"library_book_id" binding:"required"`
+	DueDate       string `json:"due_date" binding:"required"`
 }
 
 type updateStatusRequest struct {
-	Status string `json:"status" binding:"required,oneof=pending active completed cancelled"`
+	Status string `json:"status" binding:"required"`
 }
 
 type reservationResponse struct {
 	ID            string  `json:"id"`
 	UserID        string  `json:"user_id"`
-	LibraryBookID *string `json:"library_book_id"`
-	MachineBookID *string `json:"machine_book_id"`
-	SourceType    string  `json:"source_type"`
+	LibraryBookID string  `json:"library_book_id"`
 	Status        string  `json:"status"`
 	ReservedAt    string  `json:"reserved_at"`
 	DueDate       string  `json:"due_date"`
-	ReturnedAt    *string `json:"returned_at"`
+	ReturnedAt    *string `json:"returned_at,omitempty"`
+}
+
+func parsePagination(c *gin.Context) (limit, offset int, err error) {
+	limit, _ = strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ = strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if limit <= 0 {
+		return 0, 0, errors.New("limit must be greater than 0")
+	}
+	if limit > 100 {
+		return 0, 0, errors.New("limit must not exceed 100")
+	}
+	if offset < 0 {
+		return 0, 0, errors.New("offset must be >= 0")
+	}
+	return limit, offset, nil
 }

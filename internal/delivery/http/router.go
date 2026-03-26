@@ -13,8 +13,6 @@ import (
 	authorHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/author"
 	bookHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book"
 	bookFileHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_file"
-	bookMachineHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_machine"
-	bookMachineBookHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_machine_book"
 	genreHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/genre"
 	libraryHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library"
 	libraryBookHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library_book"
@@ -30,24 +28,22 @@ import (
 )
 
 type Router struct {
-	auth            *authHandler.Handler
-	user            *userHandler.Handler
-	author          *authorHandler.Handler
-	genre           *genreHandler.Handler
-	book            *bookHandler.Handler
-	bookFile        *bookFileHandler.Handler
-	readingSession  *readingSessionHandler.Handler
-	wishlist        *wishlistHandler.Handler
-	notes           *notesHandler.Handler
-	library         *libraryHandler.Handler
-	libraryBook     *libraryBookHandler.Handler
-	bookMachine     *bookMachineHandler.Handler
-	bookMachineBook *bookMachineBookHandler.Handler
-	reservation     *reservationHandler.Handler
-	review          *reviewHandler.Handler
-	jwt             *jwt.Manager
-	stats           *statsHandler.Handler
-	ai              *aiHandler.Handler
+	auth           *authHandler.Handler
+	user           *userHandler.Handler
+	author         *authorHandler.Handler
+	genre          *genreHandler.Handler
+	book           *bookHandler.Handler
+	bookFile       *bookFileHandler.Handler
+	readingSession *readingSessionHandler.Handler
+	wishlist       *wishlistHandler.Handler
+	notes          *notesHandler.Handler
+	library        *libraryHandler.Handler
+	libraryBook    *libraryBookHandler.Handler
+	reservation    *reservationHandler.Handler
+	review         *reviewHandler.Handler
+	jwt            *jwt.Manager
+	stats          *statsHandler.Handler
+	ai             *aiHandler.Handler
 }
 
 func NewRouter(
@@ -62,8 +58,6 @@ func NewRouter(
 	notes *notesHandler.Handler,
 	library *libraryHandler.Handler,
 	libraryBook *libraryBookHandler.Handler,
-	bookMachine *bookMachineHandler.Handler,
-	bookMachineBook *bookMachineBookHandler.Handler,
 	reservation *reservationHandler.Handler,
 	review *reviewHandler.Handler,
 	jwt *jwt.Manager,
@@ -71,24 +65,22 @@ func NewRouter(
 	ai *aiHandler.Handler,
 ) *Router {
 	return &Router{
-		auth:            auth,
-		user:            user,
-		author:          author,
-		genre:           genre,
-		book:            book,
-		bookFile:        bookFile,
-		readingSession:  readingSession,
-		wishlist:        wishlist,
-		notes:           notes,
-		library:         library,
-		libraryBook:     libraryBook,
-		bookMachine:     bookMachine,
-		bookMachineBook: bookMachineBook,
-		reservation:     reservation,
-		review:          review,
-		jwt:             jwt,
-		stats:           stats,
-		ai:              ai,
+		auth:           auth,
+		user:           user,
+		author:         author,
+		genre:          genre,
+		book:           book,
+		bookFile:       bookFile,
+		readingSession: readingSession,
+		wishlist:       wishlist,
+		notes:          notes,
+		library:        library,
+		libraryBook:    libraryBook,
+		reservation:    reservation,
+		review:         review,
+		jwt:            jwt,
+		stats:          stats,
+		ai:             ai,
 	}
 }
 
@@ -124,17 +116,11 @@ func (r *Router) Init() *gin.Engine {
 			public.GET("/books/author/:author_id", r.book.ListByAuthor)
 			public.GET("/books/genre/:genre_id", r.book.ListByGenre)
 			public.GET("/books/:id", r.book.GetByID)
-			public.GET("/books/:id/availability", r.book.GetAvailability)
 
 			// libraries
 			public.GET("/libraries", r.library.List)
 			public.GET("/libraries/nearby", r.library.ListNearby)
 			public.GET("/libraries/:id", r.library.GetByID)
-
-			// book machines
-			public.GET("/book-machines", r.bookMachine.List)
-			public.GET("/book-machines/nearby", r.bookMachine.ListNearby)
-			public.GET("/book-machines/:id", r.bookMachine.GetByID)
 
 			// reviews — читать без токена, писать только авторизованным
 			public.GET("/reviews/book/:book_id", r.review.ListByBook)
@@ -162,11 +148,6 @@ func (r *Router) Init() *gin.Engine {
 			protected.GET("/library-books/library/:library_id", r.libraryBook.ListByLibrary)
 			protected.GET("/library-books/book/:book_id", r.libraryBook.ListByBook)
 			protected.GET("/library-books/:id", r.libraryBook.GetByID)
-
-			// book machine books
-			protected.GET("/book-machine-books/machine/:machine_id", r.bookMachineBook.ListByMachine)
-			protected.GET("/book-machine-books/book/:book_id", r.bookMachineBook.ListByBook)
-			protected.GET("/book-machine-books/:id", r.bookMachineBook.GetByID)
 
 			// reading sessions
 			protected.POST("/reading-sessions", r.readingSession.Upsert)
@@ -251,20 +232,19 @@ func (r *Router) Init() *gin.Engine {
 				admin.PUT("/library-books/:id", r.libraryBook.Update)
 				admin.DELETE("/library-books/:id", r.libraryBook.Delete)
 
-				// book machines
-				admin.POST("/book-machines", r.bookMachine.Create)
-				admin.PUT("/book-machines/:id", r.bookMachine.Update)
-				admin.DELETE("/book-machines/:id", r.bookMachine.Delete)
-
-				// book machine books
-				admin.POST("/book-machine-books", r.bookMachineBook.Create)
-				admin.PUT("/book-machine-books/:id", r.bookMachineBook.Update)
-				admin.DELETE("/book-machine-books/:id", r.bookMachineBook.Delete)
-
 				// reservations
 				admin.GET("/reservations", r.reservation.ListAll)
 				admin.PATCH("/reservations/:id/status", r.reservation.UpdateStatus)
-				admin.PATCH("/reservations/:id/return", r.reservation.Return)
+				admin.PATCH("/reservations/:id/return", r.reservation.AdminReturn)
+			}
+
+			// ─── Staff маршруты ───────────────────────────────────────────
+			staff := protected.Group("/staff")
+			staff.Use(middleware.LibraryStaffOnly())
+			{
+				staff.GET("/reservations", r.reservation.ListByLibrary)
+				staff.PATCH("/reservations/:id/cancel", r.reservation.StaffCancel)
+				staff.PATCH("/reservations/:id/return", r.reservation.StaffReturn)
 			}
 		}
 	}

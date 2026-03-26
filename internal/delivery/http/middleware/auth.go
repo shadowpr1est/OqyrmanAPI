@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	UserIDKey = "userID"
-	RoleKey   = "role"
+	UserIDKey    = "userID"
+	RoleKey      = "role"
+	LibraryIDKey = "libraryID" // ← НОВОЕ
 )
 
 func Auth(jwtManager *jwt.Manager) gin.HandlerFunc {
@@ -39,9 +40,15 @@ func Auth(jwtManager *jwt.Manager) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid user id in token"})
 			return
 		}
+		// ❗ Валидация staff: library_id обязателен
+		if claims.Role == "Staff" && claims.LibraryID == nil {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "staff must have library_id"})
+			return
+		}
 
 		c.Set(UserIDKey, userID)
 		c.Set(RoleKey, claims.Role)
+		c.Set(LibraryIDKey, claims.LibraryID) // *uuid.UUID, может быть nil
 		c.Next()
 	}
 }
@@ -59,4 +66,28 @@ func AdminOnly() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func LibraryStaffOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get(RoleKey)
+		if role != "Admin" && role != "Staff" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "staff access required"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func GetUserID(c *gin.Context) uuid.UUID {
+	return c.MustGet(UserIDKey).(uuid.UUID)
+}
+
+func GetLibraryID(c *gin.Context) *uuid.UUID {
+	val, exists := c.Get(LibraryIDKey)
+	if !exists {
+		return nil
+	}
+	id, _ := val.(*uuid.UUID)
+	return id
 }
