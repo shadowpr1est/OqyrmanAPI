@@ -1,6 +1,7 @@
 package book
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -355,9 +356,6 @@ func (h *Handler) Update(c *gin.Context) {
 	if req.Year != nil {
 		existing.Year = *req.Year
 	}
-	if req.AvgRating != nil {
-		existing.AvgRating = *req.AvgRating
-	}
 
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
@@ -382,6 +380,10 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

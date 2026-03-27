@@ -20,11 +20,17 @@ func NewReviewRepo(db *sqlx.DB) *reviewRepo {
 }
 
 func (r *reviewRepo) Create(ctx context.Context, review *entity.Review) (*entity.Review, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("reviewRepo.Create begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
 	query := `
 		INSERT INTO reviews (id, user_id, book_id, rating, body, created_at)
 		VALUES (:id, :user_id, :book_id, :rating, :body, :created_at)
 		RETURNING *`
-	rows, err := r.db.NamedQueryContext(ctx, query, review)
+	rows, err := sqlx.NamedQueryContext(ctx, tx, query, review)
 	if err != nil {
 		return nil, fmt.Errorf("reviewRepo.Create: %w", err)
 	}
@@ -37,6 +43,15 @@ func (r *reviewRepo) Create(ctx context.Context, review *entity.Review) (*entity
 	}
 	if err := rows.StructScan(review); err != nil {
 		return nil, fmt.Errorf("reviewRepo.Create scan: %w", err)
+	}
+	rows.Close()
+
+	if err := updateBookRatingTx(ctx, tx, review.BookID); err != nil {
+		return nil, fmt.Errorf("reviewRepo.Create rating: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("reviewRepo.Create commit: %w", err)
 	}
 	return review, nil
 }
@@ -93,12 +108,18 @@ func (r *reviewRepo) ListByUser(ctx context.Context, userID uuid.UUID) ([]*entit
 }
 
 func (r *reviewRepo) Update(ctx context.Context, review *entity.Review) (*entity.Review, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("reviewRepo.Update begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
 	query := `
 		UPDATE reviews
 		SET rating = :rating, body = :body
 		WHERE id = :id AND deleted_at IS NULL
 		RETURNING *`
-	rows, err := r.db.NamedQueryContext(ctx, query, review)
+	rows, err := sqlx.NamedQueryContext(ctx, tx, query, review)
 	if err != nil {
 		return nil, fmt.Errorf("reviewRepo.Update: %w", err)
 	}
@@ -112,22 +133,65 @@ func (r *reviewRepo) Update(ctx context.Context, review *entity.Review) (*entity
 	if err := rows.StructScan(review); err != nil {
 		return nil, fmt.Errorf("reviewRepo.Update scan: %w", err)
 	}
+	rows.Close()
+
+	if err := updateBookRatingTx(ctx, tx, review.BookID); err != nil {
+		return nil, fmt.Errorf("reviewRepo.Update rating: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("reviewRepo.Update commit: %w", err)
+	}
 	return review, nil
 }
 
 func (r *reviewRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	result, err := r.db.ExecContext(ctx,
+	// Получаем book_id до удаления — нужен для пересчёта рейтинга
+	var bookID uuid.UUID
+	if err := r.db.GetContext(ctx, &bookID,
+		`SELECT book_id FROM reviews WHERE id = $1 AND deleted_at IS NULL`, id,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return entity.ErrNotFound
+		}
+		return fmt.Errorf("reviewRepo.Delete get book_id: %w", err)
+	}
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("reviewRepo.Delete begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	result, err := tx.ExecContext(ctx,
 		`UPDATE reviews SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id,
 	)
 	if err != nil {
 		return fmt.Errorf("reviewRepo.Delete: %w", err)
 	}
-	rows, err := result.RowsAffected()
+	affected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("reviewRepo.Delete rows affected: %w", err)
 	}
-	if rows == 0 {
+	if affected == 0 {
 		return entity.ErrNotFound
 	}
-	return nil
+
+	if err := updateBookRatingTx(ctx, tx, bookID); err != nil {
+		return fmt.Errorf("reviewRepo.Delete rating: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// updateBookRatingTx пересчитывает avg_rating книги внутри существующей транзакции.
+func updateBookRatingTx(ctx context.Context, tx *sqlx.Tx, bookID uuid.UUID) error {
+	_, err := tx.ExecContext(ctx, `
+		UPDATE books
+		SET avg_rating = COALESCE(
+			(SELECT AVG(rating)::float FROM reviews WHERE book_id = $1 AND deleted_at IS NULL),
+			0
+		)
+		WHERE id = $1`, bookID)
+	return err
 }

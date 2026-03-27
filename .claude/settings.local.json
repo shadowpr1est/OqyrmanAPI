@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E '\\\\.\\(go|yaml|yml|json|mod|sum|sql\\)$')",
+      "Bash(go build:*)"
+    ]
+  }
+}

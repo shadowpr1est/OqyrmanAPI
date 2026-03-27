@@ -13,7 +13,6 @@ import (
 
 type reviewUseCase struct {
 	reviewRepo repository.ReviewRepository
-	bookRepo   repository.BookRepository
 }
 
 func NewReviewUseCase(
@@ -22,7 +21,6 @@ func NewReviewUseCase(
 ) domainUseCase.ReviewUseCase {
 	return &reviewUseCase{
 		reviewRepo: reviewRepo,
-		bookRepo:   bookRepo,
 	}
 }
 
@@ -33,17 +31,7 @@ func (u *reviewUseCase) Create(ctx context.Context, review *entity.Review) (*ent
 	review.ID = uuid.New()
 	review.CreatedAt = time.Now()
 
-	result, err := u.reviewRepo.Create(ctx, review)
-	if err != nil {
-		return nil, err
-	}
-
-	// Пересчитываем avg_rating книги после добавления отзыва
-	if err := u.bookRepo.UpdateRating(ctx, review.BookID); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return u.reviewRepo.Create(ctx, review)
 }
 
 func (u *reviewUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity.Review, error) {
@@ -63,31 +51,9 @@ func (u *reviewUseCase) Update(ctx context.Context, review *entity.Review) (*ent
 		return nil, errors.New("rating must be between 1 and 5")
 	}
 
-	result, err := u.reviewRepo.Update(ctx, review)
-	if err != nil {
-		return nil, err
-	}
-
-	// Пересчитываем avg_rating книги после изменения оценки
-	if err := u.bookRepo.UpdateRating(ctx, review.BookID); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return u.reviewRepo.Update(ctx, review)
 }
 
 func (u *reviewUseCase) Delete(ctx context.Context, id uuid.UUID) error {
-	// Получаем отзыв до удаления — нужен BookID для пересчёта рейтинга
-	review, err := u.reviewRepo.GetByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	if err := u.reviewRepo.Delete(ctx, id); err != nil {
-		return err
-	}
-
-	// Пересчитываем avg_rating книги после удаления отзыва
-	// Если это был последний отзыв — COALESCE вернёт 0
-	return u.bookRepo.UpdateRating(ctx, review.BookID)
+	return u.reviewRepo.Delete(ctx, id)
 }

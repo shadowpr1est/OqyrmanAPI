@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -28,6 +29,7 @@ import (
 )
 
 type Router struct {
+	db             *sqlx.DB
 	auth           *authHandler.Handler
 	user           *userHandler.Handler
 	author         *authorHandler.Handler
@@ -47,6 +49,7 @@ type Router struct {
 }
 
 func NewRouter(
+	db *sqlx.DB,
 	auth *authHandler.Handler,
 	user *userHandler.Handler,
 	author *authorHandler.Handler,
@@ -65,6 +68,7 @@ func NewRouter(
 	ai *aiHandler.Handler,
 ) *Router {
 	return &Router{
+		db:             db,
 		auth:           auth,
 		user:           user,
 		author:         author,
@@ -87,6 +91,10 @@ func NewRouter(
 func (r *Router) Init() *gin.Engine {
 	engine := gin.Default()
 	engine.GET("/health", func(c *gin.Context) {
+		if err := r.db.PingContext(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "db unavailable", "error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

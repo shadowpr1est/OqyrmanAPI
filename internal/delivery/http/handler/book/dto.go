@@ -14,15 +14,15 @@ type createBookRequest struct {
 }
 
 type updateBookRequest struct {
-	AuthorID    *string  `json:"author_id"`
-	GenreID     *string  `json:"genre_id"`
-	Title       *string  `json:"title"`
-	ISBN        *string  `json:"isbn"`
-	CoverURL    *string  `json:"cover_url"`
-	Description *string  `json:"description"`
-	Language    *string  `json:"language"`
-	Year        *int     `json:"year"`
-	AvgRating   *float64 `json:"avg_rating"`
+	AuthorID    *string `json:"author_id"`
+	GenreID     *string `json:"genre_id"`
+	Title       *string `json:"title"`
+	ISBN        *string `json:"isbn"`
+	CoverURL    *string `json:"cover_url"`
+	Description *string `json:"description"`
+	Language    *string `json:"language"`
+	Year        *int    `json:"year"`
+	// avg_rating намеренно исключён — рейтинг вычисляется автоматически из отзывов
 }
 
 type bookResponse struct {

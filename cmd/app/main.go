@@ -152,6 +152,7 @@ func main() {
 	go overdueCanceller.Run(ctx)
 	// router
 	router := httpDelivery.NewRouter(
+		db,
 		authHandler,
 		userHandler,
 		authorHandler,
@@ -172,8 +173,11 @@ func main() {
 
 	engine := router.Init()
 	srv := &http.Server{
-		Addr:    cfg.App.Host + ":" + cfg.App.Port,
-		Handler: engine,
+		Addr:         cfg.App.Host + ":" + cfg.App.Port,
+		Handler:      engine,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {

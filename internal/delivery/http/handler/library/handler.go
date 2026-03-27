@@ -1,6 +1,7 @@
 package library
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -208,6 +209,10 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "library not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

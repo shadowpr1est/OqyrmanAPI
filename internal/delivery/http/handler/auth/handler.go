@@ -4,8 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
@@ -87,13 +85,19 @@ func (h *Handler) Login(c *gin.Context) {
 // @Summary     Выход
 // @Tags        auth
 // @Security    BearerAuth
+// @Accept      json
+// @Param       input body logoutRequest true "Refresh токен"
 // @Success     204
-// @Failure     401 {object} map[string]string
+// @Failure     400 {object} map[string]string
 // @Router      /auth/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	var req logoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	if err := h.uc.Logout(c.Request.Context(), userID); err != nil {
+	if err := h.uc.Logout(c.Request.Context(), req.RefreshToken); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

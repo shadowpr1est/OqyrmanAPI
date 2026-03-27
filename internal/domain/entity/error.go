@@ -20,7 +20,7 @@ var (
 	ErrInvalidStatusTransition = errors.New("invalid status transition")
 
 	// ErrDuplicateReservation - если пользователь попытается забронировать одну книгу дважды
-	ErrDuplicateReservation = errors.New("active reservation for this book already exists") // ДОБАВИТЬ
+	ErrDuplicateReservation = errors.New("active reservation for this book already exists")
 
 	ErrNotFound = errors.New("entity not found")
 )

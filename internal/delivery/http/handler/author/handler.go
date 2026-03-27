@@ -1,6 +1,7 @@
 package author
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -202,6 +203,10 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "author not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

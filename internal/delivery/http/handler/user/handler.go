@@ -1,8 +1,9 @@
 package user
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -98,11 +99,11 @@ func (h *Handler) Update(c *gin.Context) {
 func (h *Handler) ListAll(c *gin.Context) {
 	limit := 20
 	offset := 0
-	if l := c.Query("limit"); l != "" {
-		fmt.Sscan(l, &limit)
+	if l, err := strconv.Atoi(c.Query("limit")); err == nil && l > 0 && l <= 100 {
+		limit = l
 	}
-	if o := c.Query("offset"); o != "" {
-		fmt.Sscan(o, &offset)
+	if o, err := strconv.Atoi(c.Query("offset")); err == nil && o >= 0 {
+		offset = o
 	}
 	users, total, err := h.uc.ListAll(c.Request.Context(), limit, offset)
 	if err != nil {
@@ -168,6 +169,10 @@ func (h *Handler) AdminDelete(c *gin.Context) {
 		return
 	}
 	if err := h.uc.AdminDelete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

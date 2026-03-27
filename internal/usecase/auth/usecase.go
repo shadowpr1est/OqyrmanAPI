@@ -37,6 +37,10 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 		return nil, errors.New("email already exists")
 	}
 
+	if len(user.PasswordHash) < 8 {
+		return nil, errors.New("password must be at least 8 characters")
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
@@ -88,8 +92,8 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 	}, nil
 }
 
-func (u *authUseCase) Logout(ctx context.Context, userID uuid.UUID) error {
-	return u.tokenRepo.DeleteAllByUserID(ctx, userID)
+func (u *authUseCase) Logout(ctx context.Context, refreshToken string) error {
+	return u.tokenRepo.DeleteByRefreshToken(ctx, refreshToken)
 }
 
 func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*domainUseCase.TokenPair, error) {

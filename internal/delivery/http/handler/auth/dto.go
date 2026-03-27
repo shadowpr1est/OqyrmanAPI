@@ -3,8 +3,12 @@ package auth
 type registerRequest struct {
 	Email    string `json:"email"    binding:"required,email"`
 	Phone    string `json:"phone"    binding:"required"`
-	Password string `json:"password" binding:"required,min=6"`
+	Password string `json:"password" binding:"required,min=8"`
 	FullName string `json:"full_name"`
+}
+
+type logoutRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 type loginRequest struct {

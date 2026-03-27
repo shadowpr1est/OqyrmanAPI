@@ -1,6 +1,7 @@
 package book_file
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,8 @@ import (
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
+
+var allowedFormats = map[string]bool{"pdf": true, "epub": true, "mp3": true}
 
 type Handler struct {
 	uc domainUseCase.BookFileUseCase
@@ -62,6 +65,10 @@ func (h *Handler) Upload(c *gin.Context) {
 	format := c.PostForm("format")
 	if format == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "format is required"})
+		return
+	}
+	if !allowedFormats[format] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "format must be one of: pdf, epub, mp3"})
 		return
 	}
 
@@ -141,6 +148,10 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "file not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

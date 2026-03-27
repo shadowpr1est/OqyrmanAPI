@@ -66,7 +66,6 @@ func (h *Handler) Create(c *gin.Context) {
 // @Success     200 {object} reviewResponse
 // @Router      /reviews/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -76,10 +75,6 @@ func (h *Handler) GetByID(c *gin.Context) {
 	review, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
-	}
-	if review.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
 	c.JSON(http.StatusOK, toReviewResponse(review))
@@ -100,8 +95,14 @@ func (h *Handler) ListByBook(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	limit := 20
+	offset := 0
+	if l, err := strconv.Atoi(c.DefaultQuery("limit", "20")); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+	if o, err := strconv.Atoi(c.DefaultQuery("offset", "0")); err == nil && o >= 0 {
+		offset = o
+	}
 
 	reviews, total, err := h.uc.ListByBook(c.Request.Context(), bookID, limit, offset)
 	if err != nil {
