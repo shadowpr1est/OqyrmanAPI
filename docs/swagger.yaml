@@ -373,6 +373,40 @@ definitions:
     - current_page
     - status
     type: object
+  reservation.createReservationRequest:
+    properties:
+      due_date:
+        type: string
+      library_book_id:
+        type: string
+    required:
+    - due_date
+    - library_book_id
+    type: object
+  reservation.reservationResponse:
+    properties:
+      due_date:
+        type: string
+      id:
+        type: string
+      library_book_id:
+        type: string
+      reserved_at:
+        type: string
+      returned_at:
+        type: string
+      status:
+        type: string
+      user_id:
+        type: string
+    type: object
+  reservation.updateStatusRequest:
+    properties:
+      status:
+        type: string
+    required:
+    - status
+    type: object
   review.createReviewRequest:
     properties:
       body:
@@ -1006,6 +1040,82 @@ paths:
       summary: Обновить копии
       tags:
       - library-books
+  /admin/reservations:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      - description: Фильтр по статусу
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Все брони (admin)
+      tags:
+      - admin
+  /admin/reservations/{id}/return:
+    patch:
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Возврат книги (admin)
+      tags:
+      - admin
+  /admin/reservations/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Новый статус
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reservation.updateStatusRequest'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Обновить статус брони (admin)
+      tags:
+      - admin
   /admin/stats:
     get:
       produces:
@@ -1871,6 +1981,120 @@ paths:
       summary: Сессия по книге
       tags:
       - reading-sessions
+  /reservations:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Мои брони
+      tags:
+      - reservations
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Данные брони
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reservation.createReservationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/reservation.reservationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать бронь
+      tags:
+      - reservations
+  /reservations/{id}:
+    get:
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reservation.reservationResponse'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получить бронь
+      tags:
+      - reservations
+  /reservations/{id}/cancel:
+    patch:
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отменить бронь
+      tags:
+      - reservations
   /reviews:
     post:
       consumes:
@@ -1999,6 +2223,98 @@ paths:
       summary: Мои отзывы
       tags:
       - reviews
+  /staff/reservations:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      - description: Фильтр по статусу
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Брони библиотеки
+      tags:
+      - staff
+  /staff/reservations/{id}/cancel:
+    patch:
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отменить бронь (staff)
+      tags:
+      - staff
+  /staff/reservations/{id}/return:
+    patch:
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Возврат книги (staff)
+      tags:
+      - staff
   /users/me:
     delete:
       responses:
