@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -273,6 +274,24 @@ func (r *reservationRepo) ListAll(ctx context.Context, limit, offset int, status
 	}
 
 	return items, total, nil
+}
+
+func (r *reservationRepo) Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error) {
+	var res entity.Reservation
+	err := r.db.GetContext(ctx, &res, `
+		UPDATE reservations
+		SET due_date = $3
+		WHERE id = $1 AND user_id = $2 AND status = 'active' AND deleted_at IS NULL
+		RETURNING *`,
+		id, userID, newDueDate,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrReservationNotFound
+		}
+		return nil, fmt.Errorf("reservationRepo.Extend: %w", err)
+	}
+	return &res, nil
 }
 
 func (r *reservationRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error {

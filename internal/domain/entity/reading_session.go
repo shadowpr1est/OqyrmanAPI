@@ -21,4 +21,5 @@ type ReadingSession struct {
 	CurrentPage int           `db:"current_page"`
 	Status      ReadingStatus `db:"status"`
 	UpdatedAt   time.Time     `db:"updated_at"`
+	FinishedAt  *time.Time    `db:"finished_at"`
 }

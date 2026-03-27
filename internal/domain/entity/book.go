@@ -17,6 +17,7 @@ type Book struct {
 	Language    string     `db:"language"`
 	Year        int        `db:"year"`
 	AvgRating   float64    `db:"avg_rating"`
+	TotalPages  *int       `db:"total_pages"`
 	CreatedAt   time.Time  `db:"created_at"`
 	DeletedAt   *time.Time `db:"deleted_at"`
 }

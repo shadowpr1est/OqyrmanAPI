@@ -19,10 +19,14 @@ func NewReadingSessionRepo(db *sqlx.DB) *readingSessionRepo {
 
 func (r *readingSessionRepo) Upsert(ctx context.Context, session *entity.ReadingSession) (*entity.ReadingSession, error) {
 	query := `
-		INSERT INTO reading_sessions (id, user_id, book_id, current_page, status, updated_at)
-		VALUES (:id, :user_id, :book_id, :current_page, :status, :updated_at)
+		INSERT INTO reading_sessions (id, user_id, book_id, current_page, status, updated_at, finished_at)
+		VALUES (:id, :user_id, :book_id, :current_page, :status, :updated_at, :finished_at)
 		ON CONFLICT (user_id, book_id)
-		DO UPDATE SET current_page = :current_page, status = :status, updated_at = :updated_at
+		DO UPDATE SET
+			current_page = :current_page,
+			status       = :status,
+			updated_at   = :updated_at,
+			finished_at  = COALESCE(EXCLUDED.finished_at, reading_sessions.finished_at)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, session)
 	if err != nil {

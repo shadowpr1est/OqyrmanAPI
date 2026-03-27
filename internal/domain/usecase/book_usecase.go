@@ -17,5 +17,7 @@ type BookUseCase interface {
 	Search(ctx context.Context, query string, limit, offset int) ([]*entity.Book, int, error)
 	Update(ctx context.Context, book *entity.Book) (*entity.Book, error)
 	UploadCover(ctx context.Context, id uuid.UUID, cover *fileupload.File) (*entity.Book, error)
+	ListPopular(ctx context.Context, limit, offset int) ([]*entity.Book, int, error)
+	ListSimilar(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.Book, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }

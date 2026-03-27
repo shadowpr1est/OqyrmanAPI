@@ -23,6 +23,10 @@ func (u *readingSessionUseCase) Upsert(ctx context.Context, session *entity.Read
 		session.ID = uuid.New()
 	}
 	session.UpdatedAt = time.Now()
+	if session.Status == entity.StatusFinished && session.FinishedAt == nil {
+		now := time.Now()
+		session.FinishedAt = &now
+	}
 	return u.sessionRepo.Upsert(ctx, session)
 }
 

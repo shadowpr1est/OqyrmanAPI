@@ -9,3 +9,10 @@ type statsResponse struct {
 	ReservationsTotal   int `json:"reservations_total"`
 	ReviewsTotal        int `json:"reviews_total"`
 }
+
+type userStatsResponse struct {
+	BooksRead          int `json:"books_read"`
+	ActiveReservations int `json:"active_reservations"`
+	ReviewsGiven       int `json:"reviews_given"`
+	WishlistCount      int `json:"wishlist_count"`
+}

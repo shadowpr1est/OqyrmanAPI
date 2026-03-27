@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
@@ -37,8 +38,8 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 		return nil, errors.New("email already exists")
 	}
 
-	if len(user.PasswordHash) < 8 {
-		return nil, errors.New("password must be at least 8 characters")
+	if err := validatePassword(user.PasswordHash); err != nil {
+		return nil, err
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
@@ -94,6 +95,28 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 
 func (u *authUseCase) Logout(ctx context.Context, refreshToken string) error {
 	return u.tokenRepo.DeleteByRefreshToken(ctx, refreshToken)
+}
+
+func validatePassword(p string) error {
+	if len(p) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+	var hasUpper, hasDigit bool
+	for _, r := range p {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
+	if !hasUpper {
+		return errors.New("password must contain at least one uppercase letter")
+	}
+	if !hasDigit {
+		return errors.New("password must contain at least one digit")
+	}
+	return nil
 }
 
 func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*domainUseCase.TokenPair, error) {

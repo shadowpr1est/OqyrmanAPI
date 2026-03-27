@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/repository"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -18,4 +19,8 @@ func NewStatsUseCase(repo repository.StatsRepository) domainUseCase.StatsUseCase
 
 func (u *statsUseCase) GetStats(ctx context.Context) (*entity.Stats, error) {
 	return u.repo.GetStats(ctx)
+}
+
+func (u *statsUseCase) GetUserStats(ctx context.Context, userID uuid.UUID) (*entity.UserStats, error) {
+	return u.repo.GetUserStats(ctx, userID)
 }

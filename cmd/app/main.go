@@ -28,6 +28,7 @@ import (
 	genreH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/genre"
 	libraryH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library"
 	libraryBookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library_book"
+	notificationH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/notification"
 	notesH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reading_note"
 	readingSessionH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reading_session"
 	reservationH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reservation"
@@ -44,6 +45,7 @@ import (
 	genreUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/genre"
 	libraryUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/library"
 	libraryBookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/library_book"
+	notificationUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/notification"
 	readingNoteUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/reading_note"
 	readingSessionUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/reading_session"
 	reservationUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/reservation"
@@ -99,6 +101,7 @@ func main() {
 	libraryBookRepo := postgres.NewLibraryBookRepo(db)
 	reservationRepo := postgres.NewReservationRepo(db)
 	reviewRepo := postgres.NewReviewRepo(db)
+	notifRepo := postgres.NewNotificationRepo(db)
 
 	// usecases
 	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
@@ -113,8 +116,9 @@ func main() {
 	noteUseCase := readingNoteUC.NewReadingNoteUseCase(noteRepo)
 	libraryUseCase := libraryUC.NewLibraryUseCase(libraryRepo)
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
-	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo)
+	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, notifRepo)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
+	notifUseCase := notificationUC.NewNotificationUseCase(notifRepo)
 
 	// AI
 	var aiHandler *aiH.Handler
@@ -141,6 +145,7 @@ func main() {
 	libraryBookHandler := libraryBookH.NewHandler(libraryBookUseCase)
 	reservHandler := reservationH.NewHandler(reservUseCase)
 	reviewHandler := reviewH.NewHandler(reviewUseCase)
+	notifHandler := notificationH.NewHandler(notifUseCase)
 
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM,
@@ -168,7 +173,10 @@ func main() {
 		reviewHandler,
 		jwtManager,
 		statsHandler,
+		notifHandler,
 		aiHandler,
+		cfg.App.Env,
+		cfg.App.AllowedOrigins,
 	)
 
 	engine := router.Init()

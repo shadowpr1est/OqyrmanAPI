@@ -86,6 +86,14 @@ func (u *bookUseCase) Update(ctx context.Context, book *entity.Book) (*entity.Bo
 	return u.bookRepo.Update(ctx, book)
 }
 
+func (u *bookUseCase) ListPopular(ctx context.Context, limit, offset int) ([]*entity.Book, int, error) {
+	return u.bookRepo.ListPopular(ctx, limit, offset)
+}
+
+func (u *bookUseCase) ListSimilar(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.Book, error) {
+	return u.bookRepo.ListSimilar(ctx, bookID, limit)
+}
+
 func (u *bookUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.bookRepo.Delete(ctx, id)
 }

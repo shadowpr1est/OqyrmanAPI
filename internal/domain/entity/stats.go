@@ -9,3 +9,10 @@ type Stats struct {
 	ReservationsTotal   int `db:"reservations_total"`
 	ReviewsTotal        int `db:"reviews_total"`
 }
+
+type UserStats struct {
+	BooksRead          int `db:"books_read"           json:"books_read"`
+	ActiveReservations int `db:"active_reservations"  json:"active_reservations"`
+	ReviewsGiven       int `db:"reviews_given"        json:"reviews_given"`
+	WishlistCount      int `db:"wishlist_count"       json:"wishlist_count"`
+}

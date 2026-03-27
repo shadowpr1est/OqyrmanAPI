@@ -9,6 +9,7 @@ type createBookRequest struct {
 	Description string `form:"description"`
 	Language    string `form:"language"`
 	Year        int    `form:"year"`
+	TotalPages  *int   `form:"total_pages"`
 	// avg_rating убран — рейтинг вычисляется автоматически из отзывов пользователей.
 	// При создании книги всегда 0.0, обновляется через review usecase.
 }
@@ -22,6 +23,7 @@ type updateBookRequest struct {
 	Description *string `json:"description"`
 	Language    *string `json:"language"`
 	Year        *int    `json:"year"`
+	TotalPages  *int    `json:"total_pages"`
 	// avg_rating намеренно исключён — рейтинг вычисляется автоматически из отзывов
 }
 
@@ -36,6 +38,7 @@ type bookResponse struct {
 	Language    string  `json:"language"`
 	Year        int     `json:"year"`
 	AvgRating   float64 `json:"avg_rating"`
+	TotalPages  *int    `json:"total_pages,omitempty"`
 }
 
 type listBookResponse struct {

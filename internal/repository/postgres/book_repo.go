@@ -21,8 +21,8 @@ func NewBookRepo(db *sqlx.DB) *bookRepo {
 
 func (r *bookRepo) Create(ctx context.Context, book *entity.Book) (*entity.Book, error) {
 	query := `
-		INSERT INTO books (id, author_id, genre_id, title, isbn, cover_url, description, language, year, avg_rating)
-		VALUES (:id, :author_id, :genre_id, :title, :isbn, :cover_url, :description, :language, :year, :avg_rating)
+		INSERT INTO books (id, author_id, genre_id, title, isbn, cover_url, description, language, year, avg_rating, total_pages)
+		VALUES (:id, :author_id, :genre_id, :title, :isbn, :cover_url, :description, :language, :year, :avg_rating, :total_pages)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, book)
 	if err != nil {
@@ -134,7 +134,8 @@ func (r *bookRepo) Update(ctx context.Context, book *entity.Book) (*entity.Book,
 		UPDATE books
 		SET author_id = :author_id, genre_id = :genre_id, title = :title,
 		    isbn = :isbn, cover_url = :cover_url, description = :description,
-		    language = :language, year = :year, avg_rating = :avg_rating
+		    language = :language, year = :year, avg_rating = :avg_rating,
+		    total_pages = :total_pages
 		WHERE id = :id AND deleted_at IS NULL
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, book)
@@ -188,6 +189,44 @@ func (r *bookRepo) UpdateRating(ctx context.Context, bookID uuid.UUID) error {
 		return fmt.Errorf("bookRepo.UpdateRating: %w", err)
 	}
 	return nil
+}
+
+func (r *bookRepo) ListPopular(ctx context.Context, limit, offset int) ([]*entity.Book, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM books WHERE deleted_at IS NULL`,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.ListPopular count: %w", err)
+	}
+
+	var books []*entity.Book
+	if err := r.db.SelectContext(ctx, &books, `
+		SELECT * FROM books
+		WHERE deleted_at IS NULL
+		ORDER BY avg_rating DESC
+		LIMIT $1 OFFSET $2`,
+		limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.ListPopular: %w", err)
+	}
+
+	return books, total, nil
+}
+
+func (r *bookRepo) ListSimilar(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.Book, error) {
+	var books []*entity.Book
+	if err := r.db.SelectContext(ctx, &books, `
+		SELECT b.* FROM books b
+		JOIN books src ON src.id = $1
+		WHERE b.id != $1 AND b.deleted_at IS NULL
+		  AND (b.genre_id = src.genre_id OR b.author_id = src.author_id)
+		ORDER BY b.avg_rating DESC
+		LIMIT $2`,
+		bookID, limit,
+	); err != nil {
+		return nil, fmt.Errorf("bookRepo.ListSimilar: %w", err)
+	}
+	return books, nil
 }
 
 func (r *bookRepo) Delete(ctx context.Context, id uuid.UUID) error {

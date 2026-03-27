@@ -188,10 +188,11 @@ func (r *reviewRepo) Delete(ctx context.Context, id uuid.UUID) error {
 func updateBookRatingTx(ctx context.Context, tx *sqlx.Tx, bookID uuid.UUID) error {
 	_, err := tx.ExecContext(ctx, `
 		UPDATE books
-		SET avg_rating = COALESCE(
-			(SELECT AVG(rating)::float FROM reviews WHERE book_id = $1 AND deleted_at IS NULL),
-			0
+		SET avg_rating = (
+			SELECT COALESCE(AVG(rating), 0)
+			FROM reviews
+			WHERE book_id = $1 AND deleted_at IS NULL
 		)
-		WHERE id = $1`, bookID)
+		WHERE id = $1 AND deleted_at IS NULL`, bookID)
 	return err
 }

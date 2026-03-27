@@ -65,6 +65,7 @@ func (h *Handler) Create(c *gin.Context) {
 		Description: req.Description,
 		Language:    req.Language,
 		Year:        req.Year,
+		TotalPages:  req.TotalPages,
 	}
 
 	var cover *fileupload.File
@@ -356,6 +357,9 @@ func (h *Handler) Update(c *gin.Context) {
 	if req.Year != nil {
 		existing.Year = *req.Year
 	}
+	if req.TotalPages != nil {
+		existing.TotalPages = req.TotalPages
+	}
 
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
@@ -391,6 +395,72 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary     Популярные книги
+// @Tags        books
+// @Produce     json
+// @Param       limit  query int false "Лимит"  default(20)
+// @Param       offset query int false "Отступ" default(0)
+// @Success     200 {object} listBookResponse
+// @Router      /books/popular [get]
+func (h *Handler) ListPopular(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	books, total, err := h.uc.ListPopular(c.Request.Context(), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	items := make([]*bookResponse, len(books))
+	for i, b := range books {
+		resp := toBookResponse(b)
+		items[i] = &resp
+	}
+
+	c.JSON(http.StatusOK, listBookResponse{
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	})
+}
+
+// @Summary     Похожие книги
+// @Tags        books
+// @Produce     json
+// @Param       id    path string true  "ID книги"
+// @Param       limit query int   false "Лимит" default(10)
+// @Success     200 {object} map[string]interface{}
+// @Failure     400 {object} map[string]string
+// @Router      /books/{id}/similar [get]
+func (h *Handler) ListSimilar(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	books, err := h.uc.ListSimilar(c.Request.Context(), id, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	items := make([]*bookResponse, len(books))
+	for i, b := range books {
+		resp := toBookResponse(b)
+		items[i] = &resp
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 func toBookResponse(b *entity.Book) bookResponse {
 	return bookResponse{
 		ID:          b.ID.String(),
@@ -403,5 +473,6 @@ func toBookResponse(b *entity.Book) bookResponse {
 		Language:    b.Language,
 		Year:        b.Year,
 		AvgRating:   b.AvgRating,
+		TotalPages:  b.TotalPages,
 	}
 }

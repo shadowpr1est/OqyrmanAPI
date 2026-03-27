@@ -17,6 +17,7 @@ import (
 	genreHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/genre"
 	libraryHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library"
 	libraryBookHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library_book"
+	notificationHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/notification"
 	notesHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reading_note"
 	readingSessionHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reading_session"
 	reservationHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/reservation"
@@ -45,7 +46,10 @@ type Router struct {
 	review         *reviewHandler.Handler
 	jwt            *jwt.Manager
 	stats          *statsHandler.Handler
+	notification   *notificationHandler.Handler
 	ai             *aiHandler.Handler
+	env            string
+	allowedOrigins string
 }
 
 func NewRouter(
@@ -65,7 +69,10 @@ func NewRouter(
 	review *reviewHandler.Handler,
 	jwt *jwt.Manager,
 	stats *statsHandler.Handler,
+	notification *notificationHandler.Handler,
 	ai *aiHandler.Handler,
+	env string,
+	allowedOrigins string,
 ) *Router {
 	return &Router{
 		db:             db,
@@ -84,12 +91,17 @@ func NewRouter(
 		review:         review,
 		jwt:            jwt,
 		stats:          stats,
+		notification:   notification,
 		ai:             ai,
+		env:            env,
+		allowedOrigins: allowedOrigins,
 	}
 }
 
 func (r *Router) Init() *gin.Engine {
 	engine := gin.Default()
+	engine.Use(middleware.CORS(r.allowedOrigins))
+	engine.MaxMultipartMemory = 20 << 20 // 20 MB
 	engine.GET("/health", func(c *gin.Context) {
 		if err := r.db.PingContext(c.Request.Context()); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "db unavailable", "error": err.Error()})
@@ -97,16 +109,22 @@ func (r *Router) Init() *gin.Engine {
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
-	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	if r.env != "production" {
+		engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 	api := engine.Group("/api/v1")
 	{
 		// ─── Публичные маршруты — без токена ───────────────────────────────
 		public := api.Group("/")
 		{
-			// auth
-			public.POST("/auth/register", r.auth.Register)
-			public.POST("/auth/login", r.auth.Login)
-			public.POST("/auth/refresh", r.auth.RefreshToken)
+			// auth — 20 req/min per IP
+			authGroup := public.Group("/auth")
+			authGroup.Use(middleware.RateLimit(20, time.Minute))
+			{
+				authGroup.POST("/register", r.auth.Register)
+				authGroup.POST("/login", r.auth.Login)
+				authGroup.POST("/refresh", r.auth.RefreshToken)
+			}
 
 			// authors
 			public.GET("/authors", r.author.List)
@@ -118,12 +136,14 @@ func (r *Router) Init() *gin.Engine {
 			public.GET("/genres/slug/:slug", r.genre.GetBySlug)
 			public.GET("/genres/:id", r.genre.GetByID)
 
-			// books
+			// books — статичные маршруты должны быть ДО параметрических
 			public.GET("/books", r.book.List)
 			public.GET("/books/search", r.book.Search)
+			public.GET("/books/popular", r.book.ListPopular)
 			public.GET("/books/author/:author_id", r.book.ListByAuthor)
 			public.GET("/books/genre/:genre_id", r.book.ListByGenre)
 			public.GET("/books/:id", r.book.GetByID)
+			public.GET("/books/:id/similar", r.book.ListSimilar)
 
 			// libraries
 			public.GET("/libraries", r.library.List)
@@ -147,6 +167,7 @@ func (r *Router) Init() *gin.Engine {
 			protected.DELETE("/users/me", r.user.Delete)
 			protected.POST("/users/me/avatar", r.user.UploadAvatar)
 			protected.GET("/users/me/qr", r.user.GetQR)
+			protected.GET("/users/me/stats", r.stats.GetUserStats)
 
 			// book files — детальные данные только для авторизованных
 			protected.GET("/book-files/:id", r.bookFile.GetByID)
@@ -181,6 +202,12 @@ func (r *Router) Init() *gin.Engine {
 			protected.GET("/reservations", r.reservation.ListByUser)
 			protected.GET("/reservations/:id", r.reservation.GetByID)
 			protected.PATCH("/reservations/:id/cancel", r.reservation.Cancel)
+			protected.PUT("/reservations/:id/extend", r.reservation.Extend)
+
+			// notifications
+			protected.GET("/notifications", r.notification.ListMy)
+			protected.PATCH("/notifications/:id/read", r.notification.MarkRead)
+			protected.DELETE("/notifications/:id", r.notification.Delete)
 
 			// reviews — писать и управлять только авторизованным
 			protected.POST("/reviews", r.review.Create)

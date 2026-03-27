@@ -139,7 +139,7 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
-	return readingSessionResponse{
+	resp := readingSessionResponse{
 		ID:          s.ID.String(),
 		UserID:      s.UserID.String(),
 		BookID:      s.BookID.String(),
@@ -147,4 +147,9 @@ func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 		Status:      string(s.Status),
 		UpdatedAt:   s.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+	if s.FinishedAt != nil {
+		t := s.FinishedAt.Format("2006-01-02T15:04:05Z")
+		resp.FinishedAt = &t
+	}
+	return resp
 }

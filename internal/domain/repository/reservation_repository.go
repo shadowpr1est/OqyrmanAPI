@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
@@ -27,6 +28,7 @@ type ReservationRepository interface {
 	// оба nil → без проверки (admin)
 	CancelWithIncrement(ctx context.Context, id uuid.UUID, callerID uuid.UUID) error
 
+	Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
 	CancelOverdue(ctx context.Context) (int, error)
 	Delete(ctx context.Context, id uuid.UUID) error

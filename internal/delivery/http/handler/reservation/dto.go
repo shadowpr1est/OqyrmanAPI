@@ -13,6 +13,10 @@ type updateStatusRequest struct {
 	Status string `json:"status" binding:"required"`
 }
 
+type extendReservationRequest struct {
+	DueDate string `json:"due_date" binding:"required"`
+}
+
 type reservationResponse struct {
 	ID            string  `json:"id"`
 	UserID        string  `json:"user_id"`

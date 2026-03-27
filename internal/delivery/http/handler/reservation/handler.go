@@ -158,6 +158,50 @@ func (h *Handler) Cancel(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary     Продлить бронь
+// @Tags        reservations
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       id    path string              true "ID брони"
+// @Param       input body extendReservationRequest true "Новая дата возврата"
+// @Success     200 {object} reservationResponse
+// @Failure     400 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Router      /reservations/{id}/extend [put]
+func (h *Handler) Extend(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req extendReservationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	newDueDate, err := time.Parse("2006-01-02", req.DueDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid due_date format, use YYYY-MM-DD"})
+		return
+	}
+	if newDueDate.Before(time.Now().Truncate(24 * time.Hour)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be in the past"})
+		return
+	}
+
+	result, err := h.uc.Extend(c.Request.Context(), id, userID, newDueDate)
+	if err != nil {
+		handleReservationError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toReservationResponse(result))
+}
+
 // ─── Staff ────────────────────────────────────────────────────────────────────
 
 // @Summary     Брони библиотеки
