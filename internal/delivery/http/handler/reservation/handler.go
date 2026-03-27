@@ -20,6 +20,16 @@ func NewHandler(uc domainUseCase.ReservationUseCase) *Handler {
 	return &Handler{uc: uc}
 }
 
+// @Summary     Создать бронь
+// @Tags        reservations
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       input body createReservationRequest true "Данные брони"
+// @Success     201 {object} reservationResponse
+// @Failure     400 {object} map[string]string
+// @Failure     409 {object} map[string]string
+// @Router      /reservations [post]
 func (h *Handler) Create(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 
@@ -66,6 +76,14 @@ func (h *Handler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, toReservationResponse(result))
 }
 
+// @Summary     Получить бронь
+// @Tags        reservations
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "ID брони"
+// @Success     200 {object} reservationResponse
+// @Failure     404 {object} map[string]string
+// @Router      /reservations/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -86,6 +104,14 @@ func (h *Handler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, toReservationResponse(r))
 }
 
+// @Summary     Мои брони
+// @Tags        reservations
+// @Security    BearerAuth
+// @Produce     json
+// @Param       limit  query int false "Лимит"    default(20)
+// @Param       offset query int false "Смещение" default(0)
+// @Success     200 {object} map[string]interface{}
+// @Router      /reservations [get]
 func (h *Handler) ListByUser(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	limit, offset, err := parsePagination(c)
@@ -108,6 +134,14 @@ func (h *Handler) ListByUser(c *gin.Context) {
 	})
 }
 
+// @Summary     Отменить бронь
+// @Tags        reservations
+// @Security    BearerAuth
+// @Param       id path string true "ID брони"
+// @Success     204
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Router      /reservations/{id}/cancel [patch]
 func (h *Handler) Cancel(c *gin.Context) {
 	callerID := middleware.GetUserID(c)
 	id, err := uuid.Parse(c.Param("id"))
@@ -126,7 +160,16 @@ func (h *Handler) Cancel(c *gin.Context) {
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
 
-// ListByLibrary — staff видит все брони своей библиотеки
+// @Summary     Брони библиотеки
+// @Tags        staff
+// @Security    BearerAuth
+// @Produce     json
+// @Param       limit  query int    false "Лимит"    default(20)
+// @Param       offset query int    false "Смещение" default(0)
+// @Param       status query string false "Фильтр по статусу"
+// @Success     200 {object} map[string]interface{}
+// @Failure     403 {object} map[string]string
+// @Router      /staff/reservations [get]
 func (h *Handler) ListByLibrary(c *gin.Context) {
 	libraryID := middleware.GetLibraryID(c)
 	if libraryID == nil {
@@ -159,7 +202,14 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 	})
 }
 
-// StaffCancel — staff отменяет бронь только своей библиотеки
+// @Summary     Отменить бронь (staff)
+// @Tags        staff
+// @Security    BearerAuth
+// @Param       id path string true "ID брони"
+// @Success     204
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Router      /staff/reservations/{id}/cancel [patch]
 func (h *Handler) StaffCancel(c *gin.Context) {
 	libraryID := middleware.GetLibraryID(c)
 	if libraryID == nil {
@@ -181,7 +231,14 @@ func (h *Handler) StaffCancel(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// StaffReturn — staff отмечает возврат книги только своей библиотеки
+// @Summary     Возврат книги (staff)
+// @Tags        staff
+// @Security    BearerAuth
+// @Param       id path string true "ID брони"
+// @Success     204
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Router      /staff/reservations/{id}/return [patch]
 func (h *Handler) StaffReturn(c *gin.Context) {
 	libraryID := middleware.GetLibraryID(c)
 	if libraryID == nil {
@@ -204,7 +261,15 @@ func (h *Handler) StaffReturn(c *gin.Context) {
 }
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
-
+// @Summary     Все брони (admin)
+// @Tags        admin
+// @Security    BearerAuth
+// @Produce     json
+// @Param       limit  query int    false "Лимит"    default(20)
+// @Param       offset query int    false "Смещение" default(0)
+// @Param       status query string false "Фильтр по статусу"
+// @Success     200 {object} map[string]interface{}
+// @Router      /admin/reservations [get]
 func (h *Handler) ListAll(c *gin.Context) {
 	limit, offset, err := parsePagination(c)
 	if err != nil {
@@ -230,6 +295,13 @@ func (h *Handler) ListAll(c *gin.Context) {
 	})
 }
 
+// @Summary     Возврат книги (admin)
+// @Tags        admin
+// @Security    BearerAuth
+// @Param       id path string true "ID брони"
+// @Success     204
+// @Failure     404 {object} map[string]string
+// @Router      /admin/reservations/{id}/return [patch]
 func (h *Handler) AdminReturn(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -245,6 +317,14 @@ func (h *Handler) AdminReturn(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary     Обновить статус брони (admin)
+// @Tags        admin
+// @Security    BearerAuth
+// @Accept      json
+// @Param       id    path string            true "ID брони"
+// @Param       input body updateStatusRequest true "Новый статус"
+// @Success     204
+// @Router      /admin/reservations/{id}/status [patch]
 func (h *Handler) UpdateStatus(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
