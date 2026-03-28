@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -42,7 +41,7 @@ func (h *Handler) GetStats(c *gin.Context) {
 // @Success     200 {object} userStatsResponse
 // @Router      /users/me/stats [get]
 func (h *Handler) GetUserStats(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 	stats, err := h.uc.GetUserStats(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())

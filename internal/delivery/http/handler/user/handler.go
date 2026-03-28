@@ -30,7 +30,7 @@ func NewHandler(uc domainUseCase.UserUseCase) *Handler {
 // @Failure     401 {object} map[string]string
 // @Router      /users/me [get]
 func (h *Handler) GetMe(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	user, err := h.uc.GetByID(c.Request.Context(), userID)
 	if err != nil {
@@ -51,7 +51,7 @@ func (h *Handler) GetMe(c *gin.Context) {
 // @Failure     400 {object} map[string]string
 // @Router      /users/me [put]
 func (h *Handler) Update(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	var req updateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -190,7 +190,7 @@ func (h *Handler) AdminDelete(c *gin.Context) {
 // @Success     200 {object} map[string]string
 // @Router      /users/me/qr [get]
 func (h *Handler) GetQR(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 	user, err := h.uc.GetByID(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -210,7 +210,7 @@ func (h *Handler) GetQR(c *gin.Context) {
 // @Failure     500 {object} map[string]string
 // @Router      /users/me/avatar [post]
 func (h *Handler) UploadAvatar(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -226,8 +226,12 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 	defer f.Close()
 
 	contentType := fh.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "image/jpeg"
+	switch contentType {
+	case "image/jpeg", "image/png", "image/webp":
+		// ok
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "only jpeg, png, webp images are allowed"})
+		return
 	}
 
 	user, err := h.uc.UploadAvatar(c.Request.Context(), userID, &fileupload.File{
@@ -251,7 +255,7 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 // @Failure     401 {object} map[string]string
 // @Router      /users/me [delete]
 func (h *Handler) Delete(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	if err := h.uc.Delete(c.Request.Context(), userID); err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())

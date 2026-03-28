@@ -30,7 +30,7 @@ func NewHandler(uc domainUseCase.NotificationUseCase) *Handler {
 // @Success     200 {object} listNotificationsResponse
 // @Router      /notifications [get]
 func (h *Handler) ListMy(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
@@ -70,7 +70,7 @@ func (h *Handler) ListMy(c *gin.Context) {
 // @Failure     404 {object} map[string]string
 // @Router      /notifications/{id}/read [patch]
 func (h *Handler) MarkRead(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -99,7 +99,7 @@ func (h *Handler) MarkRead(c *gin.Context) {
 // @Failure     404 {object} map[string]string
 // @Router      /notifications/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

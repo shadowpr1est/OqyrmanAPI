@@ -1,6 +1,7 @@
 package review
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -29,7 +30,7 @@ func NewHandler(uc domainUseCase.ReviewUseCase) *Handler {
 // @Success     201 {object} reviewResponse
 // @Router      /reviews [post]
 func (h *Handler) Create(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	var req createReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -133,7 +134,7 @@ func (h *Handler) ListByBook(c *gin.Context) {
 // @Success     200 {object} map[string]interface{}
 // @Router      /reviews/user [get]
 func (h *Handler) ListByUser(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	reviews, err := h.uc.ListByUser(c.Request.Context(), userID)
 	if err != nil {
@@ -161,7 +162,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 // @Success     200 {object} reviewResponse
 // @Router      /reviews/{id} [put]
 func (h *Handler) Update(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -179,10 +180,6 @@ func (h *Handler) Update(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
-	if existing.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
 
 	if req.Rating != nil {
 		existing.Rating = *req.Rating
@@ -191,8 +188,12 @@ func (h *Handler) Update(c *gin.Context) {
 		existing.Body = *req.Body
 	}
 
-	result, err := h.uc.Update(c.Request.Context(), existing)
+	result, err := h.uc.Update(c.Request.Context(), existing, userID)
 	if err != nil {
+		if errors.Is(err, entity.ErrForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -207,23 +208,22 @@ func (h *Handler) Update(c *gin.Context) {
 // @Success     204
 // @Router      /reviews/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	existing, err := h.uc.GetByID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
-	}
-	if existing.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return
-	}
-	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
+	if err := h.uc.Delete(c.Request.Context(), id, userID); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "review not found"})
+			return
+		}
+		if errors.Is(err, entity.ErrForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return

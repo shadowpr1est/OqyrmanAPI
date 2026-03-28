@@ -28,7 +28,7 @@ func NewHandler(uc domainUseCase.WishlistUseCase) *Handler {
 // @Success     201 {object} wishlistResponse
 // @Router      /wishlist [post]
 func (h *Handler) Add(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	var req addWishlistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -59,7 +59,7 @@ func (h *Handler) Add(c *gin.Context) {
 // @Success     204
 // @Router      /wishlist/{book_id} [delete]
 func (h *Handler) Remove(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	bookID, err := uuid.Parse(c.Param("book_id"))
 	if err != nil {
@@ -83,7 +83,7 @@ func (h *Handler) Remove(c *gin.Context) {
 // @Success     200 {object} map[string]interface{}
 // @Router      /wishlist [get]
 func (h *Handler) List(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	items, err := h.uc.ListByUser(c.Request.Context(), userID)
 	if err != nil {
@@ -109,7 +109,7 @@ func (h *Handler) List(c *gin.Context) {
 // @Success     200 {object} map[string]bool
 // @Router      /wishlist/{book_id}/exists [get]
 func (h *Handler) Exists(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	bookID, err := uuid.Parse(c.Param("book_id"))
 	if err != nil {

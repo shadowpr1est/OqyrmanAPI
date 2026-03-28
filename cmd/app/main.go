@@ -142,7 +142,7 @@ func main() {
 	userHandler := userH.NewHandler(userUseCase)
 	authorHandler := authorH.NewHandler(authorUseCase)
 	genreHandler := genreH.NewHandler(genreUseCase)
-	bookHandler := bookH.NewHandler(bookUseCase, libraryBookUseCase)
+	bookHandler := bookH.NewHandler(bookUseCase)
 	bookFileHandler := bookFileH.NewHandler(bookFileUseCase)
 	sessionHandler := readingSessionH.NewHandler(sessionUseCase)
 	statsHandler := statsH.NewHandler(statsUseCase)

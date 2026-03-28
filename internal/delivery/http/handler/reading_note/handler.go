@@ -28,7 +28,7 @@ func NewHandler(uc domainUseCase.ReadingNoteUseCase) *Handler {
 // @Success     201 {object} noteResponse
 // @Router      /notes [post]
 func (h *Handler) Create(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	var req createNoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -67,7 +67,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Success     200 {object} noteResponse
 // @Router      /notes/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -95,7 +95,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 // @Success     200 {object} map[string]interface{}
 // @Router      /notes/book/{book_id} [get]
 func (h *Handler) ListByBook(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	bookID, err := uuid.Parse(c.Param("book_id"))
 	if err != nil {
@@ -129,7 +129,7 @@ func (h *Handler) ListByBook(c *gin.Context) {
 // @Success     200 {object} noteResponse
 // @Router      /notes/{id} [put]
 func (h *Handler) Update(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
@@ -176,7 +176,7 @@ func (h *Handler) Update(c *gin.Context) {
 // @Success     204
 // @Router      /notes/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})

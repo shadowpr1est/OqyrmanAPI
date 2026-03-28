@@ -15,12 +15,11 @@ import (
 )
 
 type Handler struct {
-	uc        domainUseCase.BookUseCase
-	libBookUC domainUseCase.LibraryBookUseCase
+	uc domainUseCase.BookUseCase
 }
 
-func NewHandler(uc domainUseCase.BookUseCase, libBookUC domainUseCase.LibraryBookUseCase) *Handler {
-	return &Handler{uc: uc, libBookUC: libBookUC}
+func NewHandler(uc domainUseCase.BookUseCase) *Handler {
+	return &Handler{uc: uc}
 }
 
 // @Summary     Создать книгу
@@ -71,21 +70,25 @@ func (h *Handler) Create(c *gin.Context) {
 
 	var cover *fileupload.File
 	if fh, err := c.FormFile("cover"); err == nil {
+		ct := fh.Header.Get("Content-Type")
+		switch ct {
+		case "image/jpeg", "image/png", "image/webp":
+			// ok
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "only jpeg, png, webp images are allowed"})
+			return
+		}
 		f, err := fh.Open()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
 			return
 		}
 		defer f.Close()
-		contentType := fh.Header.Get("Content-Type")
-		if contentType == "" {
-			contentType = "image/jpeg"
-		}
 		cover = &fileupload.File{
 			Filename:    fh.Filename,
 			Reader:      f,
 			Size:        fh.Size,
-			ContentType: contentType,
+			ContentType: ct,
 		}
 	}
 
@@ -122,6 +125,15 @@ func (h *Handler) UploadCover(c *gin.Context) {
 		return
 	}
 
+	ct := fh.Header.Get("Content-Type")
+	switch ct {
+	case "image/jpeg", "image/png", "image/webp":
+		// ok
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "only jpeg, png, webp images are allowed"})
+		return
+	}
+
 	f, err := fh.Open()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
@@ -129,16 +141,11 @@ func (h *Handler) UploadCover(c *gin.Context) {
 	}
 	defer f.Close()
 
-	contentType := fh.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "image/jpeg"
-	}
-
 	book, err := h.uc.UploadCover(c.Request.Context(), id, &fileupload.File{
 		Filename:    fh.Filename,
 		Reader:      f,
 		Size:        fh.Size,
-		ContentType: contentType,
+		ContentType: ct,
 	})
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
@@ -181,6 +188,12 @@ func (h *Handler) GetByID(c *gin.Context) {
 func (h *Handler) List(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
 
 	books, total, err := h.uc.List(c.Request.Context(), limit, offset)
 	if err != nil {
@@ -279,6 +292,15 @@ func (h *Handler) Search(c *gin.Context) {
 
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if len(query) > 255 {
+		query = query[:255]
+	}
 
 	books, total, err := h.uc.Search(c.Request.Context(), query, limit, offset)
 	if err != nil {
@@ -414,6 +436,12 @@ func (h *Handler) Delete(c *gin.Context) {
 func (h *Handler) ListPopular(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
 
 	books, total, err := h.uc.ListPopular(c.Request.Context(), limit, offset)
 	if err != nil {

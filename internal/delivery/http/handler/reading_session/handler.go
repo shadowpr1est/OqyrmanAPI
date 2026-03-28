@@ -28,7 +28,7 @@ func NewHandler(uc domainUseCase.ReadingSessionUseCase) *Handler {
 // @Success     200 {object} readingSessionResponse
 // @Router      /reading-sessions [post]
 func (h *Handler) Upsert(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	var req upsertReadingSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -67,7 +67,7 @@ func (h *Handler) Upsert(c *gin.Context) {
 // @Success     200 {object} readingSessionResponse
 // @Router      /reading-sessions/book/{book_id} [get]
 func (h *Handler) GetByBook(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	bookID, err := uuid.Parse(c.Param("book_id"))
 	if err != nil {
@@ -91,7 +91,7 @@ func (h *Handler) GetByBook(c *gin.Context) {
 // @Success     200 {object} map[string]interface{}
 // @Router      /reading-sessions [get]
 func (h *Handler) ListByUser(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	sessions, err := h.uc.ListByUser(c.Request.Context(), userID)
 	if err != nil {
@@ -116,7 +116,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 // @Success     204
 // @Router      /reading-sessions/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

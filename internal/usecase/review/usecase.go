@@ -55,9 +55,12 @@ func (u *reviewUseCase) ListByUser(ctx context.Context, userID uuid.UUID) ([]*en
 	return u.reviewRepo.ListByUser(ctx, userID)
 }
 
-func (u *reviewUseCase) Update(ctx context.Context, review *entity.Review) (*entity.Review, error) {
+func (u *reviewUseCase) Update(ctx context.Context, review *entity.Review, callerID uuid.UUID) (*entity.Review, error) {
 	if review.Rating < 1 || review.Rating > 5 {
 		return nil, errors.New("rating must be between 1 and 5")
+	}
+	if review.UserID != callerID {
+		return nil, entity.ErrForbidden
 	}
 
 	updated, err := u.reviewRepo.Update(ctx, review)
@@ -70,10 +73,13 @@ func (u *reviewUseCase) Update(ctx context.Context, review *entity.Review) (*ent
 	return updated, nil
 }
 
-func (u *reviewUseCase) Delete(ctx context.Context, id uuid.UUID) error {
+func (u *reviewUseCase) Delete(ctx context.Context, id uuid.UUID, callerID uuid.UUID) error {
 	existing, err := u.reviewRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
+	}
+	if existing.UserID != callerID {
+		return entity.ErrForbidden
 	}
 	if err := u.reviewRepo.Delete(ctx, id); err != nil {
 		return err

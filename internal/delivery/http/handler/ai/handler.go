@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
@@ -28,7 +27,7 @@ func NewHandler(uc domainUseCase.AIUseCase) *Handler {
 // @Failure     500 {object} map[string]string
 // @Router      /ai/recommend [post]
 func (h *Handler) Recommend(c *gin.Context) {
-	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
+	userID := middleware.GetUserID(c)
 
 	result, err := h.uc.Recommend(c.Request.Context(), userID.String())
 	if err != nil {

@@ -122,20 +122,33 @@ func TestUpdate_Success(t *testing.T) {
 	repo := new(mockReviewRepo)
 	uc := review.NewReviewUseCase(repo, nil)
 
-	input := &entity.Review{ID: uuid.New(), Rating: 4}
+	ownerID := uuid.New()
+	input := &entity.Review{ID: uuid.New(), UserID: ownerID, Rating: 4}
 	repo.On("Update", mock.Anything, input).Return(input, nil)
 
-	result, err := uc.Update(context.Background(), input)
+	result, err := uc.Update(context.Background(), input, ownerID)
 
 	assert.NoError(t, err)
 	assert.Equal(t, input, result)
+}
+
+func TestUpdate_Forbidden(t *testing.T) {
+	repo := new(mockReviewRepo)
+	uc := review.NewReviewUseCase(repo, nil)
+
+	input := &entity.Review{ID: uuid.New(), UserID: uuid.New(), Rating: 4}
+
+	_, err := uc.Update(context.Background(), input, uuid.New()) // разные UserID
+
+	assert.ErrorIs(t, err, entity.ErrForbidden)
+	repo.AssertNotCalled(t, "Update")
 }
 
 func TestUpdate_InvalidRating(t *testing.T) {
 	repo := new(mockReviewRepo)
 	uc := review.NewReviewUseCase(repo, nil)
 
-	_, err := uc.Update(context.Background(), &entity.Review{Rating: 0})
+	_, err := uc.Update(context.Background(), &entity.Review{Rating: 0}, uuid.New())
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "between 1 and 5")
