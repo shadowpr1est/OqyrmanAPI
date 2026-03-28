@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(grep -E '\\\\.\\(go|yaml|yml|json|mod|sum|sql\\)$')",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(grep -r \"deleted_at\" /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/domain/entity/*.go)",
+      "Bash(grep -r ErrForbidden /c/Users/sem1c/GolandProjects/OqyrmanAPI --include=*.go)",
+      "Bash(go test:*)"
     ]
   }
 }

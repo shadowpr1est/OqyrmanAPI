@@ -27,6 +27,13 @@ definitions:
     - email
     - password
     type: object
+  auth.logoutRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
   auth.refreshRequest:
     properties:
       refresh_token:
@@ -41,7 +48,7 @@ definitions:
       full_name:
         type: string
       password:
-        minLength: 6
+        minLength: 8
         type: string
       phone:
         type: string
@@ -135,6 +142,8 @@ definitions:
         type: string
       title:
         type: string
+      total_pages:
+        type: integer
       year:
         type: integer
     type: object
@@ -155,8 +164,6 @@ definitions:
     properties:
       author_id:
         type: string
-      avg_rating:
-        type: number
       cover_url:
         type: string
       description:
@@ -169,6 +176,8 @@ definitions:
         type: string
       title:
         type: string
+      total_pages:
+        type: integer
       year:
         type: integer
     type: object
@@ -184,6 +193,63 @@ definitions:
         type: string
       is_audio:
         type: boolean
+    type: object
+  event.createEventRequest:
+    properties:
+      cover_url:
+        type: string
+      description:
+        type: string
+      ends_at:
+        type: string
+      location:
+        type: string
+      starts_at:
+        type: string
+      title:
+        type: string
+    required:
+    - ends_at
+    - starts_at
+    - title
+    type: object
+  event.eventResponse:
+    properties:
+      cover_url:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      ends_at:
+        type: string
+      id:
+        type: string
+      location:
+        type: string
+      starts_at:
+        type: string
+      title:
+        type: string
+    type: object
+  event.updateEventRequest:
+    properties:
+      cover_url:
+        type: string
+      description:
+        type: string
+      ends_at:
+        type: string
+      location:
+        type: string
+      starts_at:
+        type: string
+      title:
+        type: string
+    required:
+    - ends_at
+    - starts_at
+    - title
     type: object
   genre.createGenreRequest:
     properties:
@@ -299,6 +365,42 @@ definitions:
       total_copies:
         type: integer
     type: object
+  library_book.libraryBookSearchItem:
+    properties:
+      author:
+        type: string
+      available_copies:
+        type: integer
+      book_id:
+        type: string
+      cover_url:
+        type: string
+      genre:
+        type: string
+      is_available:
+        type: boolean
+      library_book_id:
+        type: string
+      title:
+        type: string
+      total_copies:
+        type: integer
+      year:
+        type: integer
+    type: object
+  library_book.libraryBookSearchResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/library_book.libraryBookSearchItem'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
   library_book.updateLibraryBookRequest:
     properties:
       available_copies:
@@ -341,12 +443,42 @@ definitions:
       page:
         type: integer
     type: object
+  notification.listNotificationsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/notification.notificationResponse'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  notification.notificationResponse:
+    properties:
+      body:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_read:
+        type: boolean
+      read_at:
+        type: string
+      title:
+        type: string
+    type: object
   reading_session.readingSessionResponse:
     properties:
       book_id:
         type: string
       current_page:
         type: integer
+      finished_at:
+        type: string
       id:
         type: string
       status:
@@ -382,6 +514,13 @@ definitions:
     required:
     - due_date
     - library_book_id
+    type: object
+  reservation.extendReservationRequest:
+    properties:
+      due_date:
+        type: string
+    required:
+    - due_date
     type: object
   reservation.reservationResponse:
     properties:
@@ -459,6 +598,23 @@ definitions:
         minimum: 1
         type: integer
     type: object
+  stats.libraryStatsResponse:
+    properties:
+      active_reservations:
+        type: integer
+      available_books:
+        type: integer
+      cancelled_reservations:
+        type: integer
+      completed_reservations:
+        type: integer
+      pending_reservations:
+        type: integer
+      total_books:
+        type: integer
+      total_reservations:
+        type: integer
+    type: object
   stats.statsResponse:
     properties:
       authors_total:
@@ -474,6 +630,17 @@ definitions:
       reviews_total:
         type: integer
       users_total:
+        type: integer
+    type: object
+  stats.userStatsResponse:
+    properties:
+      active_reservations:
+        type: integer
+      books_read:
+        type: integer
+      reviews_given:
+        type: integer
+      wishlist_count:
         type: integer
     type: object
   user.updateRoleRequest:
@@ -830,6 +997,72 @@ paths:
       summary: Загрузить обложку книги
       tags:
       - books
+  /admin/events:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Данные события
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/event.createEventRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/event.eventResponse'
+      security:
+      - BearerAuth: []
+      summary: Создать событие
+      tags:
+      - admin
+  /admin/events/{id}:
+    delete:
+      parameters:
+      - description: ID события
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Удалить событие
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID события
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Данные события
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/event.updateEventRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/event.eventResponse'
+      security:
+      - BearerAuth: []
+      summary: Обновить событие
+      tags:
+      - admin
   /admin/genres:
     post:
       consumes:
@@ -1294,11 +1527,20 @@ paths:
       - auth
   /auth/logout:
     post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh токен
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.logoutRequest'
       responses:
         "204":
           description: No Content
-        "401":
-          description: Unauthorized
+        "400":
+          description: Bad Request
           schema:
             additionalProperties:
               type: string
@@ -1537,6 +1779,36 @@ paths:
       summary: Получить книгу
       tags:
       - books
+  /books/{id}/similar:
+    get:
+      parameters:
+      - description: ID книги
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: 10
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Похожие книги
+      tags:
+      - books
   /books/author/{author_id}:
     get:
       parameters:
@@ -1575,6 +1847,29 @@ paths:
       summary: Книги по жанру
       tags:
       - books
+  /books/popular:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Отступ
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/book.listBookResponse'
+      summary: Популярные книги
+      tags:
+      - books
   /books/search:
     get:
       parameters:
@@ -1609,6 +1904,46 @@ paths:
       summary: Поиск книг
       tags:
       - books
+  /events:
+    get:
+      parameters:
+      - description: Лимит (default 20)
+        in: query
+        name: limit
+        type: integer
+      - description: Смещение (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Список событий
+      tags:
+      - events
+  /events/{id}:
+    get:
+      parameters:
+      - description: ID события
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/event.eventResponse'
+      summary: Детали события
+      tags:
+      - events
   /genres:
     get:
       produces:
@@ -1908,6 +2243,75 @@ paths:
       summary: Заметки по книге
       tags:
       - notes
+  /notifications:
+    get:
+      parameters:
+      - default: 20
+        description: Лимит
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Смещение
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/notification.listNotificationsResponse'
+      security:
+      - BearerAuth: []
+      summary: Мои уведомления
+      tags:
+      - notifications
+  /notifications/{id}:
+    delete:
+      parameters:
+      - description: ID уведомления
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Удалить уведомление
+      tags:
+      - notifications
+  /notifications/{id}/read:
+    patch:
+      parameters:
+      - description: ID уведомления
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отметить уведомление как прочитанное
+      tags:
+      - notifications
   /reading-sessions:
     get:
       produces:
@@ -2095,6 +2499,46 @@ paths:
       summary: Отменить бронь
       tags:
       - reservations
+  /reservations/{id}/extend:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Новая дата возврата
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reservation.extendReservationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reservation.reservationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Продлить бронь
+      tags:
+      - reservations
   /reviews:
     post:
       consumes:
@@ -2223,6 +2667,61 @@ paths:
       summary: Мои отзывы
       tags:
       - reviews
+  /staff/books/search:
+    get:
+      parameters:
+      - description: Поиск по названию/автору
+        in: query
+        name: q
+        type: string
+      - description: Фильтр по жанру (UUID)
+        in: query
+        name: genre_id
+        type: string
+      - description: Только доступные
+        in: query
+        name: available
+        type: boolean
+      - description: Лимит (default 20)
+        in: query
+        name: limit
+        type: integer
+      - description: Смещение (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/library_book.libraryBookSearchResponse'
+      security:
+      - BearerAuth: []
+      summary: Поиск книг в библиотеке (для staff)
+      tags:
+      - library-books
+  /staff/library/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/stats.libraryStatsResponse'
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Статистика библиотеки (staff)
+      tags:
+      - staff
   /staff/reservations:
     get:
       parameters:
@@ -2313,6 +2812,30 @@ paths:
       security:
       - BearerAuth: []
       summary: Возврат книги (staff)
+      tags:
+      - staff
+  /staff/reservations/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Новый статус
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reservation.updateStatusRequest'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Обновить статус брони (staff)
       tags:
       - staff
   /users/me:
@@ -2428,6 +2951,20 @@ paths:
       summary: QR-код читательского билета
       tags:
       - users
+  /users/me/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/stats.userStatsResponse'
+      security:
+      - BearerAuth: []
+      summary: Моя статистика
+      tags:
+      - stats
   /wishlist:
     get:
       produces:
