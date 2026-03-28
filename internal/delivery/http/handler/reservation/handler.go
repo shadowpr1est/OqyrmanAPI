@@ -361,6 +361,44 @@ func (h *Handler) AdminReturn(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary     Обновить статус брони (staff)
+// @Tags        staff
+// @Security    BearerAuth
+// @Accept      json
+// @Param       id    path string            true "ID брони"
+// @Param       input body updateStatusRequest true "Новый статус"
+// @Success     204
+// @Router      /staff/reservations/{id}/status [patch]
+func (h *Handler) StaffUpdateStatus(c *gin.Context) {
+	libraryID := middleware.GetLibraryID(c)
+	if libraryID == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no library assigned"})
+		return
+	}
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req updateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.uc.StaffUpdateStatus(
+		c.Request.Context(), id, *libraryID,
+		entity.ReservationStatus(req.Status),
+	); err != nil {
+		handleReservationError(c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 // @Summary     Обновить статус брони (admin)
 // @Tags        admin
 // @Security    BearerAuth

@@ -49,6 +49,27 @@ func (h *Handler) GetUserStats(c *gin.Context) {
 	c.JSON(http.StatusOK, toUserStatsResponse(stats))
 }
 
+// @Summary     Статистика библиотеки (staff)
+// @Tags        staff
+// @Security    BearerAuth
+// @Produce     json
+// @Success     200 {object} libraryStatsResponse
+// @Failure     403 {object} map[string]string
+// @Router      /staff/library/stats [get]
+func (h *Handler) GetLibraryStats(c *gin.Context) {
+	libraryID := middleware.GetLibraryID(c)
+	if libraryID == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no library assigned"})
+		return
+	}
+	stats, err := h.uc.GetLibraryStats(c.Request.Context(), *libraryID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, toLibraryStatsResponse(stats))
+}
+
 func toStatsResponse(s *entity.Stats) statsResponse {
 	return statsResponse{
 		UsersTotal:          s.UsersTotal,
@@ -67,5 +88,17 @@ func toUserStatsResponse(s *entity.UserStats) userStatsResponse {
 		ActiveReservations: s.ActiveReservations,
 		ReviewsGiven:       s.ReviewsGiven,
 		WishlistCount:      s.WishlistCount,
+	}
+}
+
+func toLibraryStatsResponse(s *entity.LibraryStats) libraryStatsResponse {
+	return libraryStatsResponse{
+		TotalBooks:            s.TotalBooks,
+		AvailableBooks:        s.AvailableBooks,
+		TotalReservations:     s.TotalReservations,
+		ActiveReservations:    s.ActiveReservations,
+		PendingReservations:   s.PendingReservations,
+		CompletedReservations: s.CompletedReservations,
+		CancelledReservations: s.CancelledReservations,
 	}
 }

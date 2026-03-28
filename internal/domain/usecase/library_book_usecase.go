@@ -14,4 +14,5 @@ type LibraryBookUseCase interface {
 	ListByBook(ctx context.Context, bookID uuid.UUID) ([]*entity.LibraryBook, error)
 	Update(ctx context.Context, lb *entity.LibraryBook) (*entity.LibraryBook, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	SearchInLibrary(ctx context.Context, libraryID uuid.UUID, q string, genreID *uuid.UUID, onlyAvailable bool, limit, offset int) ([]*entity.LibraryBookSearchResult, int, error)
 }

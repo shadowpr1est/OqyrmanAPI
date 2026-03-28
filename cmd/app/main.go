@@ -22,6 +22,7 @@ import (
 	httpDelivery "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http"
 	aiH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/ai"
 	authH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/auth"
+	eventH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/event"
 	authorH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/author"
 	bookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book"
 	bookFileH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_file"
@@ -39,6 +40,7 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/internal/repository/postgres"
 	aiUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/ai"
 	authUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/auth"
+	eventUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/event"
 	authorUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/author"
 	bookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book"
 	bookFileUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book_file"
@@ -102,6 +104,7 @@ func main() {
 	reservationRepo := postgres.NewReservationRepo(db)
 	reviewRepo := postgres.NewReviewRepo(db)
 	notifRepo := postgres.NewNotificationRepo(db)
+	eventRepo := postgres.NewEventRepo(db)
 
 	// usecases
 	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
@@ -119,6 +122,7 @@ func main() {
 	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, notifRepo)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
 	notifUseCase := notificationUC.NewNotificationUseCase(notifRepo)
+	eventUseCase := eventUC.NewEventUseCase(eventRepo)
 
 	// AI
 	var aiHandler *aiH.Handler
@@ -146,6 +150,7 @@ func main() {
 	reservHandler := reservationH.NewHandler(reservUseCase)
 	reviewHandler := reviewH.NewHandler(reviewUseCase)
 	notifHandler := notificationH.NewHandler(notifUseCase)
+	eventHandler := eventH.NewHandler(eventUseCase)
 
 	ctx, stop := signal.NotifyContext(context.Background(),
 		syscall.SIGINT, syscall.SIGTERM,
@@ -175,6 +180,7 @@ func main() {
 		statsHandler,
 		notifHandler,
 		aiHandler,
+		eventHandler,
 		cfg.App.Env,
 		cfg.App.AllowedOrigins,
 	)

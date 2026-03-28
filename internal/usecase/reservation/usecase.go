@@ -130,3 +130,7 @@ func (u *reservationUseCase) AdminReturn(ctx context.Context, id uuid.UUID) erro
 func (u *reservationUseCase) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error {
 	return u.reservationRepo.UpdateStatus(ctx, id, status)
 }
+
+func (u *reservationUseCase) StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error {
+	return u.reservationRepo.StaffUpdateStatus(ctx, id, libraryID, status)
+}

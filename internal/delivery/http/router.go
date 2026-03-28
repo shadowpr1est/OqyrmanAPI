@@ -14,6 +14,7 @@ import (
 	authorHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/author"
 	bookHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book"
 	bookFileHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_file"
+	eventHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/event"
 	genreHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/genre"
 	libraryHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library"
 	libraryBookHandler "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library_book"
@@ -48,6 +49,7 @@ type Router struct {
 	stats          *statsHandler.Handler
 	notification   *notificationHandler.Handler
 	ai             *aiHandler.Handler
+	event          *eventHandler.Handler
 	env            string
 	allowedOrigins string
 }
@@ -71,6 +73,7 @@ func NewRouter(
 	stats *statsHandler.Handler,
 	notification *notificationHandler.Handler,
 	ai *aiHandler.Handler,
+	event *eventHandler.Handler,
 	env string,
 	allowedOrigins string,
 ) *Router {
@@ -93,6 +96,7 @@ func NewRouter(
 		stats:          stats,
 		notification:   notification,
 		ai:             ai,
+		event:          event,
 		env:            env,
 		allowedOrigins: allowedOrigins,
 	}
@@ -149,6 +153,10 @@ func (r *Router) Init() *gin.Engine {
 			public.GET("/libraries", r.library.List)
 			public.GET("/libraries/nearby", r.library.ListNearby)
 			public.GET("/libraries/:id", r.library.GetByID)
+
+			// events — публичные
+			public.GET("/events", r.event.List)
+			public.GET("/events/:id", r.event.GetByID)
 
 			// reviews — читать без токена, писать только авторизованным
 			public.GET("/reviews/book/:book_id", r.review.ListByBook)
@@ -267,6 +275,11 @@ func (r *Router) Init() *gin.Engine {
 				admin.PUT("/library-books/:id", r.libraryBook.Update)
 				admin.DELETE("/library-books/:id", r.libraryBook.Delete)
 
+				// events
+				admin.POST("/events", r.event.Create)
+				admin.PUT("/events/:id", r.event.Update)
+				admin.DELETE("/events/:id", r.event.Delete)
+
 				// reservations
 				admin.GET("/reservations", r.reservation.ListAll)
 				admin.PATCH("/reservations/:id/status", r.reservation.UpdateStatus)
@@ -280,6 +293,9 @@ func (r *Router) Init() *gin.Engine {
 				staff.GET("/reservations", r.reservation.ListByLibrary)
 				staff.PATCH("/reservations/:id/cancel", r.reservation.StaffCancel)
 				staff.PATCH("/reservations/:id/return", r.reservation.StaffReturn)
+				staff.PATCH("/reservations/:id/status", r.reservation.StaffUpdateStatus)
+				staff.GET("/books/search", r.libraryBook.SearchInLibrary)
+				staff.GET("/library/stats", r.stats.GetLibraryStats)
 			}
 		}
 	}

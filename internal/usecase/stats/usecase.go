@@ -24,3 +24,7 @@ func (u *statsUseCase) GetStats(ctx context.Context) (*entity.Stats, error) {
 func (u *statsUseCase) GetUserStats(ctx context.Context, userID uuid.UUID) (*entity.UserStats, error) {
 	return u.repo.GetUserStats(ctx, userID)
 }
+
+func (u *statsUseCase) GetLibraryStats(ctx context.Context, libraryID uuid.UUID) (*entity.LibraryStats, error) {
+	return u.repo.GetLibraryStats(ctx, libraryID)
+}

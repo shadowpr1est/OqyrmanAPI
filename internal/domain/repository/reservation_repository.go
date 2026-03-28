@@ -23,6 +23,7 @@ type ReservationRepository interface {
 	ListByLibrary(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.Reservation, int, error)
 	StaffCancel(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
 	StaffReturn(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
+	StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error
 	// callerID != nil → проверка владельца (user cancel)
 	// libraryID != nil → проверка принадлежности библиотеке (staff cancel/return)
 	// оба nil → без проверки (admin)

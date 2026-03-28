@@ -10,4 +10,5 @@ import (
 type StatsRepository interface {
 	GetStats(ctx context.Context) (*entity.Stats, error)
 	GetUserStats(ctx context.Context, userID uuid.UUID) (*entity.UserStats, error)
+	GetLibraryStats(ctx context.Context, libraryID uuid.UUID) (*entity.LibraryStats, error)
 }

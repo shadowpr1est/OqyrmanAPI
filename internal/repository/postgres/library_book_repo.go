@@ -96,3 +96,55 @@ func (r *libraryBookRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
+func (r *libraryBookRepo) SearchInLibrary(ctx context.Context, libraryID uuid.UUID, q string, genreID *uuid.UUID, onlyAvailable bool, limit, offset int) ([]*entity.LibraryBookSearchResult, int, error) {
+	var genreParam interface{} = nil
+	if genreID != nil {
+		genreParam = *genreID
+	}
+
+	query := `
+		SELECT
+			lb.id          AS library_book_id,
+			b.id           AS book_id,
+			b.title,
+			b.cover_url,
+			b.year,
+			a.name         AS author,
+			g.name         AS genre,
+			lb.total_copies,
+			lb.available_copies,
+			lb.available_copies > 0 AS is_available
+		FROM library_books lb
+		JOIN books    b ON b.id = lb.book_id    AND b.deleted_at IS NULL
+		JOIN authors  a ON a.id = b.author_id   AND a.deleted_at IS NULL
+		JOIN genres   g ON g.id = b.genre_id    AND g.deleted_at IS NULL
+		WHERE lb.library_id = $1
+		  AND ($2 = '' OR b.title ILIKE '%' || $2 || '%' OR a.name ILIKE '%' || $2 || '%')
+		  AND ($3::uuid IS NULL OR b.genre_id = $3::uuid)
+		  AND ($4 = false OR lb.available_copies > 0)
+		ORDER BY b.title
+		LIMIT $5 OFFSET $6`
+
+	var items []*entity.LibraryBookSearchResult
+	if err := r.db.SelectContext(ctx, &items, query, libraryID, q, genreParam, onlyAvailable, limit, offset); err != nil {
+		return nil, 0, fmt.Errorf("libraryBookRepo.SearchInLibrary: %w", err)
+	}
+
+	countQuery := `
+		SELECT COUNT(*)
+		FROM library_books lb
+		JOIN books   b ON b.id = lb.book_id   AND b.deleted_at IS NULL
+		JOIN authors a ON a.id = b.author_id  AND a.deleted_at IS NULL
+		WHERE lb.library_id = $1
+		  AND ($2 = '' OR b.title ILIKE '%' || $2 || '%' OR a.name ILIKE '%' || $2 || '%')
+		  AND ($3::uuid IS NULL OR b.genre_id = $3::uuid)
+		  AND ($4 = false OR lb.available_copies > 0)`
+
+	var total int
+	if err := r.db.GetContext(ctx, &total, countQuery, libraryID, q, genreParam, onlyAvailable); err != nil {
+		return nil, 0, fmt.Errorf("libraryBookRepo.SearchInLibrary count: %w", err)
+	}
+
+	return items, total, nil
+}

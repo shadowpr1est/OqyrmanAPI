@@ -34,6 +34,35 @@ func (r *statsRepo) GetStats(ctx context.Context) (*entity.Stats, error) {
 	return &stats, nil
 }
 
+func (r *statsRepo) GetLibraryStats(ctx context.Context, libraryID uuid.UUID) (*entity.LibraryStats, error) {
+	var stats entity.LibraryStats
+	query := `
+		SELECT
+			(SELECT COUNT(*) FROM library_books
+			 WHERE library_id = $1)                                         AS total_books,
+			(SELECT COUNT(*) FROM library_books
+			 WHERE library_id = $1 AND available_copies > 0)               AS available_books,
+			(SELECT COUNT(*) FROM reservations r
+			 JOIN library_books lb ON lb.id = r.library_book_id
+			 WHERE lb.library_id = $1)                                      AS total_reservations,
+			(SELECT COUNT(*) FROM reservations r
+			 JOIN library_books lb ON lb.id = r.library_book_id
+			 WHERE lb.library_id = $1 AND r.status = 'active')             AS active_reservations,
+			(SELECT COUNT(*) FROM reservations r
+			 JOIN library_books lb ON lb.id = r.library_book_id
+			 WHERE lb.library_id = $1 AND r.status = 'pending')            AS pending_reservations,
+			(SELECT COUNT(*) FROM reservations r
+			 JOIN library_books lb ON lb.id = r.library_book_id
+			 WHERE lb.library_id = $1 AND r.status = 'completed')          AS completed_reservations,
+			(SELECT COUNT(*) FROM reservations r
+			 JOIN library_books lb ON lb.id = r.library_book_id
+			 WHERE lb.library_id = $1 AND r.status = 'cancelled')          AS cancelled_reservations`
+	if err := r.db.GetContext(ctx, &stats, query, libraryID); err != nil {
+		return nil, fmt.Errorf("statsRepo.GetLibraryStats: %w", err)
+	}
+	return &stats, nil
+}
+
 func (r *statsRepo) GetUserStats(ctx context.Context, userID uuid.UUID) (*entity.UserStats, error) {
 	var stats entity.UserStats
 	query := `

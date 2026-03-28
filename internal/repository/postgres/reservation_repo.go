@@ -381,6 +381,35 @@ func (r *reservationRepo) AdminReturn(ctx context.Context, id uuid.UUID) error {
 	)
 }
 
+func (r *reservationRepo) StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error {
+	var belongs bool
+	if err := r.db.GetContext(ctx, &belongs, `
+		SELECT EXISTS(
+			SELECT 1 FROM reservations res
+			JOIN library_books lb ON lb.id = res.library_book_id
+			WHERE res.id = $1 AND lb.library_id = $2
+		)`, id, libraryID,
+	); err != nil {
+		return fmt.Errorf("reservationRepo.StaffUpdateStatus check: %w", err)
+	}
+	if !belongs {
+		return fmt.Errorf("%w: reservation not found in this library", entity.ErrForbidden)
+	}
+
+	var err error
+	if status == entity.ReservationCompleted {
+		_, err = r.db.ExecContext(ctx,
+			`UPDATE reservations SET status = $1, returned_at = now() WHERE id = $2`, status, id)
+	} else {
+		_, err = r.db.ExecContext(ctx,
+			`UPDATE reservations SET status = $1 WHERE id = $2`, status, id)
+	}
+	if err != nil {
+		return fmt.Errorf("reservationRepo.StaffUpdateStatus: %w", err)
+	}
+	return nil
+}
+
 func containsStatus(allowed []entity.ReservationStatus, current entity.ReservationStatus) bool {
 	for _, s := range allowed {
 		if s == current {

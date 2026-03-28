@@ -20,6 +20,7 @@ type ReservationUseCase interface {
 	ListByLibrary(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.Reservation, int, error)
 	StaffCancel(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
 	StaffReturn(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
+	StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error
 
 	Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error)
 

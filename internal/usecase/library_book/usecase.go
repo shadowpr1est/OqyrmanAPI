@@ -41,3 +41,7 @@ func (u *libraryBookUseCase) Update(ctx context.Context, lb *entity.LibraryBook)
 func (u *libraryBookUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.libraryBookRepo.Delete(ctx, id)
 }
+
+func (u *libraryBookUseCase) SearchInLibrary(ctx context.Context, libraryID uuid.UUID, q string, genreID *uuid.UUID, onlyAvailable bool, limit, offset int) ([]*entity.LibraryBookSearchResult, int, error) {
+	return u.libraryBookRepo.SearchInLibrary(ctx, libraryID, q, genreID, onlyAvailable, limit, offset)
+}
