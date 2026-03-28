@@ -1,2 +1,17 @@
 .env
+.env.*
+!.env.example
+
 .idea
+.vscode
+
+.claude
+
+# Go build artifacts
+*.exe
+*.test
+/bin/
+
+# Test coverage
+*.out
+coverage.html

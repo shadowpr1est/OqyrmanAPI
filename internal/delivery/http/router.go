@@ -122,6 +122,7 @@ func (r *Router) Init() *gin.Engine {
 	{
 		// ─── Публичные маршруты — без токена ───────────────────────────────
 		public := api.Group("/")
+		public.Use(middleware.RateLimit(100, time.Minute))
 		{
 			// auth — 20 req/min per IP
 			authGroup := public.Group("/auth")
@@ -167,6 +168,7 @@ func (r *Router) Init() *gin.Engine {
 		// ─── Защищённые маршруты — нужен JWT токен ────────────────────────
 		protected := api.Group("/")
 		protected.Use(middleware.Auth(r.jwt))
+		protected.Use(middleware.RateLimit(60, time.Minute))
 		{
 			// auth
 			protected.POST("/auth/logout", r.auth.Logout)
