@@ -86,26 +86,28 @@ func (u *reservationUseCase) ListByLibrary(ctx context.Context, libraryID uuid.U
 }
 
 func (u *reservationUseCase) StaffCancel(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error {
-	r, _ := u.reservationRepo.GetByID(ctx, id)
+	r, err := u.reservationRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
 	if err := u.reservationRepo.StaffCancel(ctx, id, libraryID); err != nil {
 		return err
 	}
-	if r != nil {
-		u.notify(ctx, r.UserID, "Бронирование отменено библиотекой",
-			"Ваше бронирование было отменено сотрудником библиотеки.")
-	}
+	u.notify(ctx, r.UserID, "Бронирование отменено библиотекой",
+		"Ваше бронирование было отменено сотрудником библиотеки.")
 	return nil
 }
 
 func (u *reservationUseCase) StaffReturn(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error {
-	r, _ := u.reservationRepo.GetByID(ctx, id)
+	r, err := u.reservationRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
 	if err := u.reservationRepo.StaffReturn(ctx, id, libraryID); err != nil {
 		return err
 	}
-	if r != nil {
-		u.notify(ctx, r.UserID, "Книга возвращена",
-			"Возврат книги зафиксирован. Спасибо!")
-	}
+	u.notify(ctx, r.UserID, "Книга возвращена",
+		"Возврат книги зафиксирован. Спасибо!")
 	return nil
 }
 
@@ -116,14 +118,15 @@ func (u *reservationUseCase) ListAll(ctx context.Context, limit, offset int, sta
 }
 
 func (u *reservationUseCase) AdminReturn(ctx context.Context, id uuid.UUID) error {
-	r, _ := u.reservationRepo.GetByID(ctx, id)
+	r, err := u.reservationRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
 	if err := u.reservationRepo.AdminReturn(ctx, id); err != nil {
 		return err
 	}
-	if r != nil {
-		u.notify(ctx, r.UserID, "Книга возвращена",
-			"Возврат книги зафиксирован администратором.")
-	}
+	u.notify(ctx, r.UserID, "Книга возвращена",
+		"Возврат книги зафиксирован администратором.")
 	return nil
 }
 
