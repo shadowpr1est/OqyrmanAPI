@@ -1,6 +1,7 @@
 package wishlist
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,8 @@ func (h *Handler) Add(c *gin.Context) {
 
 	result, err := h.uc.Add(c.Request.Context(), userID, bookID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -66,7 +68,8 @@ func (h *Handler) Remove(c *gin.Context) {
 	}
 
 	if err := h.uc.Remove(c.Request.Context(), userID, bookID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -84,7 +87,8 @@ func (h *Handler) List(c *gin.Context) {
 
 	items, err := h.uc.ListByUser(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -115,7 +119,8 @@ func (h *Handler) Exists(c *gin.Context) {
 
 	exists, err := h.uc.ExistsByUserAndBook(c.Request.Context(), userID, bookID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

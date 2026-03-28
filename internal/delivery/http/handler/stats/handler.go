@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,8 @@ func NewHandler(uc domainUseCase.StatsUseCase) *Handler {
 func (h *Handler) GetStats(c *gin.Context) {
 	stats, err := h.uc.GetStats(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, toStatsResponse(stats))
@@ -43,7 +45,8 @@ func (h *Handler) GetUserStats(c *gin.Context) {
 	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
 	stats, err := h.uc.GetUserStats(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, toUserStatsResponse(stats))
@@ -64,7 +67,8 @@ func (h *Handler) GetLibraryStats(c *gin.Context) {
 	}
 	stats, err := h.uc.GetLibraryStats(c.Request.Context(), *libraryID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, toLibraryStatsResponse(stats))

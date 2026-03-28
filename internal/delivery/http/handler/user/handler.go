@@ -1,6 +1,7 @@
 package user
 
 import (
+	"log/slog"
 	"errors"
 	"net/http"
 	"strconv"
@@ -81,7 +82,8 @@ func (h *Handler) Update(c *gin.Context) {
 
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -107,7 +109,8 @@ func (h *Handler) ListAll(c *gin.Context) {
 	}
 	users, total, err := h.uc.ListAll(c.Request.Context(), limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	items := make([]userResponse, len(users))
@@ -173,7 +176,8 @@ func (h *Handler) AdminDelete(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -233,7 +237,8 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 		ContentType: contentType,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, toUserResponse(user))
@@ -249,7 +254,8 @@ func (h *Handler) Delete(c *gin.Context) {
 	userID := c.MustGet(middleware.UserIDKey).(uuid.UUID)
 
 	if err := h.uc.Delete(c.Request.Context(), userID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

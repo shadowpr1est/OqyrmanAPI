@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -31,7 +32,8 @@ func (h *Handler) Recommend(c *gin.Context) {
 
 	result, err := h.uc.Recommend(c.Request.Context(), userID.String())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -59,7 +61,8 @@ func (h *Handler) Chat(c *gin.Context) {
 
 	result, err := h.uc.Chat(c.Request.Context(), req.Message)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

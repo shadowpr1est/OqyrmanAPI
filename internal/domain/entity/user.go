@@ -25,4 +25,5 @@ type User struct {
 	LibraryID    *uuid.UUID `db:"library_id"` // ← НОВОЕ: NULL для admin/user
 	QRCode       string     `db:"qr_code"`
 	CreatedAt    time.Time  `db:"created_at"`
+	DeletedAt    *time.Time `db:"deleted_at"`
 }

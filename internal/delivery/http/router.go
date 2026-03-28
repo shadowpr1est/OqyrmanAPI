@@ -103,7 +103,9 @@ func NewRouter(
 }
 
 func (r *Router) Init() *gin.Engine {
-	engine := gin.Default()
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+	engine.Use(middleware.RequestLogger())
 	engine.Use(middleware.CORS(r.allowedOrigins))
 	engine.MaxMultipartMemory = 20 << 20 // 20 MB
 	engine.GET("/health", func(c *gin.Context) {

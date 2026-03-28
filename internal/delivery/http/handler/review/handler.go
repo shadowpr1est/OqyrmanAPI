@@ -1,6 +1,7 @@
 package review
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -106,7 +107,8 @@ func (h *Handler) ListByBook(c *gin.Context) {
 
 	reviews, total, err := h.uc.ListByBook(c.Request.Context(), bookID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -135,7 +137,8 @@ func (h *Handler) ListByUser(c *gin.Context) {
 
 	reviews, err := h.uc.ListByUser(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -221,7 +224,8 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.Status(http.StatusNoContent)

@@ -57,6 +57,7 @@ import (
 	wishlistUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm/anthropic"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/logger"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/storage"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/worker"
 )
@@ -67,6 +68,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("config error: %s", err)
 	}
+
+	logger.Init(cfg.App.Env)
 
 	// Swagger host задаётся в рантайме из конфига — не хардкодится в аннотации.
 	// Локально: SWAGGER_HOST=localhost:8080

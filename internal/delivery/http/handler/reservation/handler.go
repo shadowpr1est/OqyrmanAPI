@@ -2,6 +2,7 @@ package reservation
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -97,7 +98,8 @@ func (h *Handler) GetByID(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "reservation not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -122,7 +124,8 @@ func (h *Handler) ListByUser(c *gin.Context) {
 
 	items, total, err := h.uc.ListByUser(c.Request.Context(), userID, limit, offset)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -234,7 +237,8 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 
 	items, total, err := h.uc.ListByLibrary(c.Request.Context(), *libraryID, limit, offset, statusPtr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -327,7 +331,8 @@ func (h *Handler) ListAll(c *gin.Context) {
 
 	items, total, err := h.uc.ListAll(c.Request.Context(), limit, offset, statusPtr)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -421,7 +426,8 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 	}
 
 	if err := h.uc.UpdateStatus(c.Request.Context(), id, entity.ReservationStatus(req.Status)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -439,7 +445,8 @@ func handleReservationError(c *gin.Context, err error) {
 	case errors.Is(err, entity.ErrInvalidStatusTransition):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}
 }
 
