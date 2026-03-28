@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -30,8 +31,13 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
 )
 
+type storagePinger interface {
+	Ping(ctx context.Context) error
+}
+
 type Router struct {
 	db             *sqlx.DB
+	storage        storagePinger
 	auth           *authHandler.Handler
 	user           *userHandler.Handler
 	author         *authorHandler.Handler
@@ -56,6 +62,7 @@ type Router struct {
 
 func NewRouter(
 	db *sqlx.DB,
+	storage storagePinger,
 	auth *authHandler.Handler,
 	user *userHandler.Handler,
 	author *authorHandler.Handler,
@@ -79,6 +86,7 @@ func NewRouter(
 ) *Router {
 	return &Router{
 		db:             db,
+		storage:        storage,
 		auth:           auth,
 		user:           user,
 		author:         author,
@@ -109,9 +117,16 @@ func (r *Router) Init() *gin.Engine {
 	engine.Use(middleware.CORS(r.allowedOrigins))
 	engine.MaxMultipartMemory = 20 << 20 // 20 MB
 	engine.GET("/health", func(c *gin.Context) {
-		if err := r.db.PingContext(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "db unavailable", "error": err.Error()})
+		ctx := c.Request.Context()
+		if err := r.db.PingContext(ctx); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "db unavailable"})
 			return
+		}
+		if r.storage != nil {
+			if err := r.storage.Ping(ctx); err != nil {
+				c.JSON(http.StatusServiceUnavailable, gin.H{"status": "storage unavailable"})
+				return
+			}
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})

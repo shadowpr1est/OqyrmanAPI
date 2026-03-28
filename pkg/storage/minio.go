@@ -65,3 +65,8 @@ func (s *MinioStorage) Upload(ctx context.Context, objectKey string, reader io.R
 func (s *MinioStorage) Delete(ctx context.Context, objectKey string) error {
 	return s.client.RemoveObject(ctx, s.bucket, objectKey, minio.RemoveObjectOptions{})
 }
+
+func (s *MinioStorage) Ping(ctx context.Context) error {
+	_, err := s.client.BucketExists(ctx, s.bucket)
+	return err
+}

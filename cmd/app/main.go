@@ -166,6 +166,7 @@ func main() {
 	// router
 	router := httpDelivery.NewRouter(
 		db,
+		minioStorage,
 		authHandler,
 		userHandler,
 		authorHandler,
