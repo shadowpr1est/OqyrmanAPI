@@ -46,6 +46,7 @@ type MinioConfig struct {
 	SecretKey string `env:"MINIO_SECRET_KEY" env-required:"true"`
 	Bucket    string `env:"MINIO_BUCKET"     env-default:"oqyrman"`
 	UseSSL    bool   `env:"MINIO_USE_SSL"    env-default:"false"`
+	PublicURL string `env:"MINIO_PUBLIC_URL" env-default:"https://api.oqyrman.app/minio"`
 }
 
 func New() (*Config, error) {
