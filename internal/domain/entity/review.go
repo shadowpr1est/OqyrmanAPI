@@ -15,3 +15,16 @@ type Review struct {
 	CreatedAt time.Time  `db:"created_at"`
 	DeletedAt *time.Time `db:"deleted_at"`
 }
+
+// ReviewView — read model for GET endpoints.
+type ReviewView struct {
+	ID            uuid.UUID `db:"id"`
+	UserID        uuid.UUID `db:"user_id"`
+	UserFullName  string    `db:"user_full_name"`
+	UserAvatarURL string    `db:"user_avatar_url"`
+	BookID        uuid.UUID `db:"book_id"`
+	BookTitle     string    `db:"book_title"`
+	Rating        int       `db:"rating"`
+	Body          string    `db:"body"`
+	CreatedAt     time.Time `db:"created_at"`
+}

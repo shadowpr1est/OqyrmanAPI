@@ -1,5 +1,7 @@
 package book
 
+import "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
+
 type createBookRequest struct {
 	AuthorID    string `form:"author_id"   binding:"required"`
 	GenreID     string `form:"genre_id"    binding:"required"`
@@ -46,4 +48,25 @@ type listBookResponse struct {
 	Total  int             `json:"total"`
 	Limit  int             `json:"limit"`
 	Offset int             `json:"offset"`
+}
+
+type bookViewResponse struct {
+	ID          string           `json:"id"`
+	Title       string           `json:"title"`
+	ISBN        string           `json:"isbn"`
+	CoverURL    string           `json:"cover_url,omitempty"`
+	Description string           `json:"description"`
+	Language    string           `json:"language"`
+	Year        int              `json:"year,omitempty"`
+	AvgRating   float64          `json:"avg_rating"`
+	TotalPages  *int             `json:"total_pages,omitempty"`
+	Author      common.AuthorRef `json:"author"`
+	Genre       common.GenreRef  `json:"genre"`
+}
+
+type listBookViewResponse struct {
+	Items  []*bookViewResponse `json:"items"`
+	Total  int                 `json:"total"`
+	Limit  int                 `json:"limit"`
+	Offset int                 `json:"offset"`
 }

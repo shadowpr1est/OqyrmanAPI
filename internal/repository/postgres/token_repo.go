@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -29,24 +31,25 @@ func (r *tokenRepo) Save(ctx context.Context, token *entity.Token) error {
 
 func (r *tokenRepo) GetByRefreshToken(ctx context.Context, refreshToken string) (*entity.Token, error) {
 	var token entity.Token
-	query := `SELECT * FROM tokens WHERE refresh_token = $1`
-	if err := r.db.GetContext(ctx, &token, query, refreshToken); err != nil {
+	err := r.db.GetContext(ctx, &token, `SELECT * FROM tokens WHERE refresh_token = $1`, refreshToken)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
 		return nil, fmt.Errorf("tokenRepo.GetByRefreshToken: %w", err)
 	}
 	return &token, nil
 }
 
 func (r *tokenRepo) DeleteByRefreshToken(ctx context.Context, refreshToken string) error {
-	query := `DELETE FROM tokens WHERE refresh_token = $1`
-	if _, err := r.db.ExecContext(ctx, query, refreshToken); err != nil {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM tokens WHERE refresh_token = $1`, refreshToken); err != nil {
 		return fmt.Errorf("tokenRepo.DeleteByRefreshToken: %w", err)
 	}
 	return nil
 }
 
 func (r *tokenRepo) DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error {
-	query := `DELETE FROM tokens WHERE user_id = $1`
-	if _, err := r.db.ExecContext(ctx, query, userID); err != nil {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM tokens WHERE user_id = $1`, userID); err != nil {
 		return fmt.Errorf("tokenRepo.DeleteAllByUserID: %w", err)
 	}
 	return nil

@@ -64,7 +64,7 @@ func (h *Handler) Upsert(c *gin.Context) {
 // @Security    BearerAuth
 // @Produce     json
 // @Param       book_id path string true "ID книги"
-// @Success     200 {object} readingSessionResponse
+// @Success     200 {object} readingSessionViewResponse
 // @Router      /reading-sessions/book/{book_id} [get]
 func (h *Handler) GetByBook(c *gin.Context) {
 	userID := middleware.GetUserID(c)
@@ -75,13 +75,13 @@ func (h *Handler) GetByBook(c *gin.Context) {
 		return
 	}
 
-	session, err := h.uc.GetByUserAndBook(c.Request.Context(), userID, bookID)
+	session, err := h.uc.GetByUserAndBookView(c.Request.Context(), userID, bookID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, toReadingSessionResponse(session))
+	c.JSON(http.StatusOK, toReadingSessionViewResponse(session))
 }
 
 // @Summary     Мои сессии чтения
@@ -93,16 +93,16 @@ func (h *Handler) GetByBook(c *gin.Context) {
 func (h *Handler) ListByUser(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 
-	sessions, err := h.uc.ListByUser(c.Request.Context(), userID)
+	sessions, err := h.uc.ListByUserView(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*readingSessionResponse, len(sessions))
+	items := make([]*readingSessionViewResponse, len(sessions))
 	for i, s := range sessions {
-		resp := toReadingSessionResponse(s)
+		resp := toReadingSessionViewResponse(s)
 		items[i] = &resp
 	}
 
@@ -153,6 +153,28 @@ func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 	}
 	if s.FinishedAt != nil {
 		t := s.FinishedAt.Format("2006-01-02T15:04:05Z")
+		resp.FinishedAt = &t
+	}
+	return resp
+}
+
+func toReadingSessionViewResponse(v *entity.ReadingSessionView) readingSessionViewResponse {
+	resp := readingSessionViewResponse{
+		ID:          v.ID.String(),
+		UserID:      v.UserID.String(),
+		CurrentPage: v.CurrentPage,
+		Status:      string(v.Status),
+		UpdatedAt:   v.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		Book: sessionBookRef{
+			ID:         v.BookID.String(),
+			Title:      v.BookTitle,
+			CoverURL:   v.BookCoverURL,
+			TotalPages: v.BookTotalPages,
+			AuthorName: v.AuthorName,
+		},
+	}
+	if v.FinishedAt != nil {
+		t := v.FinishedAt.Format("2006-01-02T15:04:05Z")
 		resp.FinishedAt = &t
 	}
 	return resp

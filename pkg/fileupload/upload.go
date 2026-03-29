@@ -4,7 +4,7 @@ import "io"
 
 type File struct {
 	Filename    string
-	Reader      io.Reader
+	Reader      io.ReadSeeker
 	Size        int64
 	ContentType string
 }

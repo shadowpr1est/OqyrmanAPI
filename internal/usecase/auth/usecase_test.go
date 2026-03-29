@@ -60,6 +60,9 @@ func (m *mockUserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity
 func (m *mockUserRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, url string) error {
 	return m.Called(ctx, id, url).Error(0)
 }
+func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
+	return nil, 0, nil
+}
 
 type mockTokenRepo struct{ mock.Mock }
 
@@ -95,7 +98,7 @@ func TestRegister_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
 	userRepo.On("Create", mock.Anything, mock.AnythingOfType("*entity.User")).
@@ -118,7 +121,7 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	existing := &entity.User{ID: uuid.New(), Email: "test@example.com"}
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(existing, nil)
@@ -139,7 +142,7 @@ func TestRegister_PasswordTooShort(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
 
@@ -157,7 +160,7 @@ func TestRegister_PasswordNoUppercase(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
 
@@ -175,7 +178,7 @@ func TestRegister_PasswordNoDigit(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
 
@@ -195,7 +198,7 @@ func TestLogin_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userID := uuid.New()
 	hashedPw := hashPassword(t, "Password1")
@@ -218,7 +221,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "noone@example.com").Return(nil, errors.New("not found"))
 
@@ -232,7 +235,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	hashedPw := hashPassword(t, "CorrectPassword1")
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(
@@ -252,7 +255,7 @@ func TestLogout_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	tokenRepo.On("DeleteByRefreshToken", mock.Anything, "some-refresh-token").Return(nil)
 
@@ -268,7 +271,7 @@ func TestRefreshToken_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userID := uuid.New()
 	existingToken := &entity.Token{
@@ -297,7 +300,7 @@ func TestRefreshToken_Expired(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	expiredToken := &entity.Token{
 		ID:           uuid.New(),
@@ -317,7 +320,7 @@ func TestRefreshToken_InvalidToken(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	_ = userRepo // не используется в этом тесте
 

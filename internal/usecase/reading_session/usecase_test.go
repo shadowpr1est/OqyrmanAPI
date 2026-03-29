@@ -44,6 +44,12 @@ func (m *mockSessionRepo) ListByUser(ctx context.Context, userID uuid.UUID) ([]*
 func (m *mockSessionRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
+func (m *mockSessionRepo) GetByUserAndBookView(ctx context.Context, userID, bookID uuid.UUID) (*entity.ReadingSessionView, error) {
+	return nil, nil
+}
+func (m *mockSessionRepo) ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.ReadingSessionView, error) {
+	return nil, nil
+}
 
 // ─── Upsert ───────────────────────────────────────────────────────────────────
 

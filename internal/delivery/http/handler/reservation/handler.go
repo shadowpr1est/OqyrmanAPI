@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -45,8 +46,13 @@ func (h *Handler) Create(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid due_date format, use YYYY-MM-DD"})
 		return
 	}
-	if dueDate.Before(time.Now().Truncate(24 * time.Hour)) {
+	today := time.Now().Truncate(24 * time.Hour)
+	if dueDate.Before(today) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be in the past"})
+		return
+	}
+	if dueDate.After(today.AddDate(0, 0, 14)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be more than 14 days from today"})
 		return
 	}
 
@@ -70,7 +76,8 @@ func (h *Handler) Create(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "you already have an active reservation for this book"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -82,7 +89,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID брони"
-// @Success     200 {object} reservationResponse
+// @Success     200 {object} reservationViewResponse
 // @Failure     404 {object} map[string]string
 // @Router      /reservations/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
@@ -92,7 +99,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	r, err := h.uc.GetByID(c.Request.Context(), id)
+	r, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, entity.ErrReservationNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "reservation not found"})
@@ -103,7 +110,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toReservationResponse(r))
+	c.JSON(http.StatusOK, toReservationViewResponse(r))
 }
 
 // @Summary     Мои брони
@@ -122,7 +129,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 		return
 	}
 
-	items, total, err := h.uc.ListByUser(c.Request.Context(), userID, limit, offset)
+	items, total, err := h.uc.ListByUserView(c.Request.Context(), userID, limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -130,7 +137,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items":  toReservationResponses(items),
+		"items":  toReservationViewResponses(items),
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
@@ -191,8 +198,13 @@ func (h *Handler) Extend(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid due_date format, use YYYY-MM-DD"})
 		return
 	}
-	if newDueDate.Before(time.Now().Truncate(24 * time.Hour)) {
+	extendToday := time.Now().Truncate(24 * time.Hour)
+	if newDueDate.Before(extendToday) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be in the past"})
+		return
+	}
+	if newDueDate.After(extendToday.AddDate(0, 0, 14)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be more than 14 days from today"})
 		return
 	}
 
@@ -235,7 +247,7 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 		statusPtr = &s
 	}
 
-	items, total, err := h.uc.ListByLibrary(c.Request.Context(), *libraryID, limit, offset, statusPtr)
+	items, total, err := h.uc.ListByLibraryView(c.Request.Context(), *libraryID, limit, offset, statusPtr)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -243,7 +255,7 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items":  toReservationResponses(items),
+		"items":  toReservationViewResponses(items),
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
@@ -329,7 +341,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 		statusPtr = &s
 	}
 
-	items, total, err := h.uc.ListAll(c.Request.Context(), limit, offset, statusPtr)
+	items, total, err := h.uc.ListAllView(c.Request.Context(), limit, offset, statusPtr)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -337,7 +349,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items":  toReservationResponses(items),
+		"items":  toReservationViewResponses(items),
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
@@ -393,10 +405,13 @@ func (h *Handler) StaffUpdateStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.uc.StaffUpdateStatus(
-		c.Request.Context(), id, *libraryID,
-		entity.ReservationStatus(req.Status),
-	); err != nil {
+	status := entity.ReservationStatus(req.Status)
+	if !isValidReservationStatus(status) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status value"})
+		return
+	}
+
+	if err := h.uc.StaffUpdateStatus(c.Request.Context(), id, *libraryID, status); err != nil {
 		handleReservationError(c, err)
 		return
 	}
@@ -425,9 +440,14 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	if err := h.uc.UpdateStatus(c.Request.Context(), id, entity.ReservationStatus(req.Status)); err != nil {
-		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+	status := entity.ReservationStatus(req.Status)
+	if !isValidReservationStatus(status) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status value"})
+		return
+	}
+
+	if err := h.uc.UpdateStatus(c.Request.Context(), id, status); err != nil {
+		handleReservationError(c, err)
 		return
 	}
 
@@ -435,6 +455,15 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+func isValidReservationStatus(s entity.ReservationStatus) bool {
+	switch s {
+	case entity.ReservationPending, entity.ReservationActive,
+		entity.ReservationCompleted, entity.ReservationCancelled:
+		return true
+	}
+	return false
+}
 
 func handleReservationError(c *gin.Context, err error) {
 	switch {
@@ -466,11 +495,40 @@ func toReservationResponse(r *entity.Reservation) reservationResponse {
 	return resp
 }
 
-func toReservationResponses(items []*entity.Reservation) []*reservationResponse {
-	resp := make([]*reservationResponse, len(items))
-	for i, r := range items {
-		res := toReservationResponse(r)
-		resp[i] = &res
+func toReservationViewResponse(v *entity.ReservationView) reservationViewResponse {
+	resp := reservationViewResponse{
+		ID:            v.ID.String(),
+		Status:        string(v.Status),
+		ReservedAt:    v.ReservedAt.Format("2006-01-02T15:04:05Z"),
+		DueDate:       v.DueDate.Format("2006-01-02"),
+		LibraryBookID: v.LibraryBookID.String(),
+		User: common.UserRef{
+			ID:       v.UserID.String(),
+			FullName: v.UserFullName,
+			Email:    v.UserEmail,
+		},
+		Book: reservationBookRef{
+			ID:       v.BookID.String(),
+			Title:    v.BookTitle,
+			CoverURL: v.BookCoverURL,
+		},
+		Library: common.LibraryRef{
+			ID:   v.LibraryID.String(),
+			Name: v.LibraryName,
+		},
+	}
+	if v.ReturnedAt != nil {
+		s := v.ReturnedAt.Format("2006-01-02T15:04:05Z")
+		resp.ReturnedAt = &s
+	}
+	return resp
+}
+
+func toReservationViewResponses(items []*entity.ReservationView) []*reservationViewResponse {
+	resp := make([]*reservationViewResponse, len(items))
+	for i, v := range items {
+		r := toReservationViewResponse(v)
+		resp[i] = &r
 	}
 	return resp
 }

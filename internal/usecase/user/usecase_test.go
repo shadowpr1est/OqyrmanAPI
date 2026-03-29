@@ -57,6 +57,9 @@ func (m *mockUserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity
 func (m *mockUserRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, url string) error {
 	return m.Called(ctx, id, url).Error(0)
 }
+func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
+	return nil, 0, nil
+}
 
 // ─── UpdateRole ───────────────────────────────────────────────────────────────
 

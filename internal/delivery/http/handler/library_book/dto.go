@@ -1,5 +1,7 @@
 package library_book
 
+import "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
+
 type createLibraryBookRequest struct {
 	LibraryID       string `json:"library_id"        binding:"required"`
 	BookID          string `json:"book_id"           binding:"required"`
@@ -12,12 +14,22 @@ type updateLibraryBookRequest struct {
 	AvailableCopies *int `json:"available_copies"`
 }
 
+// libraryBookResponse — returned by write endpoints (Create, Update).
 type libraryBookResponse struct {
 	ID              string `json:"id"`
 	LibraryID       string `json:"library_id"`
 	BookID          string `json:"book_id"`
 	TotalCopies     int    `json:"total_copies"`
 	AvailableCopies int    `json:"available_copies"`
+}
+
+// libraryBookViewResponse — returned by GET endpoints (enriched with nested book/author/genre/library data).
+type libraryBookViewResponse struct {
+	ID              string            `json:"id"`
+	Library         common.LibraryRef `json:"library"`
+	Book            common.BookRef    `json:"book"`
+	TotalCopies     int               `json:"total_copies"`
+	AvailableCopies int               `json:"available_copies"`
 }
 
 type libraryBookSearchItem struct {

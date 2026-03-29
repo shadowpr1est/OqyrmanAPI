@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 )
 
@@ -281,7 +282,7 @@ func (r *reservationRepo) Extend(ctx context.Context, id, userID uuid.UUID, newD
 	err := r.db.GetContext(ctx, &res, `
 		UPDATE reservations
 		SET due_date = $3
-		WHERE id = $1 AND user_id = $2 AND status = 'active' AND deleted_at IS NULL
+		WHERE id = $1 AND user_id = $2 AND status = 'active'
 		RETURNING *`,
 		id, userID, newDueDate,
 	)
@@ -294,19 +295,27 @@ func (r *reservationRepo) Extend(ctx context.Context, id, userID uuid.UUID, newD
 	return &res, nil
 }
 
+// UpdateStatus is the admin variant: no library-ownership check.
+// Terminal transitions (cancelled/completed) atomically restore available_copies.
+// pending → active records the physical handout; copies were already decremented on creation.
 func (r *reservationRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error {
-	var err error
-	if status == entity.ReservationCompleted {
-		_, err = r.db.ExecContext(ctx,
-			`UPDATE reservations SET status = $1, returned_at = now() WHERE id = $2`, status, id)
-	} else {
-		_, err = r.db.ExecContext(ctx,
-			`UPDATE reservations SET status = $1 WHERE id = $2`, status, id)
+	switch status {
+	case entity.ReservationCancelled:
+		return r.closeAndIncrement(ctx, id, nil, nil,
+			entity.ReservationCancelled,
+			[]entity.ReservationStatus{entity.ReservationPending, entity.ReservationActive},
+		)
+	case entity.ReservationCompleted:
+		return r.closeAndIncrement(ctx, id, nil, nil,
+			entity.ReservationCompleted,
+			[]entity.ReservationStatus{entity.ReservationPending, entity.ReservationActive},
+		)
+	case entity.ReservationActive:
+		return r.activateReservation(ctx, id, nil)
+	default:
+		return fmt.Errorf("%w: admin cannot transition to '%s'",
+			entity.ErrInvalidStatusTransition, status)
 	}
-	if err != nil {
-		return fmt.Errorf("reservationRepo.UpdateStatus: %w", err)
-	}
-	return nil
 }
 
 func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
@@ -316,6 +325,7 @@ func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
 	}
 	defer tx.Rollback()
 
+	// Lock and collect IDs in one query.
 	var overdue []entity.Reservation
 	if err := tx.SelectContext(ctx, &overdue, `
 		SELECT * FROM reservations
@@ -324,24 +334,37 @@ func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
 	); err != nil {
 		return 0, fmt.Errorf("reservationRepo.CancelOverdue select: %w", err)
 	}
-
 	if len(overdue) == 0 {
 		return 0, nil
 	}
 
-	for _, res := range overdue {
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE reservations SET status = 'cancelled' WHERE id = $1`, res.ID,
-		); err != nil {
-			return 0, fmt.Errorf("reservationRepo.CancelOverdue update id=%s: %w", res.ID, err)
-		}
+	ids := make([]uuid.UUID, len(overdue))
+	for i, res := range overdue {
+		ids[i] = res.ID
+	}
 
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE library_books SET available_copies = available_copies + 1 WHERE id = $1`,
-			res.LibraryBookID,
-		); err != nil {
-			return 0, fmt.Errorf("reservationRepo.CancelOverdue increment id=%s: %w", res.ID, err)
-		}
+	// Batch-cancel all overdue reservations in one UPDATE.
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE reservations SET status = 'cancelled' WHERE id = ANY($1)`,
+		pq.Array(ids),
+	); err != nil {
+		return 0, fmt.Errorf("reservationRepo.CancelOverdue batch update: %w", err)
+	}
+
+	// Batch-restore available_copies: group by library_book_id, increment by count.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE library_books lb
+		SET available_copies = lb.available_copies + sub.cnt
+		FROM (
+			SELECT library_book_id, COUNT(*) AS cnt
+			FROM reservations
+			WHERE id = ANY($1)
+			GROUP BY library_book_id
+		) sub
+		WHERE lb.id = sub.library_book_id`,
+		pq.Array(ids),
+	); err != nil {
+		return 0, fmt.Errorf("reservationRepo.CancelOverdue batch increment: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -381,33 +404,158 @@ func (r *reservationRepo) AdminReturn(ctx context.Context, id uuid.UUID) error {
 	)
 }
 
+// StaffUpdateStatus is the staff variant: enforces library-ownership on every transition.
+// Terminal transitions (cancelled/completed) atomically restore available_copies.
+// pending → active records the physical handout; copies were already decremented on creation.
 func (r *reservationRepo) StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error {
-	var belongs bool
-	if err := r.db.GetContext(ctx, &belongs, `
-		SELECT EXISTS(
-			SELECT 1 FROM reservations res
-			JOIN library_books lb ON lb.id = res.library_book_id
-			WHERE res.id = $1 AND lb.library_id = $2
-		)`, id, libraryID,
-	); err != nil {
-		return fmt.Errorf("reservationRepo.StaffUpdateStatus check: %w", err)
+	switch status {
+	case entity.ReservationCancelled:
+		return r.closeAndIncrement(ctx, id, nil, &libraryID,
+			entity.ReservationCancelled,
+			[]entity.ReservationStatus{entity.ReservationPending, entity.ReservationActive},
+		)
+	case entity.ReservationCompleted:
+		return r.closeAndIncrement(ctx, id, nil, &libraryID,
+			entity.ReservationCompleted,
+			[]entity.ReservationStatus{entity.ReservationPending, entity.ReservationActive},
+		)
+	case entity.ReservationActive:
+		return r.activateReservation(ctx, id, &libraryID)
+	default:
+		return fmt.Errorf("%w: staff cannot transition to '%s'",
+			entity.ErrInvalidStatusTransition, status)
 	}
-	if !belongs {
-		return fmt.Errorf("%w: reservation not found in this library", entity.ErrForbidden)
+}
+
+// activateReservation handles the pending → active transition (book physically handed out).
+// available_copies is NOT changed — it was already decremented on reservation creation.
+// If libraryID is non-nil, the reservation must belong to that library (staff context).
+func (r *reservationRepo) activateReservation(ctx context.Context, id uuid.UUID, libraryID *uuid.UUID) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("reservationRepo.activateReservation begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var res entity.Reservation
+	if err := tx.GetContext(ctx, &res,
+		`SELECT * FROM reservations WHERE id = $1 FOR UPDATE`, id,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return entity.ErrReservationNotFound
+		}
+		return fmt.Errorf("reservationRepo.activateReservation get: %w", err)
 	}
 
-	var err error
-	if status == entity.ReservationCompleted {
-		_, err = r.db.ExecContext(ctx,
-			`UPDATE reservations SET status = $1, returned_at = now() WHERE id = $2`, status, id)
-	} else {
-		_, err = r.db.ExecContext(ctx,
-			`UPDATE reservations SET status = $1 WHERE id = $2`, status, id)
+	if libraryID != nil {
+		var belongs bool
+		if err := tx.GetContext(ctx, &belongs, `
+			SELECT EXISTS(
+				SELECT 1 FROM library_books lb
+				WHERE lb.id = $1 AND lb.library_id = $2
+			)`, res.LibraryBookID, *libraryID,
+		); err != nil {
+			return fmt.Errorf("reservationRepo.activateReservation check library: %w", err)
+		}
+		if !belongs {
+			return fmt.Errorf("%w: reservation not found in this library", entity.ErrForbidden)
+		}
 	}
+
+	if res.Status != entity.ReservationPending {
+		return fmt.Errorf("%w: from '%s' to 'active'",
+			entity.ErrInvalidStatusTransition, res.Status)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE reservations SET status = 'active' WHERE id = $1`, id,
+	); err != nil {
+		return fmt.Errorf("reservationRepo.activateReservation update: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+// reservationViewQuery is the base SELECT for all ReservationView methods.
+const reservationViewQuery = `
+	SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
+	       res.user_id, u.full_name AS user_full_name, u.email AS user_email,
+	       res.library_book_id, b.id AS book_id, b.title AS book_title,
+	       COALESCE(b.cover_url, '') AS book_cover_url,
+	       lb.library_id, l.name AS library_name
+	FROM reservations res
+	JOIN users         u  ON u.id  = res.user_id          AND u.deleted_at  IS NULL
+	JOIN library_books lb ON lb.id = res.library_book_id
+	JOIN books         b  ON b.id  = lb.book_id           AND b.deleted_at  IS NULL
+	JOIN libraries     l  ON l.id  = lb.library_id        AND l.deleted_at  IS NULL`
+
+func (r *reservationRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
+	var v entity.ReservationView
+	err := r.db.GetContext(ctx, &v,
+		reservationViewQuery+" WHERE res.id = $1", id,
+	)
 	if err != nil {
-		return fmt.Errorf("reservationRepo.StaffUpdateStatus: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrReservationNotFound
+		}
+		return nil, fmt.Errorf("reservationRepo.GetByIDView: %w", err)
 	}
-	return nil
+	return &v, nil
+}
+
+func (r *reservationRepo) ListByUserView(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.ReservationView, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM reservations WHERE user_id = $1`, userID,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListByUserView count: %w", err)
+	}
+	var items []*entity.ReservationView
+	if err := r.db.SelectContext(ctx, &items,
+		reservationViewQuery+` WHERE res.user_id = $1 ORDER BY res.reserved_at DESC LIMIT $2 OFFSET $3`,
+		userID, limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListByUserView: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *reservationRepo) ListByLibraryView(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(res.id) FROM reservations res
+		JOIN library_books lb ON lb.id = res.library_book_id
+		WHERE lb.library_id = $1 AND ($2::text IS NULL OR res.status = $2)`,
+		libraryID, status,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListByLibraryView count: %w", err)
+	}
+	var items []*entity.ReservationView
+	if err := r.db.SelectContext(ctx, &items,
+		reservationViewQuery+` WHERE lb.library_id = $1 AND ($2::text IS NULL OR res.status = $2)
+		ORDER BY res.reserved_at DESC LIMIT $3 OFFSET $4`,
+		libraryID, status, limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListByLibraryView: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *reservationRepo) ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM reservations WHERE ($1::text IS NULL OR status = $1)`, status,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListAllView count: %w", err)
+	}
+	var items []*entity.ReservationView
+	if err := r.db.SelectContext(ctx, &items,
+		reservationViewQuery+` WHERE ($1::text IS NULL OR res.status = $1) ORDER BY res.reserved_at DESC LIMIT $2 OFFSET $3`,
+		status, limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reservationRepo.ListAllView: %w", err)
+	}
+	return items, total, nil
 }
 
 func containsStatus(allowed []entity.ReservationStatus, current entity.ReservationStatus) bool {

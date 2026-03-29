@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -39,7 +40,16 @@ func (h *Handler) Register(c *gin.Context) {
 		FullName:     req.FullName,
 	}
 	if _, err := h.uc.Register(c.Request.Context(), user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if errors.Is(err, entity.ErrEmailTaken) {
+			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})
+			return
+		}
+		if errors.Is(err, entity.ErrValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "register error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

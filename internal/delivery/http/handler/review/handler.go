@@ -53,7 +53,16 @@ func (h *Handler) Create(c *gin.Context) {
 
 	result, err := h.uc.Create(c.Request.Context(), review)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		if errors.Is(err, entity.ErrForbidden) {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, entity.ErrValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -65,7 +74,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID отзыва"
-// @Success     200 {object} reviewResponse
+// @Success     200 {object} reviewViewResponse
 // @Router      /reviews/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -74,12 +83,12 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	review, err := h.uc.GetByID(c.Request.Context(), id)
+	review, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, toReviewResponse(review))
+	c.JSON(http.StatusOK, toReviewViewResponse(review))
 }
 
 // @Summary     Отзывы на книгу
@@ -88,7 +97,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 // @Param       book_id path string true  "ID книги"
 // @Param       limit   query int    false "Лимит"    default(20)
 // @Param       offset  query int    false "Смещение" default(0)
-// @Success     200 {object} listReviewResponse
+// @Success     200 {object} listReviewViewResponse
 // @Router      /reviews/book/{book_id} [get]
 func (h *Handler) ListByBook(c *gin.Context) {
 	bookID, err := uuid.Parse(c.Param("book_id"))
@@ -106,20 +115,20 @@ func (h *Handler) ListByBook(c *gin.Context) {
 		offset = o
 	}
 
-	reviews, total, err := h.uc.ListByBook(c.Request.Context(), bookID, limit, offset)
+	reviews, total, err := h.uc.ListByBookView(c.Request.Context(), bookID, limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*reviewResponse, len(reviews))
+	items := make([]*reviewViewResponse, len(reviews))
 	for i, r := range reviews {
-		resp := toReviewResponse(r)
+		resp := toReviewViewResponse(r)
 		items[i] = &resp
 	}
 
-	c.JSON(http.StatusOK, listReviewResponse{
+	c.JSON(http.StatusOK, listReviewViewResponse{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -136,16 +145,16 @@ func (h *Handler) ListByBook(c *gin.Context) {
 func (h *Handler) ListByUser(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 
-	reviews, err := h.uc.ListByUser(c.Request.Context(), userID)
+	reviews, err := h.uc.ListByUserView(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*reviewResponse, len(reviews))
+	items := make([]*reviewViewResponse, len(reviews))
 	for i, r := range reviews {
-		resp := toReviewResponse(r)
+		resp := toReviewViewResponse(r)
 		items[i] = &resp
 	}
 
@@ -194,7 +203,8 @@ func (h *Handler) Update(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -239,5 +249,19 @@ func toReviewResponse(r *entity.Review) reviewResponse {
 		Rating:    r.Rating,
 		Body:      r.Body,
 		CreatedAt: r.CreatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
+
+func toReviewViewResponse(v *entity.ReviewView) reviewViewResponse {
+	return reviewViewResponse{
+		ID:            v.ID.String(),
+		BookID:        v.BookID.String(),
+		BookTitle:     v.BookTitle,
+		UserID:        v.UserID.String(),
+		UserFullName:  v.UserFullName,
+		UserAvatarURL: v.UserAvatarURL,
+		Rating:        v.Rating,
+		Body:          v.Body,
+		CreatedAt:     v.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }

@@ -19,3 +19,13 @@ type noteResponse struct {
 	Content   string `json:"content"`
 	CreatedAt string `json:"created_at"`
 }
+
+type noteViewResponse struct {
+	ID        string `json:"id"`
+	UserID    string `json:"user_id"`
+	BookID    string `json:"book_id"`
+	BookTitle string `json:"book_title"`
+	Page      int    `json:"page"`
+	Content   string `json:"content"`
+	CreatedAt string `json:"created_at"`
+}

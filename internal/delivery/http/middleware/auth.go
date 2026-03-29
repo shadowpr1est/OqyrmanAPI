@@ -68,6 +68,7 @@ func AdminOnly() gin.HandlerFunc {
 	}
 }
 
+// LibraryStaffOnly allows Admin and Staff — used for routes accessible by both roles.
 func LibraryStaffOnly() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, _ := c.Get(RoleKey)
@@ -77,6 +78,25 @@ func LibraryStaffOnly() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// StaffOnly allows only Staff — used for routes that require an assigned library_id.
+// Admins should use the /admin/* equivalents instead.
+func StaffOnly() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get(RoleKey)
+		if role != "Staff" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "this endpoint is for library staff only"})
+			return
+		}
+		c.Next()
+	}
+}
+
+func GetRole(c *gin.Context) string {
+	role, _ := c.Get(RoleKey)
+	s, _ := role.(string)
+	return s
 }
 
 func GetUserID(c *gin.Context) uuid.UUID {

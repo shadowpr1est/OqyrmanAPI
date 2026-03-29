@@ -1,11 +1,13 @@
 package wishlist
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -44,6 +46,10 @@ func (h *Handler) Add(c *gin.Context) {
 
 	result, err := h.uc.Add(c.Request.Context(), userID, bookID)
 	if err != nil {
+		if errors.Is(err, entity.ErrDuplicateWishlist) {
+			c.JSON(http.StatusConflict, gin.H{"error": "book already in wishlist"})
+			return
+		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -85,16 +91,16 @@ func (h *Handler) Remove(c *gin.Context) {
 func (h *Handler) List(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 
-	items, err := h.uc.ListByUser(c.Request.Context(), userID)
+	items, err := h.uc.ListByUserView(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	resp := make([]*wishlistResponse, len(items))
+	resp := make([]*wishlistViewResponse, len(items))
 	for i, w := range items {
-		r := toWishlistResponse(w)
+		r := toWishlistViewResponse(w)
 		resp[i] = &r
 	}
 
@@ -133,5 +139,27 @@ func toWishlistResponse(w *entity.Wishlist) wishlistResponse {
 		UserID:  w.UserID.String(),
 		BookID:  w.BookID.String(),
 		AddedAt: w.AddedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
+
+func toWishlistViewResponse(v *entity.WishlistView) wishlistViewResponse {
+	return wishlistViewResponse{
+		ID:      v.ID.String(),
+		UserID:  v.UserID.String(),
+		AddedAt: v.AddedAt.Format("2006-01-02T15:04:05Z"),
+		Book: common.BookRef{
+			ID:        v.BookID.String(),
+			Title:     v.BookTitle,
+			CoverURL:  v.BookCoverURL,
+			AvgRating: v.BookAvgRating,
+			Author: common.AuthorRef{
+				ID:   v.AuthorID.String(),
+				Name: v.AuthorName,
+			},
+			Genre: common.GenreRef{
+				ID:   v.GenreID.String(),
+				Name: v.GenreName,
+			},
+		},
 	}
 }

@@ -28,4 +28,10 @@ type ReservationUseCase interface {
 	ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error)
 	AdminReturn(ctx context.Context, id uuid.UUID) error
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
+
+	// View methods — return enriched nested data for GET endpoints.
+	GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error)
+	ListByUserView(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.ReservationView, int, error)
+	ListByLibraryView(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.ReservationView, int, error)
+	ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error)
 }

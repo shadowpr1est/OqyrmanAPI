@@ -307,7 +307,7 @@ func (r *Router) Init() *gin.Engine {
 
 			// ─── Staff маршруты ───────────────────────────────────────────
 			staff := protected.Group("/staff")
-			staff.Use(middleware.LibraryStaffOnly())
+			staff.Use(middleware.StaffOnly())
 			{
 				staff.GET("/reservations", r.reservation.ListByLibrary)
 				staff.PATCH("/reservations/:id/cancel", r.reservation.StaffCancel)

@@ -1,4 +1,5 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ─── Users ────────────────────────────────────────────────────────────────────
 CREATE TABLE users (
@@ -6,6 +7,8 @@ CREATE TABLE users (
     email         VARCHAR(255) NOT NULL UNIQUE,
     phone         VARCHAR(20)  NOT NULL UNIQUE,
     password_hash TEXT         NOT NULL,
+    name          VARCHAR(100) NOT NULL DEFAULT '',
+    surname       VARCHAR(100) NOT NULL DEFAULT '',
     full_name     VARCHAR(255) NOT NULL DEFAULT '',
     avatar_url    TEXT         NOT NULL DEFAULT '',
     role          VARCHAR(20)  NOT NULL DEFAULT 'User',
@@ -13,9 +16,6 @@ CREATE TABLE users (
     qr_code       TEXT         NOT NULL DEFAULT '',
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
     deleted_at    TIMESTAMPTZ
-
-    -- staff обязан иметь library_id, admin/user обязаны не иметь
-    -- намеренно без FK здесь — libraries создаётся позже
 );
 
 -- ─── Tokens ───────────────────────────────────────────────────────────────────
@@ -66,12 +66,15 @@ CREATE TABLE books (
 );
 
 -- ─── Book files ───────────────────────────────────────────────────────────────
+-- Constraint uq_book_file_type enforces max 1 audio + 1 document file per book.
+-- Application-level check (magic bytes, size) happens in the usecase before insert.
 CREATE TABLE book_files (
     id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     book_id  UUID        NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     format   VARCHAR(20) NOT NULL,
     file_url TEXT        NOT NULL,
-    is_audio BOOLEAN     NOT NULL DEFAULT false
+    is_audio BOOLEAN     NOT NULL DEFAULT false,
+    CONSTRAINT uq_book_file_type UNIQUE (book_id, is_audio)
 );
 
 -- ─── Libraries ────────────────────────────────────────────────────────────────
@@ -229,3 +232,9 @@ CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 
 -- events
 CREATE INDEX idx_events_starts_at ON events(starts_at) WHERE deleted_at IS NULL;
+
+-- full-text / trigram search (pg_trgm)
+CREATE INDEX idx_books_title_trgm       ON books   USING GIN (title       gin_trgm_ops) WHERE deleted_at IS NULL;
+CREATE INDEX idx_books_description_trgm ON books   USING GIN (description gin_trgm_ops) WHERE deleted_at IS NULL;
+CREATE INDEX idx_authors_name_trgm      ON authors USING GIN (name        gin_trgm_ops) WHERE deleted_at IS NULL;
+CREATE INDEX idx_genres_slug            ON genres  (slug) WHERE deleted_at IS NULL;

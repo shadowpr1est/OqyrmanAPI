@@ -16,4 +16,7 @@ type UserUseCase interface {
 	UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role, libraryID *uuid.UUID) error
 	AdminDelete(ctx context.Context, id uuid.UUID) error
 	UploadAvatar(ctx context.Context, id uuid.UUID, avatar *fileupload.File) (*entity.User, error)
+
+	// View method — returns enriched nested data for admin GET /users.
+	ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error)
 }

@@ -13,4 +13,8 @@ type ReadingSessionUseCase interface {
 	GetByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) (*entity.ReadingSession, error)
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]*entity.ReadingSession, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// View methods — return enriched nested data for GET endpoints.
+	GetByUserAndBookView(ctx context.Context, userID, bookID uuid.UUID) (*entity.ReadingSessionView, error)
+	ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.ReadingSessionView, error)
 }

@@ -184,6 +184,72 @@ func (r *reviewRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return tx.Commit()
 }
 
+func (r *reviewRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReviewView, error) {
+	var v entity.ReviewView
+	err := r.db.GetContext(ctx, &v, `
+		SELECT rv.id, rv.user_id, u.full_name AS user_full_name,
+		       COALESCE(u.avatar_url, '') AS user_avatar_url,
+		       rv.book_id, b.title AS book_title,
+		       rv.rating, rv.body, rv.created_at
+		FROM reviews rv
+		JOIN users u ON u.id = rv.user_id   AND u.deleted_at  IS NULL
+		JOIN books b ON b.id = rv.book_id   AND b.deleted_at  IS NULL
+		WHERE rv.id = $1 AND rv.deleted_at IS NULL`, id,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("reviewRepo.GetByIDView: %w", err)
+	}
+	return &v, nil
+}
+
+func (r *reviewRepo) ListByBookView(ctx context.Context, bookID uuid.UUID, limit, offset int) ([]*entity.ReviewView, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM reviews WHERE book_id = $1 AND deleted_at IS NULL`, bookID,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reviewRepo.ListByBookView count: %w", err)
+	}
+	var items []*entity.ReviewView
+	if err := r.db.SelectContext(ctx, &items, `
+		SELECT rv.id, rv.user_id, u.full_name AS user_full_name,
+		       COALESCE(u.avatar_url, '') AS user_avatar_url,
+		       rv.book_id, b.title AS book_title,
+		       rv.rating, rv.body, rv.created_at
+		FROM reviews rv
+		JOIN users u ON u.id = rv.user_id   AND u.deleted_at  IS NULL
+		JOIN books b ON b.id = rv.book_id   AND b.deleted_at  IS NULL
+		WHERE rv.book_id = $1 AND rv.deleted_at IS NULL
+		ORDER BY rv.created_at DESC
+		LIMIT $2 OFFSET $3`,
+		bookID, limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("reviewRepo.ListByBookView: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *reviewRepo) ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.ReviewView, error) {
+	var items []*entity.ReviewView
+	if err := r.db.SelectContext(ctx, &items, `
+		SELECT rv.id, rv.user_id, u.full_name AS user_full_name,
+		       COALESCE(u.avatar_url, '') AS user_avatar_url,
+		       rv.book_id, b.title AS book_title,
+		       rv.rating, rv.body, rv.created_at
+		FROM reviews rv
+		JOIN users u ON u.id = rv.user_id   AND u.deleted_at  IS NULL
+		JOIN books b ON b.id = rv.book_id   AND b.deleted_at  IS NULL
+		WHERE rv.user_id = $1 AND rv.deleted_at IS NULL
+		ORDER BY rv.created_at DESC`,
+		userID,
+	); err != nil {
+		return nil, fmt.Errorf("reviewRepo.ListByUserView: %w", err)
+	}
+	return items, nil
+}
+
 // updateBookRatingTx пересчитывает avg_rating книги внутри существующей транзакции.
 func updateBookRatingTx(ctx context.Context, tx *sqlx.Tx, bookID uuid.UUID) error {
 	_, err := tx.ExecContext(ctx, `

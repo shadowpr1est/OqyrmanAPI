@@ -1,8 +1,9 @@
 package user
 
 import (
-	"log/slog"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -59,29 +60,37 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.uc.GetByID(c.Request.Context(), userID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
+	// Build a partial entity — only set fields present in the request.
+	// The repo SQL uses CASE WHEN '' to preserve existing DB values for omitted fields,
+	// so no preliminary GetByID round-trip is needed.
+	// When name or surname is provided, full_name is auto-computed by the repo SQL.
+	patch := &entity.User{ID: userID}
+	if req.Name != nil {
+		patch.Name = *req.Name
 	}
-
+	if req.Surname != nil {
+		patch.Surname = *req.Surname
+	}
 	if req.Email != nil {
-		existing.Email = *req.Email
+		patch.Email = *req.Email
 	}
 	if req.Phone != nil {
-		existing.Phone = *req.Phone
+		patch.Phone = *req.Phone
 	}
 	if req.FullName != nil {
-		existing.FullName = *req.FullName
+		patch.FullName = *req.FullName
 	}
-	// FIX: avatar_url убран из updateUserRequest и из этого хендлера.
-	// Раньше пользователь мог передать avatar_url в теле запроса,
-	// получить 200 OK, но аватар не менялся — user_repo.Update не включает
-	// avatar_url в SQL. Теперь поле отсутствует в DTO — нет ложных ожиданий.
-	// Для смены аватара: POST /users/me/avatar (multipart/form-data).
 
-	result, err := h.uc.Update(c.Request.Context(), existing)
+	result, err := h.uc.Update(c.Request.Context(), patch)
 	if err != nil {
+		if errors.Is(err, entity.ErrEmailTaken) {
+			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})
+			return
+		}
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -96,7 +105,7 @@ func (h *Handler) Update(c *gin.Context) {
 // @Produce     json
 // @Param       limit  query int false "Лимит"    default(20)
 // @Param       offset query int false "Смещение" default(0)
-// @Success     200 {object} map[string]interface{}
+// @Success     200 {object} map[string]userViewResponse
 // @Router      /admin/users [get]
 func (h *Handler) ListAll(c *gin.Context) {
 	limit := 20
@@ -107,15 +116,19 @@ func (h *Handler) ListAll(c *gin.Context) {
 	if o, err := strconv.Atoi(c.Query("offset")); err == nil && o >= 0 {
 		offset = o
 	}
-	users, total, err := h.uc.ListAll(c.Request.Context(), limit, offset)
+	if offset > 10000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "offset must not exceed 10000"})
+		return
+	}
+	users, total, err := h.uc.ListAllView(c.Request.Context(), limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	items := make([]userResponse, len(users))
+	items := make([]userViewResponse, len(users))
 	for i, u := range users {
-		items[i] = toUserResponse(u)
+		items[i] = toUserViewResponse(u)
 	}
 	c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "limit": limit, "offset": offset})
 }
@@ -152,6 +165,10 @@ func (h *Handler) UpdateRole(c *gin.Context) {
 	}
 
 	if err := h.uc.UpdateRole(c.Request.Context(), id, entity.Role(req.Role), libraryID); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -225,7 +242,14 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 	}
 	defer f.Close()
 
-	contentType := fh.Header.Get("Content-Type")
+	// Detect content type from actual file bytes, not the client-supplied header.
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	contentType := http.DetectContentType(buf[:n])
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot process file"})
+		return
+	}
 	switch contentType {
 	case "image/jpeg", "image/png", "image/webp":
 		// ok
@@ -271,10 +295,33 @@ func toUserResponse(u *entity.User) userResponse {
 		ID:        u.ID.String(),
 		Email:     u.Email,
 		Phone:     u.Phone,
+		Name:      u.Name,
+		Surname:   u.Surname,
 		FullName:  u.FullName,
 		AvatarURL: u.AvatarURL,
 		Role:      string(u.Role),
 		QRCode:    u.QRCode,
 		CreatedAt: u.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+}
+
+func toUserViewResponse(v *entity.UserView) userViewResponse {
+	resp := userViewResponse{
+		ID:          v.ID.String(),
+		Email:       v.Email,
+		Phone:       v.Phone,
+		Name:        v.Name,
+		Surname:     v.Surname,
+		FullName:    v.FullName,
+		AvatarURL:   v.AvatarURL,
+		Role:        string(v.Role),
+		LibraryName: v.LibraryName,
+		QRCode:      v.QRCode,
+		CreatedAt:   v.CreatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+	if v.LibraryID != nil {
+		s := v.LibraryID.String()
+		resp.LibraryID = &s
+	}
+	return resp
 }

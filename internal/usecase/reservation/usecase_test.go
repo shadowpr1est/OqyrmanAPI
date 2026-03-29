@@ -76,6 +76,18 @@ func (m *mockReservationRepo) CancelOverdue(ctx context.Context) (int, error) {
 func (m *mockReservationRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
+func (m *mockReservationRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
+	return nil, nil
+}
+func (m *mockReservationRepo) ListByUserView(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.ReservationView, int, error) {
+	return nil, 0, nil
+}
+func (m *mockReservationRepo) ListByLibraryView(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	return nil, 0, nil
+}
+func (m *mockReservationRepo) ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	return nil, 0, nil
+}
 
 type mockNotifRepo struct{ mock.Mock }
 

@@ -97,3 +97,31 @@ func (u *bookUseCase) ListSimilar(ctx context.Context, bookID uuid.UUID, limit i
 func (u *bookUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.bookRepo.Delete(ctx, id)
 }
+
+func (u *bookUseCase) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.BookView, error) {
+	return u.bookRepo.GetByIDView(ctx, id)
+}
+
+func (u *bookUseCase) ListView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error) {
+	return u.bookRepo.ListView(ctx, limit, offset)
+}
+
+func (u *bookUseCase) ListByAuthorView(ctx context.Context, authorID uuid.UUID) ([]*entity.BookView, error) {
+	return u.bookRepo.ListByAuthorView(ctx, authorID)
+}
+
+func (u *bookUseCase) ListByGenreView(ctx context.Context, genreID uuid.UUID) ([]*entity.BookView, error) {
+	return u.bookRepo.ListByGenreView(ctx, genreID)
+}
+
+func (u *bookUseCase) SearchView(ctx context.Context, query string, limit, offset int) ([]*entity.BookView, int, error) {
+	return u.bookRepo.SearchView(ctx, query, limit, offset)
+}
+
+func (u *bookUseCase) ListPopularView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error) {
+	return u.bookRepo.ListPopularView(ctx, limit, offset)
+}
+
+func (u *bookUseCase) ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error) {
+	return u.bookRepo.ListSimilarView(ctx, bookID, limit)
+}

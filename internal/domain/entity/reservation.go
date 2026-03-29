@@ -18,9 +18,27 @@ const (
 type Reservation struct {
 	ID            uuid.UUID         `db:"id"`
 	UserID        uuid.UUID         `db:"user_id"`
-	LibraryBookID uuid.UUID         `db:"library_book_id"` // NOT NULL — machine убран
+	LibraryBookID uuid.UUID         `db:"library_book_id"`
 	Status        ReservationStatus `db:"status"`
 	ReservedAt    time.Time         `db:"reserved_at"`
 	DueDate       time.Time         `db:"due_date"`
 	ReturnedAt    *time.Time        `db:"returned_at"`
+}
+
+// ReservationView — read model for GET endpoints.
+type ReservationView struct {
+	ID            uuid.UUID         `db:"id"`
+	Status        ReservationStatus `db:"status"`
+	ReservedAt    time.Time         `db:"reserved_at"`
+	DueDate       time.Time         `db:"due_date"`
+	ReturnedAt    *time.Time        `db:"returned_at"`
+	UserID        uuid.UUID         `db:"user_id"`
+	UserFullName  string            `db:"user_full_name"`
+	UserEmail     string            `db:"user_email"`
+	LibraryBookID uuid.UUID         `db:"library_book_id"`
+	BookID        uuid.UUID         `db:"book_id"`
+	BookTitle     string            `db:"book_title"`
+	BookCoverURL  string            `db:"book_cover_url"`
+	LibraryID     uuid.UUID         `db:"library_id"`
+	LibraryName   string            `db:"library_name"`
 }

@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -41,8 +43,11 @@ func (r *readingNoteRepo) Create(ctx context.Context, note *entity.ReadingNote) 
 
 func (r *readingNoteRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.ReadingNote, error) {
 	var note entity.ReadingNote
-	query := `SELECT * FROM reading_notes WHERE id = $1`
-	if err := r.db.GetContext(ctx, &note, query, id); err != nil {
+	err := r.db.GetContext(ctx, &note, `SELECT * FROM reading_notes WHERE id = $1`, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
 		return nil, fmt.Errorf("readingNoteRepo.GetByID: %w", err)
 	}
 	return &note, nil
@@ -50,8 +55,11 @@ func (r *readingNoteRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Re
 
 func (r *readingNoteRepo) ListByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) ([]*entity.ReadingNote, error) {
 	var notes []*entity.ReadingNote
-	query := `SELECT * FROM reading_notes WHERE user_id = $1 AND book_id = $2 ORDER BY page ASC`
-	if err := r.db.SelectContext(ctx, &notes, query, userID, bookID); err != nil {
+	err := r.db.SelectContext(ctx, &notes,
+		`SELECT * FROM reading_notes WHERE user_id = $1 AND book_id = $2 ORDER BY page ASC`,
+		userID, bookID,
+	)
+	if err != nil {
 		return nil, fmt.Errorf("readingNoteRepo.ListByUserAndBook: %w", err)
 	}
 	return notes, nil
@@ -72,7 +80,7 @@ func (r *readingNoteRepo) Update(ctx context.Context, note *entity.ReadingNote) 
 		if err := rows.Err(); err != nil {
 			return nil, fmt.Errorf("readingNoteRepo.Update rows error: %w", err)
 		}
-		return nil, fmt.Errorf("readingNoteRepo.Update: no rows returned")
+		return nil, entity.ErrNotFound
 	}
 	if err := rows.StructScan(note); err != nil {
 		return nil, fmt.Errorf("readingNoteRepo.Update scan: %w", err)
@@ -80,10 +88,52 @@ func (r *readingNoteRepo) Update(ctx context.Context, note *entity.ReadingNote) 
 	return note, nil
 }
 
+func (r *readingNoteRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReadingNoteView, error) {
+	var v entity.ReadingNoteView
+	err := r.db.GetContext(ctx, &v, `
+		SELECT n.id, n.user_id, n.book_id, b.title AS book_title,
+		       n.page, n.content, n.created_at
+		FROM reading_notes n
+		JOIN books b ON b.id = n.book_id AND b.deleted_at IS NULL
+		WHERE n.id = $1`, id,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("readingNoteRepo.GetByIDView: %w", err)
+	}
+	return &v, nil
+}
+
+func (r *readingNoteRepo) ListByUserAndBookView(ctx context.Context, userID, bookID uuid.UUID) ([]*entity.ReadingNoteView, error) {
+	var items []*entity.ReadingNoteView
+	err := r.db.SelectContext(ctx, &items, `
+		SELECT n.id, n.user_id, n.book_id, b.title AS book_title,
+		       n.page, n.content, n.created_at
+		FROM reading_notes n
+		JOIN books b ON b.id = n.book_id AND b.deleted_at IS NULL
+		WHERE n.user_id = $1 AND n.book_id = $2
+		ORDER BY n.page ASC`,
+		userID, bookID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("readingNoteRepo.ListByUserAndBookView: %w", err)
+	}
+	return items, nil
+}
+
 func (r *readingNoteRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM reading_notes WHERE id = $1`
-	if _, err := r.db.ExecContext(ctx, query, id); err != nil {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM reading_notes WHERE id = $1`, id)
+	if err != nil {
 		return fmt.Errorf("readingNoteRepo.Delete: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("readingNoteRepo.Delete rows affected: %w", err)
+	}
+	if rows == 0 {
+		return entity.ErrNotFound
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package reservation
 import "strconv"
 import "errors"
 import "github.com/gin-gonic/gin"
+import "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 
 type createReservationRequest struct {
 	LibraryBookID string `json:"library_book_id" binding:"required"`
@@ -27,6 +28,24 @@ type reservationResponse struct {
 	ReturnedAt    *string `json:"returned_at,omitempty"`
 }
 
+type reservationBookRef struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	CoverURL string `json:"cover_url,omitempty"`
+}
+
+type reservationViewResponse struct {
+	ID            string              `json:"id"`
+	Status        string              `json:"status"`
+	ReservedAt    string              `json:"reserved_at"`
+	DueDate       string              `json:"due_date"`
+	ReturnedAt    *string             `json:"returned_at,omitempty"`
+	User          common.UserRef      `json:"user"`
+	LibraryBookID string              `json:"library_book_id"`
+	Book          reservationBookRef  `json:"book"`
+	Library       common.LibraryRef   `json:"library"`
+}
+
 func parsePagination(c *gin.Context) (limit, offset int, err error) {
 	limit, _ = strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ = strconv.Atoi(c.DefaultQuery("offset", "0"))
@@ -38,6 +57,9 @@ func parsePagination(c *gin.Context) (limit, offset int, err error) {
 	}
 	if offset < 0 {
 		return 0, 0, errors.New("offset must be >= 0")
+	}
+	if offset > 10000 {
+		return 0, 0, errors.New("offset must not exceed 10000")
 	}
 	return limit, offset, nil
 }

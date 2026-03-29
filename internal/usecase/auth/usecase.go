@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/mail"
 	"time"
 	"unicode"
 
@@ -15,29 +17,38 @@ import (
 )
 
 type authUseCase struct {
-	userRepo  repository.UserRepository
-	tokenRepo repository.TokenRepository
-	jwt       *jwt.Manager
+	userRepo       repository.UserRepository
+	tokenRepo      repository.TokenRepository
+	jwt            *jwt.Manager
+	refreshTokenTTL time.Duration
 }
 
 func NewAuthUseCase(
 	userRepo repository.UserRepository,
 	tokenRepo repository.TokenRepository,
 	jwt *jwt.Manager,
+	refreshTokenTTLDays int,
 ) domainUseCase.AuthUseCase {
 	return &authUseCase{
-		userRepo:  userRepo,
-		tokenRepo: tokenRepo,
-		jwt:       jwt,
+		userRepo:        userRepo,
+		tokenRepo:       tokenRepo,
+		jwt:             jwt,
+		refreshTokenTTL: time.Duration(refreshTokenTTLDays) * 24 * time.Hour,
 	}
 }
 
 func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
-	existing, _ := u.userRepo.GetByEmail(ctx, user.Email)
+	existing, err := u.userRepo.GetByEmail(ctx, user.Email)
+	if err != nil && !errors.Is(err, entity.ErrNotFound) {
+		return nil, fmt.Errorf("authUseCase.Register lookup: %w", err)
+	}
 	if existing != nil {
-		return nil, errors.New("email already exists")
+		return nil, entity.ErrEmailTaken
 	}
 
+	if err := validateEmail(user.Email); err != nil {
+		return nil, err
+	}
 	if err := validatePassword(user.PasswordHash); err != nil {
 		return nil, err
 	}
@@ -79,7 +90,7 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 		ID:           uuid.New(),
 		UserID:       user.ID,
 		RefreshToken: refreshToken,
-		ExpiresAt:    time.Now().Add(time.Hour * 24 * 30),
+		ExpiresAt:    time.Now().Add(u.refreshTokenTTL),
 		CreatedAt:    time.Now(),
 	}
 
@@ -97,9 +108,16 @@ func (u *authUseCase) Logout(ctx context.Context, refreshToken string) error {
 	return u.tokenRepo.DeleteByRefreshToken(ctx, refreshToken)
 }
 
+func validateEmail(email string) error {
+	if _, err := mail.ParseAddress(email); err != nil {
+		return fmt.Errorf("%w: invalid email format", entity.ErrValidation)
+	}
+	return nil
+}
+
 func validatePassword(p string) error {
 	if len(p) < 8 {
-		return errors.New("password must be at least 8 characters")
+		return fmt.Errorf("%w: password must be at least 8 characters", entity.ErrValidation)
 	}
 	var hasUpper, hasDigit bool
 	for _, r := range p {
@@ -111,10 +129,10 @@ func validatePassword(p string) error {
 		}
 	}
 	if !hasUpper {
-		return errors.New("password must contain at least one uppercase letter")
+		return fmt.Errorf("%w: password must contain at least one uppercase letter", entity.ErrValidation)
 	}
 	if !hasDigit {
-		return errors.New("password must contain at least one digit")
+		return fmt.Errorf("%w: password must contain at least one digit", entity.ErrValidation)
 	}
 	return nil
 }
@@ -148,7 +166,7 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 		ID:           uuid.New(),
 		UserID:       user.ID,
 		RefreshToken: newRefreshToken,
-		ExpiresAt:    time.Now().Add(time.Hour * 24 * 30),
+		ExpiresAt:    time.Now().Add(u.refreshTokenTTL),
 		CreatedAt:    time.Now(),
 	}
 

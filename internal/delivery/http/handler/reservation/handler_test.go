@@ -79,6 +79,25 @@ func (m *mockReservationUseCase) CancelOverdue(ctx context.Context) (int, error)
 	args := m.Called(ctx)
 	return args.Int(0), args.Error(1)
 }
+func (m *mockReservationUseCase) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.ReservationView), args.Error(1)
+}
+func (m *mockReservationUseCase) ListByUserView(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.ReservationView, int, error) {
+	args := m.Called(ctx, userID, limit, offset)
+	return args.Get(0).([]*entity.ReservationView), args.Int(1), args.Error(2)
+}
+func (m *mockReservationUseCase) ListByLibraryView(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	args := m.Called(ctx, libraryID, limit, offset, status)
+	return args.Get(0).([]*entity.ReservationView), args.Int(1), args.Error(2)
+}
+func (m *mockReservationUseCase) ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	args := m.Called(ctx, limit, offset, status)
+	return args.Get(0).([]*entity.ReservationView), args.Int(1), args.Error(2)
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,6 +143,23 @@ func makeReservation(id, userID uuid.UUID) *entity.Reservation {
 		Status:        entity.ReservationPending,
 		ReservedAt:    time.Now(),
 		DueDate:       time.Now().Add(7 * 24 * time.Hour),
+	}
+}
+
+func makeReservationView(id, userID uuid.UUID) *entity.ReservationView {
+	return &entity.ReservationView{
+		ID:           id,
+		Status:       entity.ReservationPending,
+		ReservedAt:   time.Now(),
+		DueDate:      time.Now().Add(7 * 24 * time.Hour),
+		UserID:       userID,
+		UserFullName: "Test User",
+		UserEmail:    "test@example.com",
+		LibraryBookID: uuid.New(),
+		BookID:       uuid.New(),
+		BookTitle:    "Test Book",
+		LibraryID:    uuid.New(),
+		LibraryName:  "Test Library",
 	}
 }
 
@@ -249,7 +285,7 @@ func TestGetByID_Success(t *testing.T) {
 	r.GET("/reservations/:id", h.GetByID)
 
 	id := uuid.New()
-	uc.On("GetByID", mock.Anything, id).Return(makeReservation(id, testUserID), nil)
+	uc.On("GetByIDView", mock.Anything, id).Return(makeReservationView(id, testUserID), nil)
 
 	w := serveJSON(r, http.MethodGet, "/reservations/"+id.String(), "")
 
@@ -267,7 +303,7 @@ func TestGetByID_InvalidUUID(t *testing.T) {
 	w := serveJSON(r, http.MethodGet, "/reservations/not-a-uuid", "")
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	uc.AssertNotCalled(t, "GetByID")
+	uc.AssertNotCalled(t, "GetByIDView")
 }
 
 func TestGetByID_NotFound(t *testing.T) {
@@ -278,7 +314,7 @@ func TestGetByID_NotFound(t *testing.T) {
 	r.GET("/reservations/:id", h.GetByID)
 
 	id := uuid.New()
-	uc.On("GetByID", mock.Anything, id).Return(nil, entity.ErrReservationNotFound)
+	uc.On("GetByIDView", mock.Anything, id).Return(nil, entity.ErrReservationNotFound)
 
 	w := serveJSON(r, http.MethodGet, "/reservations/"+id.String(), "")
 
@@ -293,7 +329,7 @@ func TestGetByID_InternalError(t *testing.T) {
 	r.GET("/reservations/:id", h.GetByID)
 
 	id := uuid.New()
-	uc.On("GetByID", mock.Anything, id).Return(nil, errors.New("db timeout"))
+	uc.On("GetByIDView", mock.Anything, id).Return(nil, errors.New("db timeout"))
 
 	w := serveJSON(r, http.MethodGet, "/reservations/"+id.String(), "")
 
@@ -310,8 +346,8 @@ func TestListByUser_Success(t *testing.T) {
 	r := gin.New()
 	r.GET("/reservations", injectUser(testUserID, h.ListByUser))
 
-	items := []*entity.Reservation{makeReservation(uuid.New(), testUserID)}
-	uc.On("ListByUser", mock.Anything, testUserID, 20, 0).Return(items, 1, nil)
+	items := []*entity.ReservationView{makeReservationView(uuid.New(), testUserID)}
+	uc.On("ListByUserView", mock.Anything, testUserID, 20, 0).Return(items, 1, nil)
 
 	w := serveJSON(r, http.MethodGet, "/reservations", "")
 
@@ -331,7 +367,7 @@ func TestListByUser_InvalidPagination(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	uc.AssertNotCalled(t, "ListByUser")
+	uc.AssertNotCalled(t, "ListByUserView")
 }
 
 func TestListByUser_InternalError(t *testing.T) {
@@ -341,8 +377,8 @@ func TestListByUser_InternalError(t *testing.T) {
 	r := gin.New()
 	r.GET("/reservations", injectUser(testUserID, h.ListByUser))
 
-	uc.On("ListByUser", mock.Anything, testUserID, 20, 0).
-		Return([]*entity.Reservation{}, 0, errors.New("connection pool exhausted"))
+	uc.On("ListByUserView", mock.Anything, testUserID, 20, 0).
+		Return([]*entity.ReservationView{}, 0, errors.New("connection pool exhausted"))
 
 	w := serveJSON(r, http.MethodGet, "/reservations", "")
 
@@ -441,8 +477,8 @@ func TestListByLibrary_Success(t *testing.T) {
 	r := gin.New()
 	r.GET("/staff/reservations", injectUserAndLibrary(testUserID, &testLibraryID, h.ListByLibrary))
 
-	items := []*entity.Reservation{makeReservation(uuid.New(), testUserID)}
-	uc.On("ListByLibrary", mock.Anything, testLibraryID, 20, 0, (*string)(nil)).
+	items := []*entity.ReservationView{makeReservationView(uuid.New(), testUserID)}
+	uc.On("ListByLibraryView", mock.Anything, testLibraryID, 20, 0, (*string)(nil)).
 		Return(items, 1, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/staff/reservations", nil)
@@ -461,8 +497,8 @@ func TestListByLibrary_WithStatusFilter(t *testing.T) {
 	r.GET("/staff/reservations", injectUserAndLibrary(testUserID, &testLibraryID, h.ListByLibrary))
 
 	status := "active"
-	uc.On("ListByLibrary", mock.Anything, testLibraryID, 20, 0, &status).
-		Return([]*entity.Reservation{}, 0, nil)
+	uc.On("ListByLibraryView", mock.Anything, testLibraryID, 20, 0, &status).
+		Return([]*entity.ReservationView{}, 0, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/staff/reservations?status=active", nil)
 	w := httptest.NewRecorder()

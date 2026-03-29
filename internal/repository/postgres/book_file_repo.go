@@ -2,10 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 )
 
@@ -24,6 +26,11 @@ func (r *bookFileRepo) Create(ctx context.Context, file *entity.BookFile) (*enti
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, file)
 	if err != nil {
+		// UNIQUE (book_id, is_audio) violation — file of this type already exists for the book.
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return nil, entity.ErrFileLimitExceeded
+		}
 		return nil, fmt.Errorf("bookFileRepo.Create: %w", err)
 	}
 	defer rows.Close()
@@ -41,8 +48,7 @@ func (r *bookFileRepo) Create(ctx context.Context, file *entity.BookFile) (*enti
 
 func (r *bookFileRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.BookFile, error) {
 	var file entity.BookFile
-	query := `SELECT * FROM book_files WHERE id = $1`
-	if err := r.db.GetContext(ctx, &file, query, id); err != nil {
+	if err := r.db.GetContext(ctx, &file, `SELECT * FROM book_files WHERE id = $1`, id); err != nil {
 		return nil, fmt.Errorf("bookFileRepo.GetByID: %w", err)
 	}
 	return &file, nil
@@ -50,16 +56,14 @@ func (r *bookFileRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.BookF
 
 func (r *bookFileRepo) ListByBook(ctx context.Context, bookID uuid.UUID) ([]*entity.BookFile, error) {
 	var files []*entity.BookFile
-	query := `SELECT * FROM book_files WHERE book_id = $1`
-	if err := r.db.SelectContext(ctx, &files, query, bookID); err != nil {
+	if err := r.db.SelectContext(ctx, &files, `SELECT * FROM book_files WHERE book_id = $1`, bookID); err != nil {
 		return nil, fmt.Errorf("bookFileRepo.ListByBook: %w", err)
 	}
 	return files, nil
 }
 
 func (r *bookFileRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM book_files WHERE id = $1`
-	if _, err := r.db.ExecContext(ctx, query, id); err != nil {
+	if _, err := r.db.ExecContext(ctx, `DELETE FROM book_files WHERE id = $1`, id); err != nil {
 		return fmt.Errorf("bookFileRepo.Delete: %w", err)
 	}
 	return nil

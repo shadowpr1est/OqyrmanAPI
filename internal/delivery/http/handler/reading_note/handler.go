@@ -64,7 +64,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID заметки"
-// @Success     200 {object} noteResponse
+// @Success     200 {object} noteViewResponse
 // @Router      /notes/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
 	userID := middleware.GetUserID(c)
@@ -74,7 +74,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	note, err := h.uc.GetByID(c.Request.Context(), id)
+	note, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -84,7 +84,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
-	c.JSON(http.StatusOK, toNoteResponse(note))
+	c.JSON(http.StatusOK, toNoteViewResponse(note))
 }
 
 // @Summary     Заметки по книге
@@ -103,16 +103,16 @@ func (h *Handler) ListByBook(c *gin.Context) {
 		return
 	}
 
-	notes, err := h.uc.ListByUserAndBook(c.Request.Context(), userID, bookID)
+	notes, err := h.uc.ListByUserAndBookView(c.Request.Context(), userID, bookID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*noteResponse, len(notes))
+	items := make([]*noteViewResponse, len(notes))
 	for i, n := range notes {
-		resp := toNoteResponse(n)
+		resp := toNoteViewResponse(n)
 		items[i] = &resp
 	}
 
@@ -210,5 +210,17 @@ func toNoteResponse(n *entity.ReadingNote) noteResponse {
 		Page:      n.Page,
 		Content:   n.Content,
 		CreatedAt: n.CreatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+}
+
+func toNoteViewResponse(v *entity.ReadingNoteView) noteViewResponse {
+	return noteViewResponse{
+		ID:        v.ID.String(),
+		UserID:    v.UserID.String(),
+		BookID:    v.BookID.String(),
+		BookTitle: v.BookTitle,
+		Page:      v.Page,
+		Content:   v.Content,
+		CreatedAt: v.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }

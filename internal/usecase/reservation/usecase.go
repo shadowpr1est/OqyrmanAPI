@@ -137,3 +137,19 @@ func (u *reservationUseCase) UpdateStatus(ctx context.Context, id uuid.UUID, sta
 func (u *reservationUseCase) StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error {
 	return u.reservationRepo.StaffUpdateStatus(ctx, id, libraryID, status)
 }
+
+func (u *reservationUseCase) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
+	return u.reservationRepo.GetByIDView(ctx, id)
+}
+
+func (u *reservationUseCase) ListByUserView(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.ReservationView, int, error) {
+	return u.reservationRepo.ListByUserView(ctx, userID, limit, offset)
+}
+
+func (u *reservationUseCase) ListByLibraryView(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	return u.reservationRepo.ListByLibraryView(ctx, libraryID, limit, offset, status)
+}
+
+func (u *reservationUseCase) ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
+	return u.reservationRepo.ListAllView(ctx, limit, offset, status)
+}

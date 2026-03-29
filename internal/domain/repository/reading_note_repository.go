@@ -13,4 +13,8 @@ type ReadingNoteRepository interface {
 	ListByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) ([]*entity.ReadingNote, error)
 	Update(ctx context.Context, note *entity.ReadingNote) (*entity.ReadingNote, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// View methods — used by GET endpoints; return joined book data.
+	GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReadingNoteView, error)
+	ListByUserAndBookView(ctx context.Context, userID, bookID uuid.UUID) ([]*entity.ReadingNoteView, error)
 }

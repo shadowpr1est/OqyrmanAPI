@@ -5,7 +5,15 @@
       "Bash(go build:*)",
       "Bash(grep -r \"deleted_at\" /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/domain/entity/*.go)",
       "Bash(grep -r ErrForbidden /c/Users/sem1c/GolandProjects/OqyrmanAPI --include=*.go)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(rm -rf docs)",
+      "Bash(swag init:*)",
+      "Bash(cd:*)",
+      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/domain/repository -type f -name *.go)",
+      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/domain/usecase -type f -name *.go)",
+      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/domain/storage -type f -name *.go)",
+      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/repository/postgres -type f -name *.go)",
+      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/delivery/http/handler -type f -name *.go)"
     ]
   }
 }

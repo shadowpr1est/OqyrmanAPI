@@ -2,10 +2,13 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 )
 
@@ -41,8 +44,10 @@ func (r *libraryBookRepo) Create(ctx context.Context, lb *entity.LibraryBook) (*
 
 func (r *libraryBookRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.LibraryBook, error) {
 	var lb entity.LibraryBook
-	query := `SELECT * FROM library_books WHERE id = $1`
-	if err := r.db.GetContext(ctx, &lb, query, id); err != nil {
+	if err := r.db.GetContext(ctx, &lb, `SELECT * FROM library_books WHERE id = $1`, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
 		return nil, fmt.Errorf("libraryBookRepo.GetByID: %w", err)
 	}
 	return &lb, nil
@@ -50,8 +55,10 @@ func (r *libraryBookRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Li
 
 func (r *libraryBookRepo) ListByLibrary(ctx context.Context, libraryID uuid.UUID) ([]*entity.LibraryBook, error) {
 	var items []*entity.LibraryBook
-	query := `SELECT * FROM library_books WHERE library_id = $1`
-	if err := r.db.SelectContext(ctx, &items, query, libraryID); err != nil {
+	if err := r.db.SelectContext(ctx, &items,
+		`SELECT * FROM library_books WHERE library_id = $1 ORDER BY id`,
+		libraryID,
+	); err != nil {
 		return nil, fmt.Errorf("libraryBookRepo.ListByLibrary: %w", err)
 	}
 	return items, nil
@@ -74,6 +81,13 @@ func (r *libraryBookRepo) Update(ctx context.Context, lb *entity.LibraryBook) (*
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, lb)
 	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) {
+			switch pqErr.Code {
+			case "23514": // check_violation: available_copies <= total_copies or non-negative
+				return nil, fmt.Errorf("%w: %s", entity.ErrValidation, pqErr.Message)
+			}
+		}
 		return nil, fmt.Errorf("libraryBookRepo.Update: %w", err)
 	}
 	defer rows.Close()
@@ -81,7 +95,7 @@ func (r *libraryBookRepo) Update(ctx context.Context, lb *entity.LibraryBook) (*
 		if err := rows.Err(); err != nil {
 			return nil, fmt.Errorf("libraryBookRepo.Update rows error: %w", err)
 		}
-		return nil, fmt.Errorf("libraryBookRepo.Update: no rows returned")
+		return nil, entity.ErrNotFound
 	}
 	if err := rows.StructScan(lb); err != nil {
 		return nil, fmt.Errorf("libraryBookRepo.Update scan: %w", err)
@@ -95,6 +109,53 @@ func (r *libraryBookRepo) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("libraryBookRepo.Delete: %w", err)
 	}
 	return nil
+}
+
+// libraryBookViewQuery is the base SELECT for all LibraryBookView methods.
+const libraryBookViewQuery = `
+	SELECT lb.id, lb.library_id, l.name AS library_name,
+	       lb.book_id, b.title AS book_title,
+	       COALESCE(b.cover_url, '') AS book_cover_url, COALESCE(b.year, 0) AS book_year,
+	       b.author_id, a.name AS author_name,
+	       b.genre_id, g.name AS genre_name,
+	       lb.total_copies, lb.available_copies
+	FROM library_books lb
+	JOIN libraries l ON l.id = lb.library_id AND l.deleted_at IS NULL
+	JOIN books     b ON b.id = lb.book_id    AND b.deleted_at IS NULL
+	JOIN authors   a ON a.id = b.author_id   AND a.deleted_at IS NULL
+	JOIN genres    g ON g.id = b.genre_id    AND g.deleted_at IS NULL`
+
+func (r *libraryBookRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.LibraryBookView, error) {
+	var v entity.LibraryBookView
+	if err := r.db.GetContext(ctx, &v,
+		libraryBookViewQuery+" WHERE lb.id = $1", id,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("libraryBookRepo.GetByIDView: %w", err)
+	}
+	return &v, nil
+}
+
+func (r *libraryBookRepo) ListByLibraryView(ctx context.Context, libraryID uuid.UUID) ([]*entity.LibraryBookView, error) {
+	var items []*entity.LibraryBookView
+	if err := r.db.SelectContext(ctx, &items,
+		libraryBookViewQuery+" WHERE lb.library_id = $1 ORDER BY b.title", libraryID,
+	); err != nil {
+		return nil, fmt.Errorf("libraryBookRepo.ListByLibraryView: %w", err)
+	}
+	return items, nil
+}
+
+func (r *libraryBookRepo) ListByBookView(ctx context.Context, bookID uuid.UUID) ([]*entity.LibraryBookView, error) {
+	var items []*entity.LibraryBookView
+	if err := r.db.SelectContext(ctx, &items,
+		libraryBookViewQuery+" WHERE lb.book_id = $1 ORDER BY l.name", bookID,
+	); err != nil {
+		return nil, fmt.Errorf("libraryBookRepo.ListByBookView: %w", err)
+	}
+	return items, nil
 }
 
 func (r *libraryBookRepo) SearchInLibrary(ctx context.Context, libraryID uuid.UUID, q string, genreID *uuid.UUID, onlyAvailable bool, limit, offset int) ([]*entity.LibraryBookSearchResult, int, error) {

@@ -12,4 +12,7 @@ type WishlistRepository interface {
 	Remove(ctx context.Context, userID, bookID uuid.UUID) error
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Wishlist, error)
 	ExistsByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) (bool, error)
+
+	// View method — used by GET /wishlist; returns joined book/author/genre data.
+	ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.WishlistView, error)
 }

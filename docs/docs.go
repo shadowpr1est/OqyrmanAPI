@@ -157,6 +157,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
+                "description": "Загружает файл в MinIO. Допустимые форматы: pdf, epub, mp3.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -166,7 +167,7 @@ const docTemplate = `{
                 "tags": [
                     "book-files"
                 ],
-                "summary": "Загрузить файл книги в S3",
+                "summary": "Загрузить файл книги",
                 "parameters": [
                     {
                         "type": "string",
@@ -177,15 +178,15 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Формат: pdf, epub, mp3",
+                        "description": "Формат файла: pdf | epub | mp3",
                         "name": "format",
                         "in": "formData",
                         "required": true
                     },
                     {
-                        "type": "boolean",
-                        "description": "Аудиофайл?",
-                        "name": "is_audio",
+                        "type": "integer",
+                        "description": "Кол-во страниц (только для PDF/EPUB)",
+                        "name": "total_pages",
                         "in": "formData"
                     },
                     {
@@ -201,6 +202,24 @@ const docTemplate = `{
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/book_file.bookFileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Файл данного типа уже загружен для этой книги",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1102,7 +1121,9 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "$ref": "#/definitions/user.userViewResponse"
+                            }
                         }
                     }
                 }
@@ -1678,7 +1699,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/book.listBookResponse"
+                            "$ref": "#/definitions/book.listBookViewResponse"
                         }
                     }
                 }
@@ -1771,7 +1792,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/book.listBookResponse"
+                            "$ref": "#/definitions/book.listBookViewResponse"
                         }
                     }
                 }
@@ -1813,7 +1834,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/book.listBookResponse"
+                            "$ref": "#/definitions/book.listBookViewResponse"
                         }
                     },
                     "400": {
@@ -1850,7 +1871,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/book.bookResponse"
+                            "$ref": "#/definitions/book.bookViewResponse"
                         }
                     },
                     "404": {
@@ -2267,7 +2288,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/library_book.libraryBookResponse"
+                            "$ref": "#/definitions/library_book.libraryBookViewResponse"
                         }
                     }
                 }
@@ -2372,7 +2393,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/notes.noteResponse"
+                            "$ref": "#/definitions/notes.noteViewResponse"
                         }
                     }
                 }
@@ -2646,7 +2667,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/reading_session.readingSessionResponse"
+                            "$ref": "#/definitions/reading_session.readingSessionViewResponse"
                         }
                     }
                 }
@@ -2801,7 +2822,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/reservation.reservationResponse"
+                            "$ref": "#/definitions/reservation.reservationViewResponse"
                         }
                     },
                     "404": {
@@ -2998,7 +3019,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/review.listReviewResponse"
+                            "$ref": "#/definitions/review.listReviewViewResponse"
                         }
                     }
                 }
@@ -3056,7 +3077,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/review.reviewResponse"
+                            "$ref": "#/definitions/review.reviewViewResponse"
                         }
                     }
                 }
@@ -3962,13 +3983,51 @@ const docTemplate = `{
                 }
             }
         },
-        "book.listBookResponse": {
+        "book.bookViewResponse": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "$ref": "#/definitions/common.AuthorRef"
+                },
+                "avg_rating": {
+                    "type": "number"
+                },
+                "cover_url": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "genre": {
+                    "$ref": "#/definitions/common.GenreRef"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "isbn": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "total_pages": {
+                    "type": "integer"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "book.listBookViewResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/book.bookResponse"
+                        "$ref": "#/definitions/book.bookViewResponse"
                     }
                 },
                 "limit": {
@@ -4031,6 +4090,85 @@ const docTemplate = `{
                 },
                 "is_audio": {
                     "type": "boolean"
+                }
+            }
+        },
+        "common.AuthorRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "common.BookRef": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "$ref": "#/definitions/common.AuthorRef"
+                },
+                "avg_rating": {
+                    "type": "number"
+                },
+                "cover_url": {
+                    "type": "string"
+                },
+                "genre": {
+                    "$ref": "#/definitions/common.GenreRef"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "total_pages": {
+                    "type": "integer"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "common.GenreRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "common.LibraryRef": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "common.UserRef": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
                 }
             }
         },
@@ -4346,6 +4484,26 @@ const docTemplate = `{
                 }
             }
         },
+        "library_book.libraryBookViewResponse": {
+            "type": "object",
+            "properties": {
+                "available_copies": {
+                    "type": "integer"
+                },
+                "book": {
+                    "$ref": "#/definitions/common.BookRef"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "library": {
+                    "$ref": "#/definitions/common.LibraryRef"
+                },
+                "total_copies": {
+                    "type": "integer"
+                }
+            }
+        },
         "library_book.updateLibraryBookRequest": {
             "type": "object",
             "properties": {
@@ -4380,6 +4538,32 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "book_id": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "notes.noteViewResponse": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string"
+                },
+                "book_title": {
                     "type": "string"
                 },
                 "content": {
@@ -4479,6 +4663,52 @@ const docTemplate = `{
                 }
             }
         },
+        "reading_session.readingSessionViewResponse": {
+            "type": "object",
+            "properties": {
+                "book": {
+                    "$ref": "#/definitions/reading_session.sessionBookRef"
+                },
+                "current_page": {
+                    "type": "integer"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "reading_session.sessionBookRef": {
+            "type": "object",
+            "properties": {
+                "author_name": {
+                    "type": "string"
+                },
+                "cover_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
         "reading_session.upsertReadingSessionRequest": {
             "type": "object",
             "required": [
@@ -4529,6 +4759,20 @@ const docTemplate = `{
                 }
             }
         },
+        "reservation.reservationBookRef": {
+            "type": "object",
+            "properties": {
+                "cover_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "reservation.reservationResponse": {
             "type": "object",
             "properties": {
@@ -4552,6 +4796,38 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "reservation.reservationViewResponse": {
+            "type": "object",
+            "properties": {
+                "book": {
+                    "$ref": "#/definitions/reservation.reservationBookRef"
+                },
+                "due_date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "library": {
+                    "$ref": "#/definitions/common.LibraryRef"
+                },
+                "library_book_id": {
+                    "type": "string"
+                },
+                "reserved_at": {
+                    "type": "string"
+                },
+                "returned_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/common.UserRef"
                 }
             }
         },
@@ -4587,13 +4863,13 @@ const docTemplate = `{
                 }
             }
         },
-        "review.listReviewResponse": {
+        "review.listReviewViewResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/review.reviewResponse"
+                        "$ref": "#/definitions/review.reviewViewResponse"
                     }
                 },
                 "limit": {
@@ -4624,6 +4900,38 @@ const docTemplate = `{
                 },
                 "rating": {
                     "type": "integer"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "review.reviewViewResponse": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "book_id": {
+                    "type": "string"
+                },
+                "book_title": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "rating": {
+                    "type": "integer"
+                },
+                "user_avatar_url": {
+                    "type": "string"
+                },
+                "user_full_name": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "string"
@@ -4739,9 +5047,16 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "full_name": {
+                    "description": "full_name: принимается только если name и surname не переданы.\nЕсли переданы name/surname — full_name пересчитывается автоматически.",
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "phone": {
+                    "type": "string"
+                },
+                "surname": {
                     "type": "string"
                 }
             }
@@ -4764,6 +5079,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "phone": {
                     "type": "string"
                 },
@@ -4771,6 +5089,50 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                }
+            }
+        },
+        "user.userViewResponse": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "library_id": {
+                    "type": "string"
+                },
+                "library_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "qr_code": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "surname": {
                     "type": "string"
                 }
             }

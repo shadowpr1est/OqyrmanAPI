@@ -49,6 +49,15 @@ func (m *mockReviewRepo) Update(ctx context.Context, r *entity.Review) (*entity.
 func (m *mockReviewRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
+func (m *mockReviewRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReviewView, error) {
+	return nil, nil
+}
+func (m *mockReviewRepo) ListByBookView(ctx context.Context, bookID uuid.UUID, limit, offset int) ([]*entity.ReviewView, int, error) {
+	return nil, 0, nil
+}
+func (m *mockReviewRepo) ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.ReviewView, error) {
+	return nil, nil
+}
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 

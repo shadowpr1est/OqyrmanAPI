@@ -1,14 +1,16 @@
 package book
 
 import (
-	"log/slog"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
@@ -70,7 +72,19 @@ func (h *Handler) Create(c *gin.Context) {
 
 	var cover *fileupload.File
 	if fh, err := c.FormFile("cover"); err == nil {
-		ct := fh.Header.Get("Content-Type")
+		f, err := fh.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
+			return
+		}
+		defer f.Close()
+		buf := make([]byte, 512)
+		n, _ := f.Read(buf)
+		ct := http.DetectContentType(buf[:n])
+		if _, err := f.Seek(0, io.SeekStart); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot process cover file"})
+			return
+		}
 		switch ct {
 		case "image/jpeg", "image/png", "image/webp":
 			// ok
@@ -78,12 +92,6 @@ func (h *Handler) Create(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "only jpeg, png, webp images are allowed"})
 			return
 		}
-		f, err := fh.Open()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
-			return
-		}
-		defer f.Close()
 		cover = &fileupload.File{
 			Filename:    fh.Filename,
 			Reader:      f,
@@ -125,7 +133,19 @@ func (h *Handler) UploadCover(c *gin.Context) {
 		return
 	}
 
-	ct := fh.Header.Get("Content-Type")
+	f, err := fh.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
+		return
+	}
+	defer f.Close()
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	ct := http.DetectContentType(buf[:n])
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot process cover file"})
+		return
+	}
 	switch ct {
 	case "image/jpeg", "image/png", "image/webp":
 		// ok
@@ -133,13 +153,6 @@ func (h *Handler) UploadCover(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "only jpeg, png, webp images are allowed"})
 		return
 	}
-
-	f, err := fh.Open()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open cover file"})
-		return
-	}
-	defer f.Close()
 
 	book, err := h.uc.UploadCover(c.Request.Context(), id, &fileupload.File{
 		Filename:    fh.Filename,
@@ -159,7 +172,7 @@ func (h *Handler) UploadCover(c *gin.Context) {
 // @Tags        books
 // @Produce     json
 // @Param       id path string true "ID книги"
-// @Success     200 {object} bookResponse
+// @Success     200 {object} bookViewResponse
 // @Failure     404 {object} map[string]string
 // @Router      /books/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
@@ -169,13 +182,13 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	book, err := h.uc.GetByID(c.Request.Context(), id)
+	book, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, toBookResponse(book))
+	c.JSON(http.StatusOK, toBookViewResponse(book))
 }
 
 // @Summary     Список книг
@@ -183,7 +196,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 // @Produce     json
 // @Param       limit  query int false "Лимит"  default(20)
 // @Param       offset query int false "Отступ" default(0)
-// @Success     200 {object} listBookResponse
+// @Success     200 {object} listBookViewResponse
 // @Router      /books [get]
 func (h *Handler) List(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -194,21 +207,25 @@ func (h *Handler) List(c *gin.Context) {
 	if offset < 0 {
 		offset = 0
 	}
+	if offset > 10000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "offset must not exceed 10000"})
+		return
+	}
 
-	books, total, err := h.uc.List(c.Request.Context(), limit, offset)
+	books, total, err := h.uc.ListView(c.Request.Context(), limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*bookResponse, len(books))
+	items := make([]*bookViewResponse, len(books))
 	for i, b := range books {
-		resp := toBookResponse(b)
+		resp := toBookViewResponse(b)
 		items[i] = &resp
 	}
 
-	c.JSON(http.StatusOK, listBookResponse{
+	c.JSON(http.StatusOK, listBookViewResponse{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -229,16 +246,16 @@ func (h *Handler) ListByAuthor(c *gin.Context) {
 		return
 	}
 
-	books, err := h.uc.ListByAuthor(c.Request.Context(), authorID)
+	books, err := h.uc.ListByAuthorView(c.Request.Context(), authorID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*bookResponse, len(books))
+	items := make([]*bookViewResponse, len(books))
 	for i, b := range books {
-		resp := toBookResponse(b)
+		resp := toBookViewResponse(b)
 		items[i] = &resp
 	}
 
@@ -258,16 +275,16 @@ func (h *Handler) ListByGenre(c *gin.Context) {
 		return
 	}
 
-	books, err := h.uc.ListByGenre(c.Request.Context(), genreID)
+	books, err := h.uc.ListByGenreView(c.Request.Context(), genreID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*bookResponse, len(books))
+	items := make([]*bookViewResponse, len(books))
 	for i, b := range books {
-		resp := toBookResponse(b)
+		resp := toBookViewResponse(b)
 		items[i] = &resp
 	}
 
@@ -280,7 +297,7 @@ func (h *Handler) ListByGenre(c *gin.Context) {
 // @Param       q      query string true  "Поисковый запрос"
 // @Param       limit  query int    false "Лимит"    default(20)
 // @Param       offset query int    false "Смещение" default(0)
-// @Success     200 {object} listBookResponse
+// @Success     200 {object} listBookViewResponse
 // @Failure     400 {object} map[string]string
 // @Router      /books/search [get]
 func (h *Handler) Search(c *gin.Context) {
@@ -298,24 +315,29 @@ func (h *Handler) Search(c *gin.Context) {
 	if offset < 0 {
 		offset = 0
 	}
+	if offset > 10000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "offset must not exceed 10000"})
+		return
+	}
 	if len(query) > 255 {
-		query = query[:255]
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query must not exceed 255 characters"})
+		return
 	}
 
-	books, total, err := h.uc.Search(c.Request.Context(), query, limit, offset)
+	books, total, err := h.uc.SearchView(c.Request.Context(), query, limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*bookResponse, len(books))
+	items := make([]*bookViewResponse, len(books))
 	for i, b := range books {
-		resp := toBookResponse(b)
+		resp := toBookViewResponse(b)
 		items[i] = &resp
 	}
 
-	c.JSON(http.StatusOK, listBookResponse{
+	c.JSON(http.StatusOK, listBookViewResponse{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -431,7 +453,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // @Produce     json
 // @Param       limit  query int false "Лимит"  default(20)
 // @Param       offset query int false "Отступ" default(0)
-// @Success     200 {object} listBookResponse
+// @Success     200 {object} listBookViewResponse
 // @Router      /books/popular [get]
 func (h *Handler) ListPopular(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
@@ -443,20 +465,20 @@ func (h *Handler) ListPopular(c *gin.Context) {
 		offset = 0
 	}
 
-	books, total, err := h.uc.ListPopular(c.Request.Context(), limit, offset)
+	books, total, err := h.uc.ListPopularView(c.Request.Context(), limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*bookResponse, len(books))
+	items := make([]*bookViewResponse, len(books))
 	for i, b := range books {
-		resp := toBookResponse(b)
+		resp := toBookViewResponse(b)
 		items[i] = &resp
 	}
 
-	c.JSON(http.StatusOK, listBookResponse{
+	c.JSON(http.StatusOK, listBookViewResponse{
 		Items:  items,
 		Total:  total,
 		Limit:  limit,
@@ -484,16 +506,16 @@ func (h *Handler) ListSimilar(c *gin.Context) {
 		limit = 10
 	}
 
-	books, err := h.uc.ListSimilar(c.Request.Context(), id, limit)
+	books, err := h.uc.ListSimilarView(c.Request.Context(), id, limit)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	items := make([]*bookResponse, len(books))
+	items := make([]*bookViewResponse, len(books))
 	for i, b := range books {
-		resp := toBookResponse(b)
+		resp := toBookViewResponse(b)
 		items[i] = &resp
 	}
 
@@ -513,5 +535,27 @@ func toBookResponse(b *entity.Book) bookResponse {
 		Year:        b.Year,
 		AvgRating:   b.AvgRating,
 		TotalPages:  b.TotalPages,
+	}
+}
+
+func toBookViewResponse(v *entity.BookView) bookViewResponse {
+	return bookViewResponse{
+		ID:          v.ID.String(),
+		Title:       v.Title,
+		ISBN:        v.ISBN,
+		CoverURL:    v.CoverURL,
+		Description: v.Description,
+		Language:    v.Language,
+		Year:        v.Year,
+		AvgRating:   v.AvgRating,
+		TotalPages:  v.TotalPages,
+		Author: common.AuthorRef{
+			ID:   v.AuthorID.String(),
+			Name: v.AuthorName,
+		},
+		Genre: common.GenreRef{
+			ID:   v.GenreID.String(),
+			Name: v.GenreName,
+		},
 	}
 }

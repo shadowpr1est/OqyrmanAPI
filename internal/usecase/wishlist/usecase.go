@@ -32,3 +32,7 @@ func (u *wishlistUseCase) ListByUser(ctx context.Context, userID uuid.UUID) ([]*
 func (u *wishlistUseCase) ExistsByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) (bool, error) {
 	return u.wishlistRepo.ExistsByUserAndBook(ctx, userID, bookID)
 }
+
+func (u *wishlistUseCase) ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.WishlistView, error) {
+	return u.wishlistRepo.ListByUserView(ctx, userID)
+}

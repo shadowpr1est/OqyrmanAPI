@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
@@ -70,7 +71,7 @@ func (h *Handler) Create(c *gin.Context) {
 // @Security    BearerAuth
 // @Produce     json
 // @Param       id path string true "ID"
-// @Success     200 {object} libraryBookResponse
+// @Success     200 {object} libraryBookViewResponse
 // @Router      /library-books/{id} [get]
 func (h *Handler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -79,13 +80,18 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	lb, err := h.uc.GetByID(c.Request.Context(), id)
+	v, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "library book not found"})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	c.JSON(http.StatusOK, toLibraryBookResponse(lb))
+	c.JSON(http.StatusOK, toLibraryBookViewResponse(v))
 }
 
 // @Summary     Книги в библиотеке
@@ -102,16 +108,16 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 		return
 	}
 
-	items, err := h.uc.ListByLibrary(c.Request.Context(), libraryID)
+	items, err := h.uc.ListByLibraryView(c.Request.Context(), libraryID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	resp := make([]*libraryBookResponse, len(items))
-	for i, lb := range items {
-		r := toLibraryBookResponse(lb)
+	resp := make([]*libraryBookViewResponse, len(items))
+	for i, v := range items {
+		r := toLibraryBookViewResponse(v)
 		resp[i] = &r
 	}
 
@@ -132,16 +138,16 @@ func (h *Handler) ListByBook(c *gin.Context) {
 		return
 	}
 
-	items, err := h.uc.ListByBook(c.Request.Context(), bookID)
+	items, err := h.uc.ListByBookView(c.Request.Context(), bookID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
-	resp := make([]*libraryBookResponse, len(items))
-	for i, lb := range items {
-		r := toLibraryBookResponse(lb)
+	resp := make([]*libraryBookViewResponse, len(items))
+	for i, v := range items {
+		r := toLibraryBookViewResponse(v)
 		resp[i] = &r
 	}
 
@@ -185,6 +191,14 @@ func (h *Handler) Update(c *gin.Context) {
 
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
+		if errors.Is(err, entity.ErrValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "library book not found"})
+			return
+		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -303,5 +317,31 @@ func toLibraryBookResponse(lb *entity.LibraryBook) libraryBookResponse {
 		BookID:          lb.BookID.String(),
 		TotalCopies:     lb.TotalCopies,
 		AvailableCopies: lb.AvailableCopies,
+	}
+}
+
+func toLibraryBookViewResponse(v *entity.LibraryBookView) libraryBookViewResponse {
+	return libraryBookViewResponse{
+		ID: v.ID.String(),
+		Library: common.LibraryRef{
+			ID:   v.LibraryID.String(),
+			Name: v.LibraryName,
+		},
+		Book: common.BookRef{
+			ID:       v.BookID.String(),
+			Title:    v.BookTitle,
+			CoverURL: v.BookCoverURL,
+			Year:     v.BookYear,
+			Author: common.AuthorRef{
+				ID:   v.AuthorID.String(),
+				Name: v.AuthorName,
+			},
+			Genre: common.GenreRef{
+				ID:   v.GenreID.String(),
+				Name: v.GenreName,
+			},
+		},
+		TotalCopies:     v.TotalCopies,
+		AvailableCopies: v.AvailableCopies,
 	}
 }

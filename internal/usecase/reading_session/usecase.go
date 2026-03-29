@@ -45,3 +45,11 @@ func (u *readingSessionUseCase) ListByUser(ctx context.Context, userID uuid.UUID
 func (u *readingSessionUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.sessionRepo.Delete(ctx, id)
 }
+
+func (u *readingSessionUseCase) GetByUserAndBookView(ctx context.Context, userID, bookID uuid.UUID) (*entity.ReadingSessionView, error) {
+	return u.sessionRepo.GetByUserAndBookView(ctx, userID, bookID)
+}
+
+func (u *readingSessionUseCase) ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.ReadingSessionView, error) {
+	return u.sessionRepo.ListByUserView(ctx, userID)
+}

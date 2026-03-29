@@ -45,3 +45,15 @@ func (u *libraryBookUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 func (u *libraryBookUseCase) SearchInLibrary(ctx context.Context, libraryID uuid.UUID, q string, genreID *uuid.UUID, onlyAvailable bool, limit, offset int) ([]*entity.LibraryBookSearchResult, int, error) {
 	return u.libraryBookRepo.SearchInLibrary(ctx, libraryID, q, genreID, onlyAvailable, limit, offset)
 }
+
+func (u *libraryBookUseCase) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.LibraryBookView, error) {
+	return u.libraryBookRepo.GetByIDView(ctx, id)
+}
+
+func (u *libraryBookUseCase) ListByLibraryView(ctx context.Context, libraryID uuid.UUID) ([]*entity.LibraryBookView, error) {
+	return u.libraryBookRepo.ListByLibraryView(ctx, libraryID)
+}
+
+func (u *libraryBookUseCase) ListByBookView(ctx context.Context, bookID uuid.UUID) ([]*entity.LibraryBookView, error) {
+	return u.libraryBookRepo.ListByBookView(ctx, bookID)
+}

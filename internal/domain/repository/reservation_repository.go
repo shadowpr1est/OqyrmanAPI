@@ -24,13 +24,16 @@ type ReservationRepository interface {
 	StaffCancel(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
 	StaffReturn(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
 	StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error
-	// callerID != nil → проверка владельца (user cancel)
-	// libraryID != nil → проверка принадлежности библиотеке (staff cancel/return)
-	// оба nil → без проверки (admin)
 	CancelWithIncrement(ctx context.Context, id uuid.UUID, callerID uuid.UUID) error
 
 	Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
 	CancelOverdue(ctx context.Context) (int, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// View methods — used by GET endpoints; return joined user/book/library data.
+	GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error)
+	ListByUserView(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.ReservationView, int, error)
+	ListByLibraryView(ctx context.Context, libraryID uuid.UUID, limit, offset int, status *string) ([]*entity.ReservationView, int, error)
+	ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error)
 }

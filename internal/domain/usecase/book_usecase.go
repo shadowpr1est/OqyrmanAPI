@@ -20,4 +20,13 @@ type BookUseCase interface {
 	ListPopular(ctx context.Context, limit, offset int) ([]*entity.Book, int, error)
 	ListSimilar(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.Book, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// View methods — return enriched nested data for GET endpoints.
+	GetByIDView(ctx context.Context, id uuid.UUID) (*entity.BookView, error)
+	ListView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error)
+	ListByAuthorView(ctx context.Context, authorID uuid.UUID) ([]*entity.BookView, error)
+	ListByGenreView(ctx context.Context, genreID uuid.UUID) ([]*entity.BookView, error)
+	SearchView(ctx context.Context, query string, limit, offset int) ([]*entity.BookView, int, error)
+	ListPopularView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error)
+	ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error)
 }

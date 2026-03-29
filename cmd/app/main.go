@@ -110,12 +110,12 @@ func main() {
 	eventRepo := postgres.NewEventRepo(db)
 
 	// usecases
-	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, jwtManager)
+	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, jwtManager, cfg.JWT.RefreshTokenTTL)
 	bookUseCase := bookUC.NewBookUseCase(bookRepo, minioStorage)
 	userUseCase := userUC.NewUserUseCase(userRepo, minioStorage)
 	authorUseCase := authorUC.NewAuthorUseCase(authorRepo)
 	genreUseCase := genreUC.NewGenreUseCase(genreRepo)
-	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo, minioStorage)
+	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo, bookRepo, minioStorage)
 	sessionUseCase := readingSessionUC.NewReadingSessionUseCase(sessionRepo)
 	statsUseCase := statsUC.NewStatsUseCase(statsRepo)
 	wishlistUseCase := wishlistUC.NewWishlistUseCase(wishlistRepo)

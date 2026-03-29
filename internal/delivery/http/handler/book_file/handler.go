@@ -1,9 +1,10 @@
 package book_file
 
 import (
-	"log/slog"
 	"errors"
+	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,8 +12,6 @@ import (
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
-
-var allowedFormats = map[string]bool{"pdf": true, "epub": true, "mp3": true}
 
 type Handler struct {
 	uc domainUseCase.BookFileUseCase
@@ -45,16 +44,23 @@ func (h *Handler) GetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, toBookFileResponse(file))
 }
 
-// @Summary     Загрузить файл книги в S3
+// @Summary     Загрузить файл книги
+// @Description Загружает файл в MinIO. Допустимые форматы: pdf, epub, mp3.
+//
+//	Максимум 1 документ (PDF/EPUB) и 1 аудиофайл (MP3) на книгу.
+//	Лимиты размера: PDF/EPUB — 50 MB, MP3 — 200 MB.
+//
 // @Tags        book-files
 // @Security    BearerAuth
 // @Accept      multipart/form-data
 // @Produce     json
-// @Param       book_id  formData string true  "ID книги"
-// @Param       format   formData string true  "Формат: pdf, epub, mp3"
-// @Param       is_audio formData bool   false "Аудиофайл?"
-// @Param       file     formData file   true  "Файл"
+// @Param       book_id     formData string true  "ID книги"
+// @Param       format      formData string true  "Формат файла: pdf | epub | mp3"
+// @Param       total_pages formData int    false "Кол-во страниц (только для PDF/EPUB)"
+// @Param       file        formData file   true  "Файл"
 // @Success     201 {object} bookFileResponse
+// @Failure     400 {object} map[string]string
+// @Failure     409 {object} map[string]string "Файл данного типа уже загружен для этой книги"
 // @Router      /admin/book-files/upload [post]
 func (h *Handler) Upload(c *gin.Context) {
 	bookID, err := uuid.Parse(c.PostForm("book_id"))
@@ -63,17 +69,21 @@ func (h *Handler) Upload(c *gin.Context) {
 		return
 	}
 
-	format := c.PostForm("format")
-	if format == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "format is required"})
-		return
-	}
-	if !allowedFormats[format] {
+	format := entity.BookFileFormat(c.PostForm("format"))
+	if !format.IsValid() {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "format must be one of: pdf, epub, mp3"})
 		return
 	}
 
-	isAudio := c.PostForm("is_audio") == "true"
+	var totalPages *int
+	if raw := c.PostForm("total_pages"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "total_pages must be a positive integer"})
+			return
+		}
+		totalPages = &n
+	}
 
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -88,18 +98,21 @@ func (h *Handler) Upload(c *gin.Context) {
 	}
 	defer f.Close()
 
-	contentType := fh.Header.Get("Content-Type")
-	if contentType == "" {
-		contentType = "application/octet-stream"
-	}
-
-	result, err := h.uc.Upload(c.Request.Context(), bookID, format, isAudio, &fileupload.File{
+	result, err := h.uc.Upload(c.Request.Context(), bookID, format, totalPages, &fileupload.File{
 		Filename:    fh.Filename,
 		Reader:      f,
 		Size:        fh.Size,
-		ContentType: contentType,
+		ContentType: fh.Header.Get("Content-Type"),
 	})
 	if err != nil {
+		if errors.Is(err, entity.ErrFileLimitExceeded) {
+			c.JSON(http.StatusConflict, gin.H{"error": "a file of this type is already uploaded for this book"})
+			return
+		}
+		if errors.Is(err, entity.ErrValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
@@ -167,7 +180,7 @@ func toBookFileResponse(f *entity.BookFile) bookFileResponse {
 	return bookFileResponse{
 		ID:      f.ID.String(),
 		BookID:  f.BookID.String(),
-		Format:  f.Format,
+		Format:  string(f.Format),
 		FileURL: f.FileURL,
 		IsAudio: f.IsAudio,
 	}

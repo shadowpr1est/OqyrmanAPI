@@ -39,3 +39,11 @@ func (u *readingNoteUseCase) Update(ctx context.Context, note *entity.ReadingNot
 func (u *readingNoteUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.noteRepo.Delete(ctx, id)
 }
+
+func (u *readingNoteUseCase) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReadingNoteView, error) {
+	return u.noteRepo.GetByIDView(ctx, id)
+}
+
+func (u *readingNoteUseCase) ListByUserAndBookView(ctx context.Context, userID, bookID uuid.UUID) ([]*entity.ReadingNoteView, error) {
+	return u.noteRepo.ListByUserAndBookView(ctx, userID, bookID)
+}

@@ -16,11 +16,18 @@ type BookRepository interface {
 	Search(ctx context.Context, query string, limit, offset int) ([]*entity.Book, int, error)
 	Update(ctx context.Context, book *entity.Book) (*entity.Book, error)
 	UpdateCoverURL(ctx context.Context, id uuid.UUID, coverURL string) error
-	// UpdateRating пересчитывает avg_rating книги на основе всех её отзывов.
-	// Вызывается после создания, обновления и удаления отзыва.
-	// COALESCE возвращает 0 если отзывов нет.
 	UpdateRating(ctx context.Context, bookID uuid.UUID) error
 	ListPopular(ctx context.Context, limit, offset int) ([]*entity.Book, int, error)
 	ListSimilar(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.Book, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	UpdateTotalPages(ctx context.Context, bookID uuid.UUID, totalPages int) error
+
+	// View methods — used by GET endpoints; return joined author/genre data.
+	GetByIDView(ctx context.Context, id uuid.UUID) (*entity.BookView, error)
+	ListView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error)
+	ListByAuthorView(ctx context.Context, authorID uuid.UUID) ([]*entity.BookView, error)
+	ListByGenreView(ctx context.Context, genreID uuid.UUID) ([]*entity.BookView, error)
+	SearchView(ctx context.Context, query string, limit, offset int) ([]*entity.BookView, int, error)
+	ListPopularView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error)
+	ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error)
 }

@@ -155,6 +155,24 @@ func (r *bookRepo) Update(ctx context.Context, book *entity.Book) (*entity.Book,
 	return book, nil
 }
 
+func (r *bookRepo) UpdateTotalPages(ctx context.Context, bookID uuid.UUID, totalPages int) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE books SET total_pages = $1 WHERE id = $2 AND deleted_at IS NULL`,
+		totalPages, bookID,
+	)
+	if err != nil {
+		return fmt.Errorf("bookRepo.UpdateTotalPages: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("bookRepo.UpdateTotalPages rows affected: %w", err)
+	}
+	if rows == 0 {
+		return entity.ErrNotFound
+	}
+	return nil
+}
+
 func (r *bookRepo) UpdateCoverURL(ctx context.Context, id uuid.UUID, coverURL string) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE books SET cover_url = $1 WHERE id = $2 AND deleted_at IS NULL`,
@@ -227,6 +245,131 @@ func (r *bookRepo) ListSimilar(ctx context.Context, bookID uuid.UUID, limit int)
 		return nil, fmt.Errorf("bookRepo.ListSimilar: %w", err)
 	}
 	return books, nil
+}
+
+// bookViewQuery is the base SELECT for all BookView methods.
+const bookViewQuery = `
+	SELECT b.id, b.author_id, a.name AS author_name,
+	       b.genre_id, g.name AS genre_name,
+	       b.title, b.isbn, COALESCE(b.cover_url, '') AS cover_url,
+	       b.description, b.language, b.year, b.avg_rating, b.total_pages, b.created_at
+	FROM books b
+	JOIN authors a ON a.id = b.author_id AND a.deleted_at IS NULL
+	JOIN genres  g ON g.id = b.genre_id  AND g.deleted_at IS NULL
+	WHERE b.deleted_at IS NULL`
+
+func (r *bookRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.BookView, error) {
+	var v entity.BookView
+	err := r.db.GetContext(ctx, &v,
+		bookViewQuery+` AND b.id = $1`, id,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("bookRepo.GetByIDView: %w", err)
+	}
+	return &v, nil
+}
+
+func (r *bookRepo) ListView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM books WHERE deleted_at IS NULL`,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.ListView count: %w", err)
+	}
+	var items []*entity.BookView
+	if err := r.db.SelectContext(ctx, &items,
+		bookViewQuery+` ORDER BY b.title LIMIT $1 OFFSET $2`,
+		limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.ListView: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *bookRepo) ListByAuthorView(ctx context.Context, authorID uuid.UUID) ([]*entity.BookView, error) {
+	var items []*entity.BookView
+	if err := r.db.SelectContext(ctx, &items,
+		bookViewQuery+` AND b.author_id = $1 ORDER BY b.year DESC`,
+		authorID,
+	); err != nil {
+		return nil, fmt.Errorf("bookRepo.ListByAuthorView: %w", err)
+	}
+	return items, nil
+}
+
+func (r *bookRepo) ListByGenreView(ctx context.Context, genreID uuid.UUID) ([]*entity.BookView, error) {
+	var items []*entity.BookView
+	if err := r.db.SelectContext(ctx, &items,
+		bookViewQuery+` AND b.genre_id = $1 ORDER BY b.title`,
+		genreID,
+	); err != nil {
+		return nil, fmt.Errorf("bookRepo.ListByGenreView: %w", err)
+	}
+	return items, nil
+}
+
+func (r *bookRepo) SearchView(ctx context.Context, query string, limit, offset int) ([]*entity.BookView, int, error) {
+	pattern := "%" + query + "%"
+	var total int
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(*) FROM books b
+		JOIN authors a ON a.id = b.author_id AND a.deleted_at IS NULL
+		WHERE b.deleted_at IS NULL
+		  AND (b.title ILIKE $1 OR b.description ILIKE $1)`,
+		pattern,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.SearchView count: %w", err)
+	}
+	var items []*entity.BookView
+	if err := r.db.SelectContext(ctx, &items,
+		bookViewQuery+` AND (b.title ILIKE $1 OR b.description ILIKE $1) ORDER BY b.title LIMIT $2 OFFSET $3`,
+		pattern, limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.SearchView: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *bookRepo) ListPopularView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error) {
+	var total int
+	if err := r.db.GetContext(ctx, &total,
+		`SELECT COUNT(*) FROM books WHERE deleted_at IS NULL`,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.ListPopularView count: %w", err)
+	}
+	var items []*entity.BookView
+	if err := r.db.SelectContext(ctx, &items,
+		bookViewQuery+` ORDER BY b.avg_rating DESC LIMIT $1 OFFSET $2`,
+		limit, offset,
+	); err != nil {
+		return nil, 0, fmt.Errorf("bookRepo.ListPopularView: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *bookRepo) ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error) {
+	var items []*entity.BookView
+	if err := r.db.SelectContext(ctx, &items, `
+		SELECT b.id, b.author_id, a.name AS author_name,
+		       b.genre_id, g.name AS genre_name,
+		       b.title, b.isbn, COALESCE(b.cover_url, '') AS cover_url,
+		       b.description, b.language, b.year, b.avg_rating, b.total_pages, b.created_at
+		FROM books b
+		JOIN books src ON src.id = $1
+		JOIN authors a ON a.id = b.author_id AND a.deleted_at IS NULL
+		JOIN genres  g ON g.id = b.genre_id  AND g.deleted_at IS NULL
+		WHERE b.id != $1 AND b.deleted_at IS NULL
+		  AND (b.genre_id = src.genre_id OR b.author_id = src.author_id)
+		ORDER BY b.avg_rating DESC
+		LIMIT $2`,
+		bookID, limit,
+	); err != nil {
+		return nil, fmt.Errorf("bookRepo.ListSimilarView: %w", err)
+	}
+	return items, nil
 }
 
 func (r *bookRepo) Delete(ctx context.Context, id uuid.UUID) error {

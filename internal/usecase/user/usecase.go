@@ -55,6 +55,10 @@ func (u *userUseCase) AdminDelete(ctx context.Context, id uuid.UUID) error {
 	return u.userRepo.Delete(ctx, id)
 }
 
+func (u *userUseCase) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
+	return u.userRepo.ListAllView(ctx, limit, offset)
+}
+
 func (u *userUseCase) UploadAvatar(ctx context.Context, id uuid.UUID, avatar *fileupload.File) (*entity.User, error) {
 	if u.storage == nil {
 		return nil, errors.New("file storage is not configured")
