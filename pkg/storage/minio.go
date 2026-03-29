@@ -11,10 +11,11 @@ import (
 )
 
 type MinioStorage struct {
-	client   *minio.Client
-	bucket   string
-	endpoint string
-	useSSL   bool
+	client    *minio.Client
+	bucket    string
+	endpoint  string
+	publicURL string
+	useSSL    bool
 }
 
 func NewMinioStorage(cfg *config.Config) (*MinioStorage, error) {
@@ -26,7 +27,6 @@ func NewMinioStorage(cfg *config.Config) (*MinioStorage, error) {
 		return nil, fmt.Errorf("minio init: %w", err)
 	}
 
-	// создать бакет если нет
 	ctx := context.Background()
 	exists, err := client.BucketExists(ctx, cfg.Minio.Bucket)
 	if err != nil {
@@ -39,10 +39,11 @@ func NewMinioStorage(cfg *config.Config) (*MinioStorage, error) {
 	}
 
 	return &MinioStorage{
-		client:   client,
-		bucket:   cfg.Minio.Bucket,
-		endpoint: cfg.Minio.Endpoint,
-		useSSL:   cfg.Minio.UseSSL,
+		client:    client,
+		bucket:    cfg.Minio.Bucket,
+		endpoint:  cfg.Minio.Endpoint,
+		publicURL: cfg.Minio.PublicURL,
+		useSSL:    cfg.Minio.UseSSL,
 	}, nil
 }
 
@@ -54,11 +55,16 @@ func (s *MinioStorage) Upload(ctx context.Context, objectKey string, reader io.R
 		return "", fmt.Errorf("minio upload: %w", err)
 	}
 
-	scheme := "http"
-	if s.useSSL {
-		scheme = "https"
+	var url string
+	if s.publicURL != "" {
+		url = fmt.Sprintf("%s/%s/%s", s.publicURL, s.bucket, objectKey)
+	} else {
+		scheme := "http"
+		if s.useSSL {
+			scheme = "https"
+		}
+		url = fmt.Sprintf("%s://%s/%s/%s", scheme, s.endpoint, s.bucket, objectKey)
 	}
-	url := fmt.Sprintf("%s://%s/%s/%s", scheme, s.endpoint, s.bucket, objectKey)
 	return url, nil
 }
 
@@ -70,3 +76,4 @@ func (s *MinioStorage) Ping(ctx context.Context) error {
 	_, err := s.client.BucketExists(ctx, s.bucket)
 	return err
 }
+
