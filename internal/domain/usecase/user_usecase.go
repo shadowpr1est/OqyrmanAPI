@@ -13,10 +13,10 @@ type UserUseCase interface {
 	Update(ctx context.Context, user *entity.User) (*entity.User, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListAll(ctx context.Context, limit, offset int) ([]*entity.User, int, error)
-	UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role, libraryID *uuid.UUID) error
+	AdminUpdateUser(ctx context.Context, id uuid.UUID, role *entity.Role, libraryID *uuid.UUID, name, surname, email, phone *string) (*entity.UserView, error)
 	AdminDelete(ctx context.Context, id uuid.UUID) error
 	UploadAvatar(ctx context.Context, id uuid.UUID, avatar *fileupload.File) (*entity.User, error)
-
+	CreateStaff(ctx context.Context, email, password string, libraryID uuid.UUID) (*entity.UserView, error)
 	// View method — returns enriched nested data for admin GET /users.
 	ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error)
 }

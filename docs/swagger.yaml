@@ -830,10 +830,15 @@ definitions:
       wishlist_count:
         type: integer
     type: object
-  user.updateRoleRequest:
+  user.adminUpdateUserRequest:
     properties:
+      email:
+        type: string
       library_id:
-        description: обязателен для Staff, null для остальных
+        type: string
+      name:
+        type: string
+      phone:
         type: string
       role:
         enum:
@@ -841,8 +846,8 @@ definitions:
         - Staff
         - User
         type: string
-    required:
-    - role
+      surname:
+        type: string
     type: object
   user.updateUserRequest:
     properties:
@@ -1644,7 +1649,6 @@ paths:
       summary: Удалить пользователя (admin)
       tags:
       - users
-  /admin/users/{id}/role:
     patch:
       consumes:
       - application/json
@@ -1654,18 +1658,40 @@ paths:
         name: id
         required: true
         type: string
-      - description: Новая роль
+      - description: Данные для обновления
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/user.updateRoleRequest'
+          $ref: '#/definitions/user.adminUpdateUserRequest'
+      produces:
+      - application/json
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.userViewResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
-      summary: Изменить роль пользователя
+      summary: Обновить пользователя (admin)
       tags:
       - users
   /ai/chat:

@@ -1154,9 +1154,7 @@ const docTemplate = `{
                         "description": "No Content"
                     }
                 }
-            }
-        },
-        "/admin/users/{id}/role": {
+            },
             "patch": {
                 "security": [
                     {
@@ -1166,10 +1164,13 @@ const docTemplate = `{
                 "consumes": [
                     "application/json"
                 ],
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "users"
                 ],
-                "summary": "Изменить роль пользователя",
+                "summary": "Обновить пользователя (admin)",
                 "parameters": [
                     {
                         "type": "string",
@@ -1179,18 +1180,48 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Новая роль",
+                        "description": "Данные для обновления",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/user.updateRoleRequest"
+                            "$ref": "#/definitions/user.adminUpdateUserRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No Content"
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.userViewResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -5020,14 +5051,19 @@ const docTemplate = `{
                 }
             }
         },
-        "user.updateRoleRequest": {
+        "user.adminUpdateUserRequest": {
             "type": "object",
-            "required": [
-                "role"
-            ],
             "properties": {
+                "email": {
+                    "type": "string"
+                },
                 "library_id": {
-                    "description": "обязателен для Staff, null для остальных",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
                     "type": "string"
                 },
                 "role": {
@@ -5037,6 +5073,9 @@ const docTemplate = `{
                         "Staff",
                         "User"
                     ]
+                },
+                "surname": {
+                    "type": "string"
                 }
             }
         },

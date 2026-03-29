@@ -136,28 +136,6 @@ func (r *userRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *userRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.User, int, error) {
-	var total int
-	if err := r.db.GetContext(ctx, &total,
-		`SELECT COUNT(*) FROM users WHERE deleted_at IS NULL`,
-	); err != nil {
-		return nil, 0, fmt.Errorf("userRepo.ListAll count: %w", err)
-	}
-
-	var users []*entity.User
-	if err := r.db.SelectContext(ctx, &users, `
-		SELECT * FROM users
-		WHERE deleted_at IS NULL
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2`,
-		limit, offset,
-	); err != nil {
-		return nil, 0, fmt.Errorf("userRepo.ListAll: %w", err)
-	}
-
-	return users, total, nil
-}
-
 func (r *userRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, avatarURL string) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE users SET avatar_url = $1 WHERE id = $2 AND deleted_at IS NULL`,
@@ -200,23 +178,79 @@ func (r *userRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entit
 	}
 	return users, total, nil
 }
+func (r *userRepo) AdminUpdate(
+	ctx context.Context,
+	id uuid.UUID,
+	role *entity.Role,
+	libraryID *uuid.UUID,
+	name, surname, email, phone *string,
+) (*entity.UserView, error) {
+	query := `
+        UPDATE users
+        SET role       = COALESCE($1, role),
+            library_id = CASE WHEN $1 IS NOT NULL THEN $2 ELSE library_id END,
+            name       = COALESCE(NULLIF($3, ''), name),
+            surname    = COALESCE(NULLIF($4, ''), surname),
+            email      = COALESCE(NULLIF($5, ''), email),
+            phone      = COALESCE(NULLIF($6, ''), phone),
+            full_name  = CASE
+                           WHEN $3 <> '' OR $4 <> '' THEN
+                             TRIM(COALESCE(NULLIF($3,''), name) || ' ' || COALESCE(NULLIF($4,''), surname))
+                           ELSE full_name
+                         END
+        WHERE id = $7 AND deleted_at IS NULL
+        RETURNING id`
 
-// UpdateRole — при смене роли на не-Staff, library_id обнуляется.
-// Это соответствует constraint chk_staff_library в БД.
-func (r *userRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role, libraryID *uuid.UUID) error {
-	result, err := r.db.ExecContext(ctx,
-		`UPDATE users SET role = $1, library_id = $2 WHERE id = $3 AND deleted_at IS NULL`,
-		role, libraryID, id,
+	var roleStr *string
+	if role != nil {
+		s := string(*role)
+		roleStr = &s
+	}
+	nameStr := ""
+	if name != nil {
+		nameStr = *name
+	}
+	surnameStr := ""
+	if surname != nil {
+		surnameStr = *surname
+	}
+	emailStr := ""
+	if email != nil {
+		emailStr = *email
+	}
+	phoneStr := ""
+	if phone != nil {
+		phoneStr = *phone
+	}
+
+	var updatedID uuid.UUID
+	err := r.db.GetContext(ctx, &updatedID, query,
+		roleStr, libraryID, nameStr, surnameStr, emailStr, phoneStr, id,
 	)
 	if err != nil {
-		return fmt.Errorf("userRepo.UpdateRole: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return nil, entity.ErrEmailTaken
+		}
+		return nil, fmt.Errorf("userRepo.AdminUpdate: %w", err)
 	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("userRepo.UpdateRole rows affected: %w", err)
+
+	// Возвращаем обновлённый UserView с именем библиотеки
+	var view entity.UserView
+	if err := r.db.GetContext(ctx, &view, `
+        SELECT u.id, u.email, u.name, u.surname, u.full_name, u.phone,
+               COALESCE(u.avatar_url, '') AS avatar_url,
+               u.role, u.library_id, COALESCE(l.name, '') AS library_name,
+               u.qr_code, u.created_at
+        FROM users u
+        LEFT JOIN libraries l ON l.id = u.library_id
+        WHERE u.id = $1`, updatedID,
+	); err != nil {
+		return nil, fmt.Errorf("userRepo.AdminUpdate fetch view: %w", err)
 	}
-	if rows == 0 {
-		return entity.ErrNotFound
-	}
-	return nil
+
+	return &view, nil
 }

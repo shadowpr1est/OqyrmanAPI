@@ -261,7 +261,8 @@ func (r *Router) Init() *gin.Engine {
 
 				// users
 				admin.GET("/users", r.user.ListAll)
-				admin.PATCH("/users/:id/role", r.user.UpdateRole)
+				admin.POST("/users/staff", r.user.CreateStaff)
+				admin.PATCH("/users/:id/role", r.user.AdminUpdateUser)
 				admin.DELETE("/users/:id", r.user.AdminDelete)
 
 				// authors

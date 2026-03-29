@@ -133,27 +133,30 @@ func (h *Handler) ListAll(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "limit": limit, "offset": offset})
 }
 
-// @Summary     Изменить роль пользователя
+// @Summary     Обновить пользователя (admin)
 // @Tags        users
 // @Security    BearerAuth
 // @Accept      json
-// @Param       id    path string          true "ID пользователя"
-// @Param       input body updateRoleRequest true "Новая роль"
-// @Success     204
-// @Router      /admin/users/{id}/role [patch]
-func (h *Handler) UpdateRole(c *gin.Context) {
+// @Produce     json
+// @Param       id    path string               true "ID пользователя"
+// @Param       input body adminUpdateUserRequest true "Данные для обновления"
+// @Success     200 {object} userViewResponse
+// @Failure     400,404,409 {object} map[string]string
+// @Router      /admin/users/{id} [patch]
+func (h *Handler) AdminUpdateUser(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
-	var req updateRoleRequest
+	var req adminUpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Парсим library_id если передан
 	var libraryID *uuid.UUID
 	if req.LibraryID != nil {
 		parsed, err := uuid.Parse(*req.LibraryID)
@@ -164,16 +167,28 @@ func (h *Handler) UpdateRole(c *gin.Context) {
 		libraryID = &parsed
 	}
 
-	if err := h.uc.UpdateRole(c.Request.Context(), id, entity.Role(req.Role), libraryID); err != nil {
+	// Парсим role если передан
+	var role *entity.Role
+	if req.Role != nil {
+		r := entity.Role(*req.Role)
+		role = &r
+	}
+
+	result, err := h.uc.AdminUpdateUser(c.Request.Context(), id, role, libraryID, req.Name, req.Surname, req.Email, req.Phone)
+	if err != nil {
 		if errors.Is(err, entity.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		if errors.Is(err, entity.ErrEmailTaken) {
+			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})
 			return
 		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, toUserViewResponse(result))
 }
 
 // @Summary     Удалить пользователя (admin)
@@ -290,6 +305,32 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+func (h *Handler) CreateStaff(c *gin.Context) {
+	var req createStaffRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	libraryID, err := uuid.Parse(req.LibraryID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid library_id"})
+		return
+	}
+
+	user, err := h.uc.CreateStaff(c.Request.Context(), req.Email, req.Password, libraryID)
+	if err != nil {
+		if errors.Is(err, entity.ErrEmailTaken) {
+			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, toUserViewResponse(user))
+}
 func toUserResponse(u *entity.User) userResponse {
 	return userResponse{
 		ID:        u.ID.String(),

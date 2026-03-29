@@ -25,9 +25,19 @@ type userResponse struct {
 	CreatedAt string `json:"created_at"`
 }
 
-type updateRoleRequest struct {
-	Role      string  `json:"role"       binding:"required,oneof=Admin Staff User"`
-	LibraryID *string `json:"library_id"` // обязателен для Staff, null для остальных
+type adminUpdateUserRequest struct {
+	Role      *string `json:"role"       binding:"omitempty,oneof=Admin Staff User"`
+	LibraryID *string `json:"library_id"`
+	Name      *string `json:"name"`
+	Surname   *string `json:"surname"`
+	Email     *string `json:"email"`
+	Phone     *string `json:"phone"`
+}
+
+type createStaffRequest struct {
+	Email     string `json:"email"      binding:"required,email"`
+	Password  string `json:"password"   binding:"required,min=6"`
+	LibraryID string `json:"library_id" binding:"required"`
 }
 
 type userViewResponse struct {
