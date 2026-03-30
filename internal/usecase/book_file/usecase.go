@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 	"strings"
 
@@ -65,13 +66,16 @@ func (u *bookFileUseCase) Upload(
 		return nil, fmt.Errorf("bookFileUseCase.Upload: cannot seek file: %w", err)
 	}
 
+	// Detect content type from actual bytes — never trust the client-supplied header.
+	contentType := http.DetectContentType(buf[:n])
+
 	// isAudio is derived from format — never accepted from the caller.
 	isAudio := format.IsAudio()
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
 	objectKey := fmt.Sprintf("books/%s/%s%s", bookID.String(), uuid.New().String(), ext)
 
-	fileURL, err := u.storage.Upload(ctx, objectKey, file.Reader, file.Size, file.ContentType)
+	fileURL, err := u.storage.Upload(ctx, objectKey, file.Reader, file.Size, contentType)
 	if err != nil {
 		return nil, err
 	}
@@ -109,5 +113,22 @@ func (u *bookFileUseCase) ListByBook(ctx context.Context, bookID uuid.UUID) ([]*
 }
 
 func (u *bookFileUseCase) Delete(ctx context.Context, id uuid.UUID) error {
-	return u.bookFileRepo.Delete(ctx, id)
+	file, err := u.bookFileRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := u.bookFileRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Reset total_pages on the book when the document file is removed.
+	if !file.Format.IsAudio() {
+		if err := u.bookRepo.UpdateTotalPages(ctx, file.BookID, 0); err != nil {
+			slog.WarnContext(ctx, "failed to reset total_pages after file delete",
+				"book_id", file.BookID, "err", err)
+		}
+	}
+
+	return nil
 }
