@@ -305,6 +305,16 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary     Создать сотрудника (admin)
+// @Tags        users
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       input body createStaffRequest true "Email, пароль и ID библиотеки"
+// @Success     201 {object} userViewResponse
+// @Failure     400 {object} map[string]string
+// @Failure     409 {object} map[string]string
+// @Router      /admin/users/staff [post]
 func (h *Handler) CreateStaff(c *gin.Context) {
 	var req createStaffRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

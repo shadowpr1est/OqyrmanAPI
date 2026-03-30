@@ -59,11 +59,71 @@ func (m *mockReviewRepo) ListByUserView(ctx context.Context, userID uuid.UUID) (
 	return nil, nil
 }
 
+// ─── mockBookRepo ─────────────────────────────────────────────────────────────
+
+type mockBookRepo struct{ mock.Mock }
+
+func (m *mockBookRepo) Create(ctx context.Context, b *entity.Book) (*entity.Book, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Book, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) List(ctx context.Context, limit, offset int) ([]*entity.Book, int, error) {
+	return nil, 0, nil
+}
+func (m *mockBookRepo) ListByAuthor(ctx context.Context, authorID uuid.UUID) ([]*entity.Book, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) ListByGenre(ctx context.Context, genreID uuid.UUID) ([]*entity.Book, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) Search(ctx context.Context, query string, limit, offset int) ([]*entity.Book, int, error) {
+	return nil, 0, nil
+}
+func (m *mockBookRepo) Update(ctx context.Context, b *entity.Book) (*entity.Book, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) UpdateCoverURL(ctx context.Context, id uuid.UUID, url string) error { return nil }
+func (m *mockBookRepo) UpdateRating(ctx context.Context, bookID uuid.UUID) error { return nil }
+func (m *mockBookRepo) ListPopular(ctx context.Context, limit, offset int) ([]*entity.Book, int, error) {
+	return nil, 0, nil
+}
+func (m *mockBookRepo) ListSimilar(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.Book, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockBookRepo) UpdateTotalPages(ctx context.Context, bookID uuid.UUID, totalPages int) error {
+	return nil
+}
+func (m *mockBookRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.BookView, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) ListView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error) {
+	return nil, 0, nil
+}
+func (m *mockBookRepo) ListByAuthorView(ctx context.Context, authorID uuid.UUID) ([]*entity.BookView, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) ListByGenreView(ctx context.Context, genreID uuid.UUID) ([]*entity.BookView, error) {
+	return nil, nil
+}
+func (m *mockBookRepo) SearchView(ctx context.Context, query string, limit, offset int) ([]*entity.BookView, int, error) {
+	return nil, 0, nil
+}
+func (m *mockBookRepo) ListPopularView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error) {
+	return nil, 0, nil
+}
+func (m *mockBookRepo) ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error) {
+	return nil, nil
+}
+
 // ─── Create ───────────────────────────────────────────────────────────────────
 
 func TestCreate_Success(t *testing.T) {
 	repo := new(mockReviewRepo)
-	uc := review.NewReviewUseCase(repo, nil)
+	bookRepo := new(mockBookRepo)
+	uc := review.NewReviewUseCase(repo, bookRepo)
 
 	input := &entity.Review{UserID: uuid.New(), BookID: uuid.New(), Rating: 5, Body: "Great!"}
 	created := &entity.Review{ID: uuid.New(), UserID: input.UserID, BookID: input.BookID, Rating: 5, CreatedAt: time.Now()}
@@ -79,7 +139,7 @@ func TestCreate_Success(t *testing.T) {
 
 func TestCreate_RatingTooLow(t *testing.T) {
 	repo := new(mockReviewRepo)
-	uc := review.NewReviewUseCase(repo, nil)
+	uc := review.NewReviewUseCase(repo, new(mockBookRepo))
 
 	_, err := uc.Create(context.Background(), &entity.Review{Rating: 0})
 
@@ -90,7 +150,7 @@ func TestCreate_RatingTooLow(t *testing.T) {
 
 func TestCreate_RatingTooHigh(t *testing.T) {
 	repo := new(mockReviewRepo)
-	uc := review.NewReviewUseCase(repo, nil)
+	uc := review.NewReviewUseCase(repo, new(mockBookRepo))
 
 	_, err := uc.Create(context.Background(), &entity.Review{Rating: 6})
 
@@ -102,7 +162,7 @@ func TestCreate_RatingTooHigh(t *testing.T) {
 func TestCreate_BoundaryRatings(t *testing.T) {
 	for _, rating := range []int{1, 5} {
 		repo := new(mockReviewRepo)
-		uc := review.NewReviewUseCase(repo, nil)
+		uc := review.NewReviewUseCase(repo, new(mockBookRepo))
 
 		input := &entity.Review{Rating: rating}
 		repo.On("Create", mock.Anything, mock.AnythingOfType("*entity.Review")).
@@ -115,7 +175,7 @@ func TestCreate_BoundaryRatings(t *testing.T) {
 
 func TestCreate_RepoError(t *testing.T) {
 	repo := new(mockReviewRepo)
-	uc := review.NewReviewUseCase(repo, nil)
+	uc := review.NewReviewUseCase(repo, new(mockBookRepo))
 
 	repo.On("Create", mock.Anything, mock.AnythingOfType("*entity.Review")).
 		Return(nil, errors.New("db error"))
@@ -129,7 +189,7 @@ func TestCreate_RepoError(t *testing.T) {
 
 func TestUpdate_Success(t *testing.T) {
 	repo := new(mockReviewRepo)
-	uc := review.NewReviewUseCase(repo, nil)
+	uc := review.NewReviewUseCase(repo, new(mockBookRepo))
 
 	ownerID := uuid.New()
 	input := &entity.Review{ID: uuid.New(), UserID: ownerID, Rating: 4}
@@ -143,7 +203,7 @@ func TestUpdate_Success(t *testing.T) {
 
 func TestUpdate_Forbidden(t *testing.T) {
 	repo := new(mockReviewRepo)
-	uc := review.NewReviewUseCase(repo, nil)
+	uc := review.NewReviewUseCase(repo, new(mockBookRepo))
 
 	input := &entity.Review{ID: uuid.New(), UserID: uuid.New(), Rating: 4}
 
@@ -155,7 +215,7 @@ func TestUpdate_Forbidden(t *testing.T) {
 
 func TestUpdate_InvalidRating(t *testing.T) {
 	repo := new(mockReviewRepo)
-	uc := review.NewReviewUseCase(repo, nil)
+	uc := review.NewReviewUseCase(repo, new(mockBookRepo))
 
 	_, err := uc.Update(context.Background(), &entity.Review{Rating: 0}, uuid.New())
 

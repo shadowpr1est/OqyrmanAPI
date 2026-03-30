@@ -86,12 +86,14 @@ func (h *Handler) GetByID(c *gin.Context) {
 }
 
 // @Summary     Создать событие
-// @Tags        admin
+// @Tags        events
 // @Security    BearerAuth
 // @Accept      json
 // @Produce     json
 // @Param       input body createEventRequest true "Данные события"
 // @Success     201 {object} eventResponse
+// @Failure     400 {object} map[string]string
+// @Failure     500 {object} map[string]string
 // @Router      /admin/events [post]
 func (h *Handler) Create(c *gin.Context) {
 	var req createEventRequest
@@ -133,13 +135,15 @@ func (h *Handler) Create(c *gin.Context) {
 }
 
 // @Summary     Обновить событие
-// @Tags        admin
+// @Tags        events
 // @Security    BearerAuth
 // @Accept      json
 // @Produce     json
 // @Param       id    path string           true "ID события"
 // @Param       input body updateEventRequest true "Данные события"
 // @Success     200 {object} eventResponse
+// @Failure     400 {object} map[string]string
+// @Failure     404 {object} map[string]string
 // @Router      /admin/events/{id} [put]
 func (h *Handler) Update(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -192,10 +196,11 @@ func (h *Handler) Update(c *gin.Context) {
 }
 
 // @Summary     Удалить событие
-// @Tags        admin
+// @Tags        events
 // @Security    BearerAuth
 // @Param       id path string true "ID события"
 // @Success     204
+// @Failure     404 {object} map[string]string
 // @Router      /admin/events/{id} [delete]
 func (h *Handler) Delete(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))

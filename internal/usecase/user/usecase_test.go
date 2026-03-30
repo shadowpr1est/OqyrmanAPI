@@ -47,12 +47,12 @@ func (m *mockUserRepo) Update(ctx context.Context, u *entity.User) (*entity.User
 func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
-func (m *mockUserRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.User, int, error) {
-	args := m.Called(ctx, limit, offset)
-	return args.Get(0).([]*entity.User), args.Int(1), args.Error(2)
-}
-func (m *mockUserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role, libraryID *uuid.UUID) error {
-	return m.Called(ctx, id, role, libraryID).Error(0)
+func (m *mockUserRepo) AdminUpdate(ctx context.Context, id uuid.UUID, role *entity.Role, libraryID *uuid.UUID, name, surname, email, phone *string) (*entity.UserView, error) {
+	args := m.Called(ctx, id, role, libraryID, name, surname, email, phone)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.UserView), args.Error(1)
 }
 func (m *mockUserRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, url string) error {
 	return m.Called(ctx, id, url).Error(0)
@@ -61,92 +61,109 @@ func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*e
 	return nil, 0, nil
 }
 
-// ─── UpdateRole ───────────────────────────────────────────────────────────────
+// ─── AdminUpdateUser ──────────────────────────────────────────────────────────
 
-func TestUpdateRole_StaffWithLibraryID(t *testing.T) {
+func TestAdminUpdateUser_StaffWithLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
 	uc := user.NewUserUseCase(repo, nil)
 
 	id := uuid.New()
 	libID := uuid.New()
-	repo.On("UpdateRole", mock.Anything, id, entity.RoleStaff, &libID).Return(nil)
+	role := entity.RoleStaff
+	repo.On("AdminUpdate", mock.Anything, id, &role, &libID,
+		(*string)(nil), (*string)(nil), (*string)(nil), (*string)(nil)).
+		Return(&entity.UserView{}, nil)
 
-	err := uc.UpdateRole(context.Background(), id, entity.RoleStaff, &libID)
+	result, err := uc.AdminUpdateUser(context.Background(), id, &role, &libID, nil, nil, nil, nil)
 
 	assert.NoError(t, err)
+	assert.NotNil(t, result)
 	repo.AssertExpectations(t)
 }
 
-func TestUpdateRole_StaffWithoutLibraryID(t *testing.T) {
+func TestAdminUpdateUser_StaffWithoutLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
 	uc := user.NewUserUseCase(repo, nil)
 
-	err := uc.UpdateRole(context.Background(), uuid.New(), entity.RoleStaff, nil)
+	role := entity.RoleStaff
+	_, err := uc.AdminUpdateUser(context.Background(), uuid.New(), &role, nil, nil, nil, nil, nil)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "library_id is required for Staff")
-	repo.AssertNotCalled(t, "UpdateRole")
+	repo.AssertNotCalled(t, "AdminUpdate")
 }
 
-func TestUpdateRole_AdminWithoutLibraryID(t *testing.T) {
+func TestAdminUpdateUser_AdminWithoutLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
 	uc := user.NewUserUseCase(repo, nil)
 
 	id := uuid.New()
-	repo.On("UpdateRole", mock.Anything, id, entity.RoleAdmin, (*uuid.UUID)(nil)).Return(nil)
+	role := entity.RoleAdmin
+	repo.On("AdminUpdate", mock.Anything, id, &role, (*uuid.UUID)(nil),
+		(*string)(nil), (*string)(nil), (*string)(nil), (*string)(nil)).
+		Return(&entity.UserView{}, nil)
 
-	err := uc.UpdateRole(context.Background(), id, entity.RoleAdmin, nil)
+	result, err := uc.AdminUpdateUser(context.Background(), id, &role, nil, nil, nil, nil, nil)
 
 	assert.NoError(t, err)
+	assert.NotNil(t, result)
 	repo.AssertExpectations(t)
 }
 
-func TestUpdateRole_AdminWithLibraryID(t *testing.T) {
+func TestAdminUpdateUser_AdminWithLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
 	uc := user.NewUserUseCase(repo, nil)
 
 	libID := uuid.New()
-	err := uc.UpdateRole(context.Background(), uuid.New(), entity.RoleAdmin, &libID)
+	role := entity.RoleAdmin
+	_, err := uc.AdminUpdateUser(context.Background(), uuid.New(), &role, &libID, nil, nil, nil, nil)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "library_id must be null for non-Staff")
-	repo.AssertNotCalled(t, "UpdateRole")
+	repo.AssertNotCalled(t, "AdminUpdate")
 }
 
-func TestUpdateRole_UserWithLibraryID(t *testing.T) {
+func TestAdminUpdateUser_UserWithLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
 	uc := user.NewUserUseCase(repo, nil)
 
 	libID := uuid.New()
-	err := uc.UpdateRole(context.Background(), uuid.New(), entity.RoleUser, &libID)
+	role := entity.RoleUser
+	_, err := uc.AdminUpdateUser(context.Background(), uuid.New(), &role, &libID, nil, nil, nil, nil)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "library_id must be null for non-Staff")
-	repo.AssertNotCalled(t, "UpdateRole")
+	repo.AssertNotCalled(t, "AdminUpdate")
 }
 
-func TestUpdateRole_UserWithoutLibraryID(t *testing.T) {
+func TestAdminUpdateUser_UserWithoutLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
 	uc := user.NewUserUseCase(repo, nil)
 
 	id := uuid.New()
-	repo.On("UpdateRole", mock.Anything, id, entity.RoleUser, (*uuid.UUID)(nil)).Return(nil)
+	role := entity.RoleUser
+	repo.On("AdminUpdate", mock.Anything, id, &role, (*uuid.UUID)(nil),
+		(*string)(nil), (*string)(nil), (*string)(nil), (*string)(nil)).
+		Return(&entity.UserView{}, nil)
 
-	err := uc.UpdateRole(context.Background(), id, entity.RoleUser, nil)
+	result, err := uc.AdminUpdateUser(context.Background(), id, &role, nil, nil, nil, nil, nil)
 
 	assert.NoError(t, err)
+	assert.NotNil(t, result)
 	repo.AssertExpectations(t)
 }
 
-func TestUpdateRole_RepoError(t *testing.T) {
+func TestAdminUpdateUser_RepoError(t *testing.T) {
 	repo := new(mockUserRepo)
 	uc := user.NewUserUseCase(repo, nil)
 
 	id := uuid.New()
-	repo.On("UpdateRole", mock.Anything, id, entity.RoleUser, (*uuid.UUID)(nil)).
-		Return(errors.New("db error"))
+	role := entity.RoleUser
+	repo.On("AdminUpdate", mock.Anything, id, &role, (*uuid.UUID)(nil),
+		(*string)(nil), (*string)(nil), (*string)(nil), (*string)(nil)).
+		Return(nil, errors.New("db error"))
 
-	err := uc.UpdateRole(context.Background(), id, entity.RoleUser, nil)
+	_, err := uc.AdminUpdateUser(context.Background(), id, &role, nil, nil, nil, nil, nil)
 
 	assert.Error(t, err)
 }

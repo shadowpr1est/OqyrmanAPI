@@ -50,12 +50,12 @@ func (m *mockUserRepo) Update(ctx context.Context, u *entity.User) (*entity.User
 func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
-func (m *mockUserRepo) ListAll(ctx context.Context, limit, offset int) ([]*entity.User, int, error) {
-	args := m.Called(ctx, limit, offset)
-	return args.Get(0).([]*entity.User), args.Int(1), args.Error(2)
-}
-func (m *mockUserRepo) UpdateRole(ctx context.Context, id uuid.UUID, role entity.Role, libraryID *uuid.UUID) error {
-	return m.Called(ctx, id, role, libraryID).Error(0)
+func (m *mockUserRepo) AdminUpdate(ctx context.Context, id uuid.UUID, role *entity.Role, libraryID *uuid.UUID, name, surname, email, phone *string) (*entity.UserView, error) {
+	args := m.Called(ctx, id, role, libraryID, name, surname, email, phone)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.UserView), args.Error(1)
 }
 func (m *mockUserRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, url string) error {
 	return m.Called(ctx, id, url).Error(0)
@@ -100,7 +100,7 @@ func TestRegister_Success(t *testing.T) {
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
-	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
+	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 	userRepo.On("Create", mock.Anything, mock.AnythingOfType("*entity.User")).
 		Return(&entity.User{ID: uuid.New(), Email: "test@example.com"}, nil)
 
@@ -134,7 +134,7 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	_, err := uc.Register(context.Background(), user)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "email already exists")
+	assert.Contains(t, err.Error(), "email already taken")
 	userRepo.AssertExpectations(t)
 }
 
@@ -144,7 +144,7 @@ func TestRegister_PasswordTooShort(t *testing.T) {
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
-	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
+	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
 	user := &entity.User{
 		Email:        "test@example.com",
@@ -162,7 +162,7 @@ func TestRegister_PasswordNoUppercase(t *testing.T) {
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
-	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
+	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
 	user := &entity.User{
 		Email:        "test@example.com",
@@ -180,7 +180,7 @@ func TestRegister_PasswordNoDigit(t *testing.T) {
 	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
-	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, errors.New("not found"))
+	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
 	user := &entity.User{
 		Email:        "test@example.com",

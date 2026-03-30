@@ -220,7 +220,7 @@ func (h *Handler) Extend(c *gin.Context) {
 // ─── Staff ────────────────────────────────────────────────────────────────────
 
 // @Summary     Брони библиотеки
-// @Tags        staff
+// @Tags        reservations
 // @Security    BearerAuth
 // @Produce     json
 // @Param       limit  query int    false "Лимит"    default(20)
@@ -263,7 +263,7 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 }
 
 // @Summary     Отменить бронь (staff)
-// @Tags        staff
+// @Tags        reservations
 // @Security    BearerAuth
 // @Param       id path string true "ID брони"
 // @Success     204
@@ -292,7 +292,7 @@ func (h *Handler) StaffCancel(c *gin.Context) {
 }
 
 // @Summary     Возврат книги (staff)
-// @Tags        staff
+// @Tags        reservations
 // @Security    BearerAuth
 // @Param       id path string true "ID брони"
 // @Success     204
@@ -322,7 +322,7 @@ func (h *Handler) StaffReturn(c *gin.Context) {
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 // @Summary     Все брони (admin)
-// @Tags        admin
+// @Tags        reservations
 // @Security    BearerAuth
 // @Produce     json
 // @Param       limit  query int    false "Лимит"    default(20)
@@ -357,7 +357,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 }
 
 // @Summary     Возврат книги (admin)
-// @Tags        admin
+// @Tags        reservations
 // @Security    BearerAuth
 // @Param       id path string true "ID брони"
 // @Success     204
@@ -379,7 +379,7 @@ func (h *Handler) AdminReturn(c *gin.Context) {
 }
 
 // @Summary     Обновить статус брони (staff)
-// @Tags        staff
+// @Tags        reservations
 // @Security    BearerAuth
 // @Accept      json
 // @Param       id    path string            true "ID брони"
@@ -420,7 +420,7 @@ func (h *Handler) StaffUpdateStatus(c *gin.Context) {
 }
 
 // @Summary     Обновить статус брони (admin)
-// @Tags        admin
+// @Tags        reservations
 // @Security    BearerAuth
 // @Accept      json
 // @Param       id    path string            true "ID брони"

@@ -849,6 +849,20 @@ definitions:
       surname:
         type: string
     type: object
+  user.createStaffRequest:
+    properties:
+      email:
+        type: string
+      library_id:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - library_id
+    - password
+    type: object
   user.updateUserRequest:
     properties:
       email:
@@ -1258,11 +1272,23 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/event.eventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: Создать событие
       tags:
-      - admin
+      - events
   /admin/events/{id}:
     delete:
       parameters:
@@ -1274,11 +1300,17 @@ paths:
       responses:
         "204":
           description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: Удалить событие
       tags:
-      - admin
+      - events
     put:
       consumes:
       - application/json
@@ -1301,11 +1333,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/event.eventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
       summary: Обновить событие
       tags:
-      - admin
+      - events
   /admin/genres:
     post:
       consumes:
@@ -1545,7 +1589,7 @@ paths:
       - BearerAuth: []
       summary: Все брони (admin)
       tags:
-      - admin
+      - reservations
   /admin/reservations/{id}/return:
     patch:
       parameters:
@@ -1567,7 +1611,7 @@ paths:
       - BearerAuth: []
       summary: Возврат книги (admin)
       tags:
-      - admin
+      - reservations
   /admin/reservations/{id}/status:
     patch:
       consumes:
@@ -1591,7 +1635,7 @@ paths:
       - BearerAuth: []
       summary: Обновить статус брони (admin)
       tags:
-      - admin
+      - reservations
   /admin/stats:
     get:
       produces:
@@ -1692,6 +1736,41 @@ paths:
       security:
       - BearerAuth: []
       summary: Обновить пользователя (admin)
+      tags:
+      - users
+  /admin/users/staff:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email, пароль и ID библиотеки
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/user.createStaffRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.userViewResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать сотрудника (admin)
       tags:
       - users
   /ai/chat:
@@ -2986,7 +3065,7 @@ paths:
       - BearerAuth: []
       summary: Статистика библиотеки (staff)
       tags:
-      - staff
+      - stats
   /staff/reservations:
     get:
       parameters:
@@ -3022,7 +3101,7 @@ paths:
       - BearerAuth: []
       summary: Брони библиотеки
       tags:
-      - staff
+      - reservations
   /staff/reservations/{id}/cancel:
     patch:
       parameters:
@@ -3050,7 +3129,7 @@ paths:
       - BearerAuth: []
       summary: Отменить бронь (staff)
       tags:
-      - staff
+      - reservations
   /staff/reservations/{id}/return:
     patch:
       parameters:
@@ -3078,7 +3157,7 @@ paths:
       - BearerAuth: []
       summary: Возврат книги (staff)
       tags:
-      - staff
+      - reservations
   /staff/reservations/{id}/status:
     patch:
       consumes:
@@ -3102,7 +3181,7 @@ paths:
       - BearerAuth: []
       summary: Обновить статус брони (staff)
       tags:
-      - staff
+      - reservations
   /users/me:
     delete:
       responses:

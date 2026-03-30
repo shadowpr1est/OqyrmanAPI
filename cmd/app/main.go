@@ -6,6 +6,57 @@
 // @in header
 // @name Authorization
 // @description JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"
+//
+// @tag.name          auth
+// @tag.description   Регистрация, вход, выход и обновление токенов
+//
+// @tag.name          users
+// @tag.description   Профиль пользователя и управление аккаунтами (admin)
+//
+// @tag.name          books
+// @tag.description   Каталог книг — список, поиск, детали, управление (admin)
+//
+// @tag.name          authors
+// @tag.description   Авторы — список, поиск, управление (admin)
+//
+// @tag.name          genres
+// @tag.description   Жанры — список, управление (admin)
+//
+// @tag.name          libraries
+// @tag.description   Библиотеки — список, поиск рядом, управление (admin)
+//
+// @tag.name          library-books
+// @tag.description   Инвентарь библиотек — привязка книг и учёт копий
+//
+// @tag.name          book-files
+// @tag.description   Файлы книг — PDF, EPUB, MP3
+//
+// @tag.name          events
+// @tag.description   Мероприятия библиотек — список, детали, управление (admin)
+//
+// @tag.name          reservations
+// @tag.description   Бронирование книг — пользователь, staff и admin операции
+//
+// @tag.name          reviews
+// @tag.description   Отзывы и оценки книг
+//
+// @tag.name          reading-sessions
+// @tag.description   Сессии чтения — прогресс и статус
+//
+// @tag.name          notes
+// @tag.description   Заметки к книгам
+//
+// @tag.name          wishlist
+// @tag.description   Список желаемых книг
+//
+// @tag.name          notifications
+// @tag.description   Уведомления пользователя
+//
+// @tag.name          stats
+// @tag.description   Статистика — платформа (admin), пользователь, библиотека (staff)
+//
+// @tag.name          ai
+// @tag.description   AI-рекомендации и чат с книжным ассистентом
 package main
 
 import (

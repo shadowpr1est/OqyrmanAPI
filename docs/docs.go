@@ -504,7 +504,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "admin"
+                    "events"
                 ],
                 "summary": "Создать событие",
                 "parameters": [
@@ -524,6 +524,24 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/event.eventResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -542,7 +560,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "admin"
+                    "events"
                 ],
                 "summary": "Обновить событие",
                 "parameters": [
@@ -569,6 +587,24 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/event.eventResponse"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             },
@@ -579,7 +615,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "admin"
+                    "events"
                 ],
                 "summary": "Удалить событие",
                 "parameters": [
@@ -594,6 +630,15 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
                     }
                 }
             }
@@ -951,7 +996,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "admin"
+                    "reservations"
                 ],
                 "summary": "Все брони (admin)",
                 "parameters": [
@@ -995,7 +1040,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "admin"
+                    "reservations"
                 ],
                 "summary": "Возврат книги (admin)",
                 "parameters": [
@@ -1034,7 +1079,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "admin"
+                    "reservations"
                 ],
                 "summary": "Обновить статус брони (admin)",
                 "parameters": [
@@ -1123,6 +1168,62 @@ const docTemplate = `{
                             "type": "object",
                             "additionalProperties": {
                                 "$ref": "#/definitions/user.userViewResponse"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/staff": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Создать сотрудника (admin)",
+                "parameters": [
+                    {
+                        "description": "Email, пароль и ID библиотеки",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/user.createStaffRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/user.userViewResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
                             }
                         }
                     }
@@ -3249,7 +3350,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "staff"
+                    "stats"
                 ],
                 "summary": "Статистика библиотеки (staff)",
                 "responses": {
@@ -3282,7 +3383,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "staff"
+                    "reservations"
                 ],
                 "summary": "Брони библиотеки",
                 "parameters": [
@@ -3335,7 +3436,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "reservations"
                 ],
                 "summary": "Отменить бронь (staff)",
                 "parameters": [
@@ -3380,7 +3481,7 @@ const docTemplate = `{
                     }
                 ],
                 "tags": [
-                    "staff"
+                    "reservations"
                 ],
                 "summary": "Возврат книги (staff)",
                 "parameters": [
@@ -3428,7 +3529,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "staff"
+                    "reservations"
                 ],
                 "summary": "Обновить статус брони (staff)",
                 "parameters": [
@@ -5076,6 +5177,26 @@ const docTemplate = `{
                 },
                 "surname": {
                     "type": "string"
+                }
+            }
+        },
+        "user.createStaffRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "library_id",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "library_id": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6
                 }
             }
         },

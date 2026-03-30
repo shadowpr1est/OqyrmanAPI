@@ -52,7 +52,7 @@ func (h *Handler) GetUserStats(c *gin.Context) {
 }
 
 // @Summary     Статистика библиотеки (staff)
-// @Tags        staff
+// @Tags        stats
 // @Security    BearerAuth
 // @Produce     json
 // @Success     200 {object} libraryStatsResponse
