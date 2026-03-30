@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -20,22 +21,29 @@ type rateLimiter struct {
 	window   time.Duration
 }
 
-func newRateLimiter(limit int, window time.Duration) *rateLimiter {
+func newRateLimiter(ctx context.Context, limit int, window time.Duration) *rateLimiter {
 	rl := &rateLimiter{
 		visitors: make(map[string]*visitor),
 		limit:    limit,
 		window:   window,
 	}
-	// чистим старые записи каждые 5 минут
+	// чистим старые записи каждые 5 минут; горутина живёт ровно столько, сколько ctx
 	go func() {
-		for range time.Tick(5 * time.Minute) {
-			rl.mu.Lock()
-			for ip, v := range rl.visitors {
-				if time.Since(v.windowStart) > rl.window {
-					delete(rl.visitors, ip)
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				rl.mu.Lock()
+				for ip, v := range rl.visitors {
+					if time.Since(v.windowStart) > rl.window {
+						delete(rl.visitors, ip)
+					}
 				}
+				rl.mu.Unlock()
+			case <-ctx.Done():
+				return
 			}
-			rl.mu.Unlock()
 		}
 	}()
 	return rl
@@ -59,9 +67,10 @@ func (rl *rateLimiter) allow(ip string) bool {
 	return true
 }
 
-// RateLimit — универсальный middleware: limit запросов за window
-func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
-	rl := newRateLimiter(limit, window)
+// RateLimit — универсальный middleware: limit запросов за window.
+// ctx должен быть контекстом приложения — при его отмене cleanup-горутина завершается.
+func RateLimit(ctx context.Context, limit int, window time.Duration) gin.HandlerFunc {
+	rl := newRateLimiter(ctx, limit, window)
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		if !rl.allow(ip) {

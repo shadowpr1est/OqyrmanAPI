@@ -51,10 +51,17 @@ func (h *Handler) Recommend(c *gin.Context) {
 // @Failure     401 {object} map[string]string
 // @Failure     500 {object} map[string]string
 // @Router      /ai/chat [post]
+const maxChatMessageLen = 2000
+
 func (h *Handler) Chat(c *gin.Context) {
 	var req chatRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if len([]rune(req.Message)) > maxChatMessageLen {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message must not exceed 2000 characters"})
 		return
 	}
 

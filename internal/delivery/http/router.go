@@ -36,6 +36,7 @@ type storagePinger interface {
 }
 
 type Router struct {
+	ctx            context.Context
 	db             *sqlx.DB
 	storage        storagePinger
 	auth           *authHandler.Handler
@@ -61,6 +62,7 @@ type Router struct {
 }
 
 func NewRouter(
+	ctx context.Context,
 	db *sqlx.DB,
 	storage storagePinger,
 	auth *authHandler.Handler,
@@ -85,6 +87,7 @@ func NewRouter(
 	allowedOrigins string,
 ) *Router {
 	return &Router{
+		ctx:            ctx,
 		db:             db,
 		storage:        storage,
 		auth:           auth,
@@ -137,11 +140,11 @@ func (r *Router) Init() *gin.Engine {
 	{
 		// ─── Публичные маршруты — без токена ───────────────────────────────
 		public := api.Group("/")
-		public.Use(middleware.RateLimit(100, time.Minute))
+		public.Use(middleware.RateLimit(r.ctx, 100, time.Minute))
 		{
 			// auth — 20 req/min per IP
 			authGroup := public.Group("/auth")
-			authGroup.Use(middleware.RateLimit(20, time.Minute))
+			authGroup.Use(middleware.RateLimit(r.ctx, 20, time.Minute))
 			{
 				authGroup.POST("/register", r.auth.Register)
 				authGroup.POST("/login", r.auth.Login)
@@ -183,7 +186,7 @@ func (r *Router) Init() *gin.Engine {
 		// ─── Защищённые маршруты — нужен JWT токен ────────────────────────
 		protected := api.Group("/")
 		protected.Use(middleware.Auth(r.jwt))
-		protected.Use(middleware.RateLimit(60, time.Minute))
+		protected.Use(middleware.RateLimit(r.ctx, 60, time.Minute))
 		{
 			// auth
 			protected.POST("/auth/logout", r.auth.Logout)
@@ -246,7 +249,7 @@ func (r *Router) Init() *gin.Engine {
 			// AI — rate limit 10 req/min на IP
 			if r.ai != nil {
 				aiGroup := protected.Group("/ai")
-				aiGroup.Use(middleware.RateLimit(10, time.Minute))
+				aiGroup.Use(middleware.RateLimit(r.ctx, 10, time.Minute))
 				{
 					aiGroup.POST("/recommend", r.ai.Recommend)
 					aiGroup.POST("/chat", r.ai.Chat)

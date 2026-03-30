@@ -38,6 +38,10 @@ func (u *libraryBookUseCase) Update(ctx context.Context, lb *entity.LibraryBook)
 	return u.libraryBookRepo.Update(ctx, lb)
 }
 
+func (u *libraryBookUseCase) UpdateCopies(ctx context.Context, id uuid.UUID, totalCopies *int, availableCopies *int) (*entity.LibraryBook, error) {
+	return u.libraryBookRepo.UpdateCopies(ctx, id, totalCopies, availableCopies)
+}
+
 func (u *libraryBookUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.libraryBookRepo.Delete(ctx, id)
 }

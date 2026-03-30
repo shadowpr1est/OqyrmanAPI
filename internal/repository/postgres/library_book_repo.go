@@ -103,10 +103,50 @@ func (r *libraryBookRepo) Update(ctx context.Context, lb *entity.LibraryBook) (*
 	return lb, nil
 }
 
+func (r *libraryBookRepo) UpdateCopies(ctx context.Context, id uuid.UUID, totalCopies *int, availableCopies *int) (*entity.LibraryBook, error) {
+	var lb entity.LibraryBook
+	err := r.db.GetContext(ctx, &lb, `
+		UPDATE library_books
+		SET total_copies     = COALESCE($2, total_copies),
+		    available_copies = COALESCE($3, available_copies)
+		WHERE id = $1
+		RETURNING *`, id, totalCopies, availableCopies)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23514" {
+			return nil, fmt.Errorf("%w: %s", entity.ErrValidation, pqErr.Message)
+		}
+		return nil, fmt.Errorf("libraryBookRepo.UpdateCopies: %w", err)
+	}
+	return &lb, nil
+}
+
 func (r *libraryBookRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM library_books WHERE id = $1`
-	if _, err := r.db.ExecContext(ctx, query, id); err != nil {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM library_books
+		WHERE id = $1
+		  AND NOT EXISTS (
+		      SELECT 1 FROM reservations
+		      WHERE library_book_id = $1
+		        AND status IN ('active', 'pending')
+		  )`, id)
+	if err != nil {
 		return fmt.Errorf("libraryBookRepo.Delete: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		var exists bool
+		if err := r.db.GetContext(ctx, &exists,
+			`SELECT EXISTS(SELECT 1 FROM library_books WHERE id = $1)`, id); err != nil {
+			return fmt.Errorf("libraryBookRepo.Delete exists check: %w", err)
+		}
+		if !exists {
+			return entity.ErrNotFound
+		}
+		return entity.ErrActiveReservationsExist
 	}
 	return nil
 }

@@ -13,7 +13,17 @@
       "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/domain/usecase -type f -name *.go)",
       "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/domain/storage -type f -name *.go)",
       "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/repository/postgres -type f -name *.go)",
-      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/delivery/http/handler -type f -name *.go)"
+      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/delivery/http/handler -type f -name *.go)",
+      "Bash(wc -l /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/delivery/http/handler/*/handler.go)",
+      "Bash(find /c/Users/sem1c/GolandProjects/OqyrmanAPI/internal/delivery/http/handler/reading_session -name \"*.go\" -exec grep -l \"\" {})",
+      "Bash(xargs grep:*)",
+      "Bash(/dev/null find:*)",
+      "Bash(2)",
+      "Bash(xargs head:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(grep:*)"
     ]
   }
 }

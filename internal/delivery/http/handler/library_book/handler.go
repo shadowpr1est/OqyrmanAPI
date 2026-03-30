@@ -176,20 +176,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	existing, err := h.uc.GetByID(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-		return
-	}
-
-	if req.TotalCopies != nil {
-		existing.TotalCopies = *req.TotalCopies
-	}
-	if req.AvailableCopies != nil {
-		existing.AvailableCopies = *req.AvailableCopies
-	}
-
-	result, err := h.uc.Update(c.Request.Context(), existing)
+	// UpdateCopies applies COALESCE in SQL — no prior read needed, avoids TOCTOU.
+	result, err := h.uc.UpdateCopies(c.Request.Context(), id, req.TotalCopies, req.AvailableCopies)
 	if err != nil {
 		if errors.Is(err, entity.ErrValidation) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -223,6 +211,10 @@ func (h *Handler) Delete(c *gin.Context) {
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
 		if errors.Is(err, entity.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "library book not found"})
+			return
+		}
+		if errors.Is(err, entity.ErrActiveReservationsExist) {
+			c.JSON(http.StatusConflict, gin.H{"error": "cannot delete: active or pending reservations exist"})
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())

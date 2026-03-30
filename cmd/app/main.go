@@ -216,6 +216,7 @@ func main() {
 	go overdueCanceller.Run(ctx)
 	// router
 	router := httpDelivery.NewRouter(
+		ctx,
 		db,
 		minioStorage,
 		authHandler,

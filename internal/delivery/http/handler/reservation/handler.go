@@ -110,6 +110,14 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
+	// Only the owner, staff, and admin may view a reservation.
+	callerID := middleware.GetUserID(c)
+	role := middleware.GetRole(c)
+	if r.UserID != callerID && role != "Admin" && role != "Staff" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
 	c.JSON(http.StatusOK, toReservationViewResponse(r))
 }
 

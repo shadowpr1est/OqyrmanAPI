@@ -40,4 +40,9 @@ var (
 	// ErrEmailTaken — email уже занят другим пользователем.
 	// Handler должен вернуть 409 Conflict.
 	ErrEmailTaken = errors.New("email already taken")
+
+	// ErrActiveReservationsExist — нельзя удалить запись библиотечной книги,
+	// пока есть активные или ожидающие резервации.
+	// Handler должен вернуть 409 Conflict.
+	ErrActiveReservationsExist = errors.New("active or pending reservations exist for this library book")
 )
