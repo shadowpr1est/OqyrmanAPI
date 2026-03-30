@@ -1327,72 +1327,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/ai/chat": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Отвечает на вопросы пользователя по книгам и чтению",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "ai"
-                ],
-                "summary": "Чат с книжным ассистентом",
-                "parameters": [
-                    {
-                        "description": "Сообщение пользователя",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/ai.chatRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/ai.chatResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/ai/recommend": {
             "post": {
                 "security": [
@@ -3891,25 +3825,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "ai.chatRequest": {
-            "type": "object",
-            "required": [
-                "message"
-            ],
-            "properties": {
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "ai.chatResponse": {
-            "type": "object",
-            "properties": {
-                "reply": {
-                    "type": "string"
-                }
-            }
-        },
         "ai.recommendResponse": {
             "type": "object",
             "properties": {

@@ -1,17 +1,5 @@
 basePath: /api/v1
 definitions:
-  ai.chatRequest:
-    properties:
-      message:
-        type: string
-    required:
-    - message
-    type: object
-  ai.chatResponse:
-    properties:
-      reply:
-        type: string
-    type: object
   ai.recommendResponse:
     properties:
       recommendations:
@@ -1773,48 +1761,6 @@ paths:
       summary: Создать сотрудника (admin)
       tags:
       - users
-  /ai/chat:
-    post:
-      consumes:
-      - application/json
-      description: Отвечает на вопросы пользователя по книгам и чтению
-      parameters:
-      - description: Сообщение пользователя
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/ai.chatRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/ai.chatResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Чат с книжным ассистентом
-      tags:
-      - ai
   /ai/recommend:
     post:
       description: Генерирует рекомендации на основе истории чтения и вишлиста пользователя
