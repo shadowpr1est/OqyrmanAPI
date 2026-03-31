@@ -107,7 +107,9 @@ import (
 	userUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/user"
 	wishlistUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/wishlist"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm/anthropic"
+	openaiLLM "github.com/shadowpr1est/OqyrmanAPI/pkg/llm/openai"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/logger"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/storage"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/worker"
@@ -180,12 +182,20 @@ func main() {
 
 	// AI
 	var aiHandler *aiH.Handler
-	if cfg.AI.AnthropicKey != "" {
-		llmClient := anthropic.NewClient(cfg.AI.AnthropicKey)
+	var llmClient llm.LLMClient
+	switch {
+	case cfg.AI.OpenAIKey != "":
+		llmClient = openaiLLM.NewClient(cfg.AI.OpenAIKey)
+		log.Println("AI: using OpenAI GPT")
+	case cfg.AI.AnthropicKey != "":
+		llmClient = anthropic.NewClient(cfg.AI.AnthropicKey)
+		log.Println("AI: using Anthropic Claude")
+	default:
+		log.Println("AI: no API key set, AI endpoints disabled")
+	}
+	if llmClient != nil {
 		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, llmClient)
 		aiHandler = aiH.NewHandler(aiUseCase)
-	} else {
-		log.Println("ANTHROPIC_API_KEY not set, AI endpoints disabled")
 	}
 
 	// handlers

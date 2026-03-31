@@ -15,6 +15,7 @@ type Config struct {
 }
 type AIConfig struct {
 	AnthropicKey string `env:"ANTHROPIC_API_KEY" env-default:""`
+	OpenAIKey    string `env:"OPENAI_API_KEY"    env-default:""`
 }
 
 type AppConfig struct {
