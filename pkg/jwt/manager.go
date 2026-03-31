@@ -20,11 +20,14 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func NewManager(secretKey string, accessTTLMin int) *Manager {
+func NewManager(secretKey string, accessTTLMin int) (*Manager, error) {
+	if len([]byte(secretKey)) < 32 {
+		return nil, errors.New("jwt secret key must be at least 32 bytes")
+	}
 	return &Manager{
 		secretKey:      secretKey,
 		accessTokenTTL: time.Duration(accessTTLMin) * time.Minute,
-	}
+	}, nil
 }
 
 func (m *Manager) GenerateAccessToken(userID uuid.UUID, role string, libraryID *uuid.UUID) (string, error) {

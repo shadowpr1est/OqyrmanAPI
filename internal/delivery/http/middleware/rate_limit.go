@@ -14,17 +14,15 @@ type visitor struct {
 	windowStart time.Time
 }
 
-type rateLimiter struct {
+type RateLimiter struct {
 	mu       sync.Mutex
 	visitors map[string]*visitor
-	limit    int
 	window   time.Duration
 }
 
-func newRateLimiter(ctx context.Context, limit int, window time.Duration) *rateLimiter {
-	rl := &rateLimiter{
+func NewRateLimiter(ctx context.Context, window time.Duration) *RateLimiter {
+	rl := &RateLimiter{
 		visitors: make(map[string]*visitor),
-		limit:    limit,
 		window:   window,
 	}
 	// чистим старые записи каждые 5 минут; горутина живёт ровно столько, сколько ctx
@@ -49,17 +47,19 @@ func newRateLimiter(ctx context.Context, limit int, window time.Duration) *rateL
 	return rl
 }
 
-func (rl *rateLimiter) allow(ip string) bool {
+func (rl *RateLimiter) allow(key string, limit int) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	v, ok := rl.visitors[ip]
-	if !ok || time.Since(v.windowStart) > rl.window {
-		rl.visitors[ip] = &visitor{count: 1, windowStart: time.Now()}
+	now := time.Now()
+	v, exists := rl.visitors[key]
+
+	if !exists || now.Sub(v.windowStart) >= rl.window {
+		rl.visitors[key] = &visitor{count: 1, windowStart: now}
 		return true
 	}
 
-	if v.count >= rl.limit {
+	if v.count >= limit {
 		return false
 	}
 
@@ -67,13 +67,10 @@ func (rl *rateLimiter) allow(ip string) bool {
 	return true
 }
 
-// RateLimit — универсальный middleware: limit запросов за window.
-// ctx должен быть контекстом приложения — при его отмене cleanup-горутина завершается.
-func RateLimit(ctx context.Context, limit int, window time.Duration) gin.HandlerFunc {
-	rl := newRateLimiter(ctx, limit, window)
+func RateLimitWithGroup(rl *RateLimiter, group string, limit int) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
-		if !rl.allow(ip) {
+		key := c.ClientIP() + ":" + group
+		if !rl.allow(key, limit) {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error": "too many requests, please try again later",
 			})

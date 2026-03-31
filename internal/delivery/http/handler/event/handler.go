@@ -131,6 +131,10 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
+	if cover != nil {
+		defer cover.Reader.Close()
+	}
+
 	result, err := h.uc.Create(c.Request.Context(), &entity.Event{
 		Title:       req.Title,
 		Description: req.Description,
@@ -195,6 +199,10 @@ func (h *Handler) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	if cover != nil {
+		defer cover.Reader.Close()
 	}
 
 	result, err := h.uc.Update(c.Request.Context(), &entity.Event{

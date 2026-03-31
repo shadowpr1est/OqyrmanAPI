@@ -29,7 +29,9 @@ func (w *OverdueCanceller) Run(ctx context.Context) {
 	log.Println("OverdueCanceller: started")
 
 	// Запуск сразу при старте — не ждём первого тика
-	w.runOnce(ctx)
+	iterCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	w.runOnce(iterCtx)
+	cancel()
 
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
@@ -37,7 +39,9 @@ func (w *OverdueCanceller) Run(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			w.runOnce(ctx)
+			iterCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			w.runOnce(iterCtx)
+			cancel()
 		case <-ctx.Done():
 			log.Println("OverdueCanceller: stopped")
 			return

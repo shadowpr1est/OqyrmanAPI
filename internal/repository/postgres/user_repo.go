@@ -186,6 +186,7 @@ func (r *userRepo) AdminUpdate(
 	name, surname, email, phone *string,
 ) (*entity.UserView, error) {
 	query := `
+    WITH updated AS (
         UPDATE users
         SET role       = COALESCE($1, role),
             library_id = CASE WHEN $1 IS NOT NULL THEN $2 ELSE library_id END,
@@ -199,7 +200,17 @@ func (r *userRepo) AdminUpdate(
                            ELSE full_name
                          END
         WHERE id = $7 AND deleted_at IS NULL
-        RETURNING id`
+        RETURNING *
+    )
+    SELECT 
+        u.id, u.email, u.name, u.surname, u.full_name, u.phone,
+        COALESCE(u.avatar_url, '') AS avatar_url,
+        u.role, u.library_id,
+        COALESCE(l.name, '') AS library_name,
+        u.qr_code, u.created_at
+    FROM updated u
+    LEFT JOIN libraries l ON l.id = u.library_id;
+    `
 
 	var roleStr *string
 	if role != nil {
@@ -223,33 +234,22 @@ func (r *userRepo) AdminUpdate(
 		phoneStr = *phone
 	}
 
-	var updatedID uuid.UUID
-	err := r.db.GetContext(ctx, &updatedID, query,
+	// Возвращаем обновлённый UserView с именем библиотеки
+	var view entity.UserView
+	err := r.db.GetContext(ctx, &view, query,
 		roleStr, libraryID, nameStr, surnameStr, emailStr, phoneStr, id,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, entity.ErrNotFound
 		}
+
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
 			return nil, entity.ErrEmailTaken
 		}
-		return nil, fmt.Errorf("userRepo.AdminUpdate: %w", err)
-	}
 
-	// Возвращаем обновлённый UserView с именем библиотеки
-	var view entity.UserView
-	if err := r.db.GetContext(ctx, &view, `
-        SELECT u.id, u.email, u.name, u.surname, u.full_name, u.phone,
-               COALESCE(u.avatar_url, '') AS avatar_url,
-               u.role, u.library_id, COALESCE(l.name, '') AS library_name,
-               u.qr_code, u.created_at
-        FROM users u
-        LEFT JOIN libraries l ON l.id = u.library_id
-        WHERE u.id = $1`, updatedID,
-	); err != nil {
-		return nil, fmt.Errorf("userRepo.AdminUpdate fetch view: %w", err)
+		return nil, fmt.Errorf("userRepo.AdminUpdate: %w", err)
 	}
 
 	return &view, nil

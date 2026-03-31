@@ -137,14 +137,15 @@ func (r *Router) Init() *gin.Engine {
 		engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 	api := engine.Group("/api/v1")
+	rl := middleware.NewRateLimiter(r.ctx, time.Minute)
 	{
 		// ─── Публичные маршруты — без токена ───────────────────────────────
 		public := api.Group("/")
-		public.Use(middleware.RateLimit(r.ctx, 100, time.Minute))
+		public.Use(middleware.RateLimitWithGroup(rl, "public", 100))
 		{
 			// auth — 20 req/min per IP
 			authGroup := public.Group("/auth")
-			authGroup.Use(middleware.RateLimit(r.ctx, 20, time.Minute))
+			authGroup.Use(middleware.RateLimitWithGroup(rl, "auth", 20))
 			{
 				authGroup.POST("/register", r.auth.Register)
 				authGroup.POST("/login", r.auth.Login)
@@ -186,7 +187,7 @@ func (r *Router) Init() *gin.Engine {
 		// ─── Защищённые маршруты — нужен JWT токен ────────────────────────
 		protected := api.Group("/")
 		protected.Use(middleware.Auth(r.jwt))
-		protected.Use(middleware.RateLimit(r.ctx, 60, time.Minute))
+		protected.Use(middleware.RateLimitWithGroup(rl, "protected", 60))
 		{
 			// auth
 			protected.POST("/auth/logout", r.auth.Logout)
@@ -249,7 +250,7 @@ func (r *Router) Init() *gin.Engine {
 			// AI — rate limit 10 req/min на IP
 			if r.ai != nil {
 				aiGroup := protected.Group("/ai")
-				aiGroup.Use(middleware.RateLimit(r.ctx, 10, time.Minute))
+				aiGroup.Use(middleware.RateLimitWithGroup(rl, "ai", 10))
 				{
 					aiGroup.POST("/recommend", r.ai.Recommend)
 					aiGroup.POST("/chat", r.ai.Chat)
