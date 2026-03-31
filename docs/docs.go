@@ -498,7 +498,7 @@ const docTemplate = `{
                     }
                 ],
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -509,13 +509,43 @@ const docTemplate = `{
                 "summary": "Создать событие",
                 "parameters": [
                     {
-                        "description": "Данные события",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/event.createEventRequest"
-                        }
+                        "type": "string",
+                        "description": "Название",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Описание",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Место",
+                        "name": "location",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Начало (RFC3339)",
+                        "name": "starts_at",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Конец (RFC3339)",
+                        "name": "ends_at",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Обложка (jpg, png, webp)",
+                        "name": "cover",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -554,7 +584,7 @@ const docTemplate = `{
                     }
                 ],
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -572,13 +602,43 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Данные события",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/event.updateEventRequest"
-                        }
+                        "type": "string",
+                        "description": "Название",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Описание",
+                        "name": "description",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Место",
+                        "name": "location",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Начало (RFC3339)",
+                        "name": "starts_at",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Конец (RFC3339)",
+                        "name": "ends_at",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Обложка (jpg, png, webp)",
+                        "name": "cover",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -1193,7 +1253,7 @@ const docTemplate = `{
                 "summary": "Создать сотрудника (admin)",
                 "parameters": [
                     {
-                        "description": "Email, пароль и ID библиотеки",
+                        "description": "Данные сотрудника",
                         "name": "input",
                         "in": "body",
                         "required": true,
@@ -3874,14 +3934,16 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "email",
+                "name",
                 "password",
-                "phone"
+                "phone",
+                "surname"
             ],
             "properties": {
                 "email": {
                     "type": "string"
                 },
-                "full_name": {
+                "name": {
                     "type": "string"
                 },
                 "password": {
@@ -3889,6 +3951,9 @@ const docTemplate = `{
                     "minLength": 8
                 },
                 "phone": {
+                    "type": "string"
+                },
+                "surname": {
                     "type": "string"
                 }
             }
@@ -4219,34 +4284,6 @@ const docTemplate = `{
                 }
             }
         },
-        "event.createEventRequest": {
-            "type": "object",
-            "required": [
-                "ends_at",
-                "starts_at",
-                "title"
-            ],
-            "properties": {
-                "cover_url": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "ends_at": {
-                    "type": "string"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "starts_at": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
         "event.eventResponse": {
             "type": "object",
             "properties": {
@@ -4263,34 +4300,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "starts_at": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "event.updateEventRequest": {
-            "type": "object",
-            "required": [
-                "ends_at",
-                "starts_at",
-                "title"
-            ],
-            "properties": {
-                "cover_url": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "ends_at": {
                     "type": "string"
                 },
                 "location": {
@@ -5100,7 +5109,10 @@ const docTemplate = `{
             "required": [
                 "email",
                 "library_id",
-                "password"
+                "name",
+                "password",
+                "phone",
+                "surname"
             ],
             "properties": {
                 "email": {
@@ -5109,9 +5121,18 @@ const docTemplate = `{
                 "library_id": {
                     "type": "string"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "password": {
                     "type": "string",
                     "minLength": 6
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
                 }
             }
         },

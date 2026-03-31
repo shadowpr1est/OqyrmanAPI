@@ -176,7 +176,7 @@ func main() {
 	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, notifRepo)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
 	notifUseCase := notificationUC.NewNotificationUseCase(notifRepo)
-	eventUseCase := eventUC.NewEventUseCase(eventRepo)
+	eventUseCase := eventUC.NewEventUseCase(eventRepo, minioStorage)
 
 	// AI
 	var aiHandler *aiH.Handler

@@ -33,17 +33,21 @@ definitions:
     properties:
       email:
         type: string
-      full_name:
+      name:
         type: string
       password:
         minLength: 8
         type: string
       phone:
         type: string
+      surname:
+        type: string
     required:
     - email
+    - name
     - password
     - phone
+    - surname
     type: object
   auth.tokenResponse:
     properties:
@@ -258,25 +262,6 @@ definitions:
       id:
         type: string
     type: object
-  event.createEventRequest:
-    properties:
-      cover_url:
-        type: string
-      description:
-        type: string
-      ends_at:
-        type: string
-      location:
-        type: string
-      starts_at:
-        type: string
-      title:
-        type: string
-    required:
-    - ends_at
-    - starts_at
-    - title
-    type: object
   event.eventResponse:
     properties:
       cover_url:
@@ -295,25 +280,6 @@ definitions:
         type: string
       title:
         type: string
-    type: object
-  event.updateEventRequest:
-    properties:
-      cover_url:
-        type: string
-      description:
-        type: string
-      ends_at:
-        type: string
-      location:
-        type: string
-      starts_at:
-        type: string
-      title:
-        type: string
-    required:
-    - ends_at
-    - starts_at
-    - title
     type: object
   genre.createGenreRequest:
     properties:
@@ -843,13 +809,22 @@ definitions:
         type: string
       library_id:
         type: string
+      name:
+        type: string
       password:
         minLength: 6
+        type: string
+      phone:
+        type: string
+      surname:
         type: string
     required:
     - email
     - library_id
+    - name
     - password
+    - phone
+    - surname
     type: object
   user.updateUserRequest:
     properties:
@@ -1245,14 +1220,35 @@ paths:
   /admin/events:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       parameters:
-      - description: Данные события
-        in: body
-        name: input
+      - description: Название
+        in: formData
+        name: title
         required: true
-        schema:
-          $ref: '#/definitions/event.createEventRequest'
+        type: string
+      - description: Описание
+        in: formData
+        name: description
+        type: string
+      - description: Место
+        in: formData
+        name: location
+        type: string
+      - description: Начало (RFC3339)
+        in: formData
+        name: starts_at
+        required: true
+        type: string
+      - description: Конец (RFC3339)
+        in: formData
+        name: ends_at
+        required: true
+        type: string
+      - description: Обложка (jpg, png, webp)
+        in: formData
+        name: cover
+        type: file
       produces:
       - application/json
       responses:
@@ -1301,19 +1297,40 @@ paths:
       - events
     put:
       consumes:
-      - application/json
+      - multipart/form-data
       parameters:
       - description: ID события
         in: path
         name: id
         required: true
         type: string
-      - description: Данные события
-        in: body
-        name: input
+      - description: Название
+        in: formData
+        name: title
         required: true
-        schema:
-          $ref: '#/definitions/event.updateEventRequest'
+        type: string
+      - description: Описание
+        in: formData
+        name: description
+        type: string
+      - description: Место
+        in: formData
+        name: location
+        type: string
+      - description: Начало (RFC3339)
+        in: formData
+        name: starts_at
+        required: true
+        type: string
+      - description: Конец (RFC3339)
+        in: formData
+        name: ends_at
+        required: true
+        type: string
+      - description: Обложка (jpg, png, webp)
+        in: formData
+        name: cover
+        type: file
       produces:
       - application/json
       responses:
@@ -1731,7 +1748,7 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Email, пароль и ID библиотеки
+      - description: Данные сотрудника
         in: body
         name: input
         required: true

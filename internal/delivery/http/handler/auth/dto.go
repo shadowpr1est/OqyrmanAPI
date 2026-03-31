@@ -4,7 +4,8 @@ type registerRequest struct {
 	Email    string `json:"email"    binding:"required,email"`
 	Phone    string `json:"phone"    binding:"required"`
 	Password string `json:"password" binding:"required,min=8"`
-	FullName string `json:"full_name"`
+	Name     string `json:"name"     binding:"required"`
+	Surname  string `json:"surname"  binding:"required"`
 }
 
 type logoutRequest struct {

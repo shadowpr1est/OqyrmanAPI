@@ -1,16 +1,19 @@
 package event
 
 import (
-	"log/slog"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type Handler struct {
@@ -88,16 +91,21 @@ func (h *Handler) GetByID(c *gin.Context) {
 // @Summary     Создать событие
 // @Tags        events
 // @Security    BearerAuth
-// @Accept      json
+// @Accept      multipart/form-data
 // @Produce     json
-// @Param       input body createEventRequest true "Данные события"
+// @Param       title       formData string true  "Название"
+// @Param       description formData string false "Описание"
+// @Param       location    formData string false "Место"
+// @Param       starts_at   formData string true  "Начало (RFC3339)"
+// @Param       ends_at     formData string true  "Конец (RFC3339)"
+// @Param       cover       formData file   false "Обложка (jpg, png, webp)"
 // @Success     201 {object} eventResponse
 // @Failure     400 {object} map[string]string
 // @Failure     500 {object} map[string]string
 // @Router      /admin/events [post]
 func (h *Handler) Create(c *gin.Context) {
 	var req createEventRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindWith(&req, binding.FormMultipart); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -117,14 +125,19 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
+	cover, err := parseCover(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	result, err := h.uc.Create(c.Request.Context(), &entity.Event{
 		Title:       req.Title,
 		Description: req.Description,
-		CoverURL:    req.CoverURL,
 		Location:    req.Location,
 		StartsAt:    startsAt,
 		EndsAt:      endsAt,
-	})
+	}, cover)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -137,10 +150,15 @@ func (h *Handler) Create(c *gin.Context) {
 // @Summary     Обновить событие
 // @Tags        events
 // @Security    BearerAuth
-// @Accept      json
+// @Accept      multipart/form-data
 // @Produce     json
-// @Param       id    path string           true "ID события"
-// @Param       input body updateEventRequest true "Данные события"
+// @Param       id          path     string true  "ID события"
+// @Param       title       formData string true  "Название"
+// @Param       description formData string false "Описание"
+// @Param       location    formData string false "Место"
+// @Param       starts_at   formData string true  "Начало (RFC3339)"
+// @Param       ends_at     formData string true  "Конец (RFC3339)"
+// @Param       cover       formData file   false "Обложка (jpg, png, webp)"
 // @Success     200 {object} eventResponse
 // @Failure     400 {object} map[string]string
 // @Failure     404 {object} map[string]string
@@ -153,7 +171,7 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 
 	var req updateEventRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindWith(&req, binding.FormMultipart); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -173,15 +191,20 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
+	cover, err := parseCover(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	result, err := h.uc.Update(c.Request.Context(), &entity.Event{
 		ID:          id,
 		Title:       req.Title,
 		Description: req.Description,
-		CoverURL:    req.CoverURL,
 		Location:    req.Location,
 		StartsAt:    startsAt,
 		EndsAt:      endsAt,
-	})
+	}, cover)
 	if err != nil {
 		if errors.Is(err, entity.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
@@ -193,6 +216,41 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, toEventResponse(result))
+}
+
+// parseCover извлекает файл обложки из multipart-формы.
+// Возвращает nil, nil если поле cover не передано.
+func parseCover(c *gin.Context) (*fileupload.File, error) {
+	fh, err := c.FormFile("cover")
+	if err != nil {
+		return nil, nil // обложка не обязательна
+	}
+	f, err := fh.Open()
+	if err != nil {
+		return nil, errors.New("cannot open cover file")
+	}
+
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	ct := http.DetectContentType(buf[:n])
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		f.Close()
+		return nil, errors.New("cannot process cover file")
+	}
+	switch ct {
+	case "image/jpeg", "image/png", "image/webp":
+		// ok
+	default:
+		f.Close()
+		return nil, errors.New("only jpeg, png, webp images are allowed")
+	}
+
+	return &fileupload.File{
+		Filename:    fh.Filename,
+		Reader:      f,
+		Size:        fh.Size,
+		ContentType: ct,
+	}, nil
 }
 
 // @Summary     Удалить событие

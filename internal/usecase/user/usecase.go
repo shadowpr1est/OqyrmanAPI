@@ -67,7 +67,7 @@ func (u *userUseCase) ListAllView(ctx context.Context, limit, offset int) ([]*en
 	return u.userRepo.ListAllView(ctx, limit, offset)
 }
 
-func (u *userUseCase) CreateStaff(ctx context.Context, email, password string, libraryID uuid.UUID) (*entity.UserView, error) {
+func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, surname, phone string, libraryID uuid.UUID) (*entity.UserView, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("userUseCase.CreateStaff hash: %w", err)
@@ -77,6 +77,10 @@ func (u *userUseCase) CreateStaff(ctx context.Context, email, password string, l
 		ID:           uuid.New(),
 		Email:        email,
 		PasswordHash: string(hash),
+		Name:         name,
+		Surname:      surname,
+		FullName:     name + " " + surname,
+		Phone:        phone,
 		Role:         entity.RoleStaff,
 		LibraryID:    &libraryID,
 		QRCode:       uuid.New().String(),

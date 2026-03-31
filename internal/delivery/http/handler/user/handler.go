@@ -310,7 +310,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // @Security    BearerAuth
 // @Accept      json
 // @Produce     json
-// @Param       input body createStaffRequest true "Email, пароль и ID библиотеки"
+// @Param       input body createStaffRequest true "Данные сотрудника"
 // @Success     201 {object} userViewResponse
 // @Failure     400 {object} map[string]string
 // @Failure     409 {object} map[string]string
@@ -328,7 +328,7 @@ func (h *Handler) CreateStaff(c *gin.Context) {
 		return
 	}
 
-	user, err := h.uc.CreateStaff(c.Request.Context(), req.Email, req.Password, libraryID)
+	user, err := h.uc.CreateStaff(c.Request.Context(), req.Email, req.Password, req.Name, req.Surname, req.Phone, libraryID)
 	if err != nil {
 		if errors.Is(err, entity.ErrEmailTaken) {
 			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})

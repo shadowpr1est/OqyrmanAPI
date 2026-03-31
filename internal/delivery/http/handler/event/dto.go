@@ -3,21 +3,19 @@ package event
 import "github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 
 type createEventRequest struct {
-	Title       string  `json:"title"       binding:"required"`
-	Description *string `json:"description"`
-	CoverURL    *string `json:"cover_url"`
-	Location    *string `json:"location"`
-	StartsAt    string  `json:"starts_at"   binding:"required"`
-	EndsAt      string  `json:"ends_at"     binding:"required"`
+	Title       string  `form:"title"       binding:"required"`
+	Description *string `form:"description"`
+	Location    *string `form:"location"`
+	StartsAt    string  `form:"starts_at"   binding:"required"`
+	EndsAt      string  `form:"ends_at"     binding:"required"`
 }
 
 type updateEventRequest struct {
-	Title       string  `json:"title"       binding:"required"`
-	Description *string `json:"description"`
-	CoverURL    *string `json:"cover_url"`
-	Location    *string `json:"location"`
-	StartsAt    string  `json:"starts_at"   binding:"required"`
-	EndsAt      string  `json:"ends_at"     binding:"required"`
+	Title       string  `form:"title"       binding:"required"`
+	Description *string `form:"description"`
+	Location    *string `form:"location"`
+	StartsAt    string  `form:"starts_at"   binding:"required"`
+	EndsAt      string  `form:"ends_at"     binding:"required"`
 }
 
 type eventResponse struct {
