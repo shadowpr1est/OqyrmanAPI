@@ -153,11 +153,25 @@ func (r *libraryBookRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 // libraryBookViewQuery is the base SELECT for all LibraryBookView methods.
 const libraryBookViewQuery = `
-	SELECT lb.id, lb.library_id, l.name AS library_name,
-	       lb.book_id, b.title AS book_title,
-	       COALESCE(b.cover_url, '') AS book_cover_url, COALESCE(b.year, 0) AS book_year,
-	       b.author_id, a.name AS author_name,
-	       b.genre_id, g.name AS genre_name,
+	SELECT lb.id, lb.library_id, l.name AS library_name, l.address AS library_address,
+	       l.lat AS library_lat, l.lng AS library_lng, l.phone AS library_phone,  
+	       
+	       lb.book_id, b.title AS book_title, b.isbn AS book_isbn,
+		   COALESCE(b.cover_url, '') AS book_cover_url, b.description AS book_description,
+		   b.language AS book_language,
+		   COALESCE(b.year, 0) AS book_year,
+		   COALESCE(b.total_pages,0) AS book_total_pages,
+		   b.avg_rating AS book_avg_rating,
+		   
+	       b.author_id, a.name AS author_name, 
+	       a.bio AS author_bio,
+	       a.birth_date AS author_birth_date,
+	       a.death_date AS author_death_date,
+	       a.photo_url AS author_photo_url,
+	       
+	       b.genre_id, g.name AS genre_name, g.slug AS genre_slug,
+	       
+	       
 	       lb.total_copies, lb.available_copies
 	FROM library_books lb
 	JOIN libraries l ON l.id = lb.library_id AND l.deleted_at IS NULL

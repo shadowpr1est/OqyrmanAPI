@@ -73,10 +73,10 @@ import (
 	httpDelivery "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http"
 	aiH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/ai"
 	authH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/auth"
-	eventH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/event"
 	authorH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/author"
 	bookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book"
 	bookFileH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/book_file"
+	eventH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/event"
 	genreH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/genre"
 	libraryH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library"
 	libraryBookH "github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/library_book"
@@ -91,10 +91,10 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/internal/repository/postgres"
 	aiUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/ai"
 	authUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/auth"
-	eventUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/event"
 	authorUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/author"
 	bookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book"
 	bookFileUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book_file"
+	eventUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/event"
 	genreUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/genre"
 	libraryUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/library"
 	libraryBookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/library_book"
@@ -142,7 +142,7 @@ func main() {
 	}
 
 	// jwt
-	jwtManager := jwt.NewManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenTTL)
+	jwtManager, _ := jwt.NewManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenTTL)
 
 	// repositories
 	userRepo := postgres.NewUserRepo(db)

@@ -157,7 +157,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Загружает файл в MinIO. Допустимые форматы: pdf, epub, mp3.",
+                "description": "Загружает файл в MinIO. Формат определяется автоматически по расширению файла (.pdf, .epub, .mp3).",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -177,21 +177,8 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Формат файла: pdf | epub | mp3",
-                        "name": "format",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Кол-во страниц (только для PDF/EPUB)",
-                        "name": "total_pages",
-                        "in": "formData"
-                    },
-                    {
                         "type": "file",
-                        "description": "Файл",
+                        "description": "Файл (.pdf, .epub, .mp3)",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -214,7 +201,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Файл данного типа уже загружен для этой книги",
+                        "description": "Файл уже загружен для этой книги",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -4066,6 +4053,9 @@ const docTemplate = `{
                 "avg_rating": {
                     "type": "number"
                 },
+                "book_file": {
+                    "$ref": "#/definitions/common.BookFileRef"
+                },
                 "cover_url": {
                     "type": "string"
                 },
@@ -4109,6 +4099,9 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "file": {
+                    "$ref": "#/definitions/common.BookFileRef"
                 },
                 "genre": {
                     "$ref": "#/definitions/common.GenreRef"
@@ -4199,19 +4192,47 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
-                },
-                "is_audio": {
-                    "type": "boolean"
                 }
             }
         },
         "common.AuthorRef": {
             "type": "object",
             "properties": {
+                "bio": {
+                    "type": "string"
+                },
+                "birth_date": {
+                    "description": "\"2006-01-02\"",
+                    "type": "string"
+                },
+                "death_date": {
+                    "description": "\"2006-01-02\"",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "photo_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "common.BookFileRef": {
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "type": "string"
+                },
+                "file_url": {
+                    "type": "string"
+                },
+                "format": {
+                    "$ref": "#/definitions/entity.BookFileFormat"
+                },
+                "id": {
                     "type": "string"
                 }
             }
@@ -4228,10 +4249,19 @@ const docTemplate = `{
                 "cover_url": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "genre": {
                     "$ref": "#/definitions/common.GenreRef"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "isbn": {
+                    "type": "string"
+                },
+                "language": {
                     "type": "string"
                 },
                 "title": {
@@ -4253,16 +4283,36 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "slug": {
+                    "type": "string"
                 }
             }
         },
         "common.LibraryRef": {
             "type": "object",
+            "required": [
+                "address",
+                "lat",
+                "lng"
+            ],
             "properties": {
+                "address": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
+                "lat": {
+                    "type": "number"
+                },
+                "lng": {
+                    "type": "number"
+                },
                 "name": {
+                    "type": "string"
+                },
+                "phone": {
                     "type": "string"
                 }
             }
@@ -4273,6 +4323,9 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
+                "created_at": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -4281,8 +4334,36 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "qr_code": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
                 }
             }
+        },
+        "entity.BookFileFormat": {
+            "type": "string",
+            "enum": [
+                "pdf",
+                "epub",
+                "mp3"
+            ],
+            "x-enum-varnames": [
+                "BookFileFormatPDF",
+                "BookFileFormatEPUB",
+                "BookFileFormatMP3"
+            ]
         },
         "event.eventResponse": {
             "type": "object",

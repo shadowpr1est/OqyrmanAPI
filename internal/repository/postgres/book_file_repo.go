@@ -21,12 +21,12 @@ func NewBookFileRepo(db *sqlx.DB) *bookFileRepo {
 
 func (r *bookFileRepo) Create(ctx context.Context, file *entity.BookFile) (*entity.BookFile, error) {
 	query := `
-		INSERT INTO book_files (id, book_id, format, file_url, is_audio)
-		VALUES (:id, :book_id, :format, :file_url, :is_audio)
+		INSERT INTO book_files (id, book_id, format, file_url)
+		VALUES (:id, :book_id, :format, :file_url)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, file)
 	if err != nil {
-		// UNIQUE (book_id, is_audio) violation — file of this type already exists for the book.
+		// UNIQUE (book_id) violation — file already exists for the book.
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
 			return nil, entity.ErrFileLimitExceeded

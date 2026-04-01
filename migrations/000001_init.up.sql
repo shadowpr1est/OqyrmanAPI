@@ -73,8 +73,7 @@ CREATE TABLE book_files (
     book_id  UUID        NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     format   VARCHAR(20) NOT NULL,
     file_url TEXT        NOT NULL,
-    is_audio BOOLEAN     NOT NULL DEFAULT false,
-    CONSTRAINT uq_book_file_type UNIQUE (book_id, is_audio)
+    CONSTRAINT uq_book_file_type UNIQUE (book_id)
 );
 
 -- ─── Libraries ────────────────────────────────────────────────────────────────

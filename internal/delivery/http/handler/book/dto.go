@@ -30,17 +30,18 @@ type updateBookRequest struct {
 }
 
 type bookResponse struct {
-	ID          string  `json:"id"`
-	AuthorID    string  `json:"author_id"`
-	GenreID     string  `json:"genre_id"`
-	Title       string  `json:"title"`
-	ISBN        string  `json:"isbn"`
-	CoverURL    string  `json:"cover_url"`
-	Description string  `json:"description"`
-	Language    string  `json:"language"`
-	Year        int     `json:"year"`
-	AvgRating   float64 `json:"avg_rating"`
-	TotalPages  *int    `json:"total_pages,omitempty"`
+	ID          string             `json:"id"`
+	AuthorID    string             `json:"author_id"`
+	GenreID     string             `json:"genre_id"`
+	Title       string             `json:"title"`
+	ISBN        string             `json:"isbn"`
+	CoverURL    string             `json:"cover_url"`
+	BookFile    common.BookFileRef `json:"book_file"`
+	Description string             `json:"description"`
+	Language    string             `json:"language"`
+	Year        int                `json:"year"`
+	AvgRating   float64            `json:"avg_rating"`
+	TotalPages  *int               `json:"total_pages,omitempty"`
 }
 
 type listBookResponse struct {
@@ -51,17 +52,18 @@ type listBookResponse struct {
 }
 
 type bookViewResponse struct {
-	ID          string           `json:"id"`
-	Title       string           `json:"title"`
-	ISBN        string           `json:"isbn"`
-	CoverURL    string           `json:"cover_url,omitempty"`
-	Description string           `json:"description"`
-	Language    string           `json:"language"`
-	Year        int              `json:"year,omitempty"`
-	AvgRating   float64          `json:"avg_rating"`
-	TotalPages  *int             `json:"total_pages,omitempty"`
-	Author      common.AuthorRef `json:"author"`
-	Genre       common.GenreRef  `json:"genre"`
+	ID          string             `json:"id"`
+	Title       string             `json:"title"`
+	ISBN        string             `json:"isbn"`
+	CoverURL    string             `json:"cover_url,omitempty"`
+	Description string             `json:"description"`
+	Language    string             `json:"language"`
+	Year        int                `json:"year,omitempty"`
+	AvgRating   float64            `json:"avg_rating"`
+	TotalPages  *int               `json:"total_pages,omitempty"`
+	BookFile    *common.BookFileRef `json:"file,omitempty"`
+	Author      common.AuthorRef    `json:"author"`
+	Genre       common.GenreRef     `json:"genre"`
 }
 
 type listBookViewResponse struct {

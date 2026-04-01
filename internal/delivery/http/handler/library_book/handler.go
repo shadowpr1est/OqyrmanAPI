@@ -1,17 +1,17 @@
 package library_book
 
 import (
-	"log/slog"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 )
 
 type Handler struct {
@@ -316,21 +316,35 @@ func toLibraryBookViewResponse(v *entity.LibraryBookView) libraryBookViewRespons
 	return libraryBookViewResponse{
 		ID: v.ID.String(),
 		Library: common.LibraryRef{
-			ID:   v.LibraryID.String(),
-			Name: v.LibraryName,
+			ID:      v.LibraryID.String(),
+			Name:    v.LibraryName,
+			Address: v.LibraryAddress,
+			Lat:     v.LibraryLat,
+			Lng:     v.LibraryLng,
+			Phone:   v.LibraryPhone,
 		},
 		Book: common.BookRef{
-			ID:       v.BookID.String(),
-			Title:    v.BookTitle,
-			CoverURL: v.BookCoverURL,
-			Year:     v.BookYear,
+			ID:          v.BookID.String(),
+			Title:       v.BookTitle,
+			ISBN:        v.BookISBN,
+			CoverURL:    v.BookCoverURL,
+			Description: v.BookDescription,
+			Language:    v.BookLanguage,
+			Year:        v.BookYear,
+			TotalPages:  v.BookTotalPages,
+			AvgRating:   v.BookAvgRating,
 			Author: common.AuthorRef{
-				ID:   v.AuthorID.String(),
-				Name: v.AuthorName,
+				ID:        v.AuthorID.String(),
+				Name:      v.AuthorName,
+				Bio:       v.AuthorBio,
+				BirthDate: v.AuthorBirthDate,
+				DeathDate: v.AuthorDeathDate,
+				PhotoURL:  v.AuthorPhotoURL,
 			},
 			Genre: common.GenreRef{
 				ID:   v.GenreID.String(),
 				Name: v.GenreName,
+				Slug: v.GenreSlug,
 			},
 		},
 		TotalCopies:     v.TotalCopies,

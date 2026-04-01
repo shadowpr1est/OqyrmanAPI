@@ -120,6 +120,8 @@ definitions:
         type: string
       avg_rating:
         type: number
+      book_file:
+        $ref: '#/definitions/common.BookFileRef'
       cover_url:
         type: string
       description:
@@ -149,6 +151,8 @@ definitions:
         type: string
       description:
         type: string
+      file:
+        $ref: '#/definitions/common.BookFileRef'
       genre:
         $ref: '#/definitions/common.GenreRef'
       id:
@@ -208,14 +212,33 @@ definitions:
         type: string
       id:
         type: string
-      is_audio:
-        type: boolean
     type: object
   common.AuthorRef:
     properties:
+      bio:
+        type: string
+      birth_date:
+        description: '"2006-01-02"'
+        type: string
+      death_date:
+        description: '"2006-01-02"'
+        type: string
       id:
         type: string
       name:
+        type: string
+      photo_url:
+        type: string
+    type: object
+  common.BookFileRef:
+    properties:
+      book_id:
+        type: string
+      file_url:
+        type: string
+      format:
+        $ref: '#/definitions/entity.BookFileFormat'
+      id:
         type: string
     type: object
   common.BookRef:
@@ -226,9 +249,15 @@ definitions:
         type: number
       cover_url:
         type: string
+      description:
+        type: string
       genre:
         $ref: '#/definitions/common.GenreRef'
       id:
+        type: string
+      isbn:
+        type: string
+      language:
         type: string
       title:
         type: string
@@ -243,17 +272,33 @@ definitions:
         type: string
       name:
         type: string
+      slug:
+        type: string
     type: object
   common.LibraryRef:
     properties:
+      address:
+        type: string
       id:
         type: string
+      lat:
+        type: number
+      lng:
+        type: number
       name:
         type: string
+      phone:
+        type: string
+    required:
+    - address
+    - lat
+    - lng
     type: object
   common.UserRef:
     properties:
       avatar_url:
+        type: string
+      created_at:
         type: string
       email:
         type: string
@@ -261,7 +306,27 @@ definitions:
         type: string
       id:
         type: string
+      name:
+        type: string
+      phone:
+        type: string
+      qr_code:
+        type: string
+      role:
+        type: string
+      surname:
+        type: string
     type: object
+  entity.BookFileFormat:
+    enum:
+    - pdf
+    - epub
+    - mp3
+    type: string
+    x-enum-varnames:
+    - BookFileFormatPDF
+    - BookFileFormatEPUB
+    - BookFileFormatMP3
   event.eventResponse:
     properties:
       cover_url:
@@ -1020,23 +1085,15 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: 'Загружает файл в MinIO. Допустимые форматы: pdf, epub, mp3.'
+      description: Загружает файл в MinIO. Формат определяется автоматически по расширению
+        файла (.pdf, .epub, .mp3).
       parameters:
       - description: ID книги
         in: formData
         name: book_id
         required: true
         type: string
-      - description: 'Формат файла: pdf | epub | mp3'
-        in: formData
-        name: format
-        required: true
-        type: string
-      - description: Кол-во страниц (только для PDF/EPUB)
-        in: formData
-        name: total_pages
-        type: integer
-      - description: Файл
+      - description: Файл (.pdf, .epub, .mp3)
         in: formData
         name: file
         required: true
@@ -1055,7 +1112,7 @@ paths:
               type: string
             type: object
         "409":
-          description: Файл данного типа уже загружен для этой книги
+          description: Файл уже загружен для этой книги
           schema:
             additionalProperties:
               type: string

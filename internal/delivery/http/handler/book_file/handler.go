@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -45,44 +44,26 @@ func (h *Handler) GetByID(c *gin.Context) {
 }
 
 // @Summary     Загрузить файл книги
-// @Description Загружает файл в MinIO. Допустимые форматы: pdf, epub, mp3.
+// @Description Загружает файл в MinIO. Формат определяется автоматически по расширению файла (.pdf, .epub, .mp3).
 //
-//	Максимум 1 документ (PDF/EPUB) и 1 аудиофайл (MP3) на книгу.
+//	Для PDF количество страниц считывается автоматически.
 //	Лимиты размера: PDF/EPUB — 50 MB, MP3 — 200 MB.
 //
 // @Tags        book-files
 // @Security    BearerAuth
 // @Accept      multipart/form-data
 // @Produce     json
-// @Param       book_id     formData string true  "ID книги"
-// @Param       format      formData string true  "Формат файла: pdf | epub | mp3"
-// @Param       total_pages formData int    false "Кол-во страниц (только для PDF/EPUB)"
-// @Param       file        formData file   true  "Файл"
+// @Param       book_id formData string true "ID книги"
+// @Param       file    formData file   true "Файл (.pdf, .epub, .mp3)"
 // @Success     201 {object} bookFileResponse
 // @Failure     400 {object} map[string]string
-// @Failure     409 {object} map[string]string "Файл данного типа уже загружен для этой книги"
+// @Failure     409 {object} map[string]string "Файл уже загружен для этой книги"
 // @Router      /admin/book-files/upload [post]
 func (h *Handler) Upload(c *gin.Context) {
 	bookID, err := uuid.Parse(c.PostForm("book_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid book_id"})
 		return
-	}
-
-	format := entity.BookFileFormat(c.PostForm("format"))
-	if !format.IsValid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "format must be one of: pdf, epub, mp3"})
-		return
-	}
-
-	var totalPages *int
-	if raw := c.PostForm("total_pages"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err != nil || n <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "total_pages must be a positive integer"})
-			return
-		}
-		totalPages = &n
 	}
 
 	fh, err := c.FormFile("file")
@@ -98,7 +79,7 @@ func (h *Handler) Upload(c *gin.Context) {
 	}
 	defer f.Close()
 
-	result, err := h.uc.Upload(c.Request.Context(), bookID, format, totalPages, &fileupload.File{
+	result, err := h.uc.Upload(c.Request.Context(), bookID, &fileupload.File{
 		Filename:    fh.Filename,
 		Reader:      f,
 		Size:        fh.Size,
@@ -182,6 +163,5 @@ func toBookFileResponse(f *entity.BookFile) bookFileResponse {
 		BookID:  f.BookID.String(),
 		Format:  string(f.Format),
 		FileURL: f.FileURL,
-		IsAudio: f.IsAudio,
 	}
 }

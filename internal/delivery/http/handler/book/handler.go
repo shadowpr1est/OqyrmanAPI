@@ -549,13 +549,29 @@ func toBookViewResponse(v *entity.BookView) bookViewResponse {
 		Year:        v.Year,
 		AvgRating:   v.AvgRating,
 		TotalPages:  v.TotalPages,
+		BookFile: func() *common.BookFileRef {
+			if v.BookFileID == nil {
+				return nil
+			}
+			return &common.BookFileRef{
+				ID:      *v.BookFileID,
+				BookID:  *v.BookFileBookID,
+				Format:  *v.BookFileFormat,
+				FileURL: *v.BookFileUrl,
+			}
+		}(),
 		Author: common.AuthorRef{
-			ID:   v.AuthorID.String(),
-			Name: v.AuthorName,
+			ID:        v.AuthorID.String(),
+			Name:      v.AuthorName,
+			Bio:       v.AuthorBio,
+			BirthDate: v.AuthorBirthDate,
+			DeathDate: v.AuthorDeathDate,
+			PhotoURL:  v.AuthorPhotoURL,
 		},
 		Genre: common.GenreRef{
 			ID:   v.GenreID.String(),
 			Name: v.GenreName,
+			Slug: v.GenreSlug,
 		},
 	}
 }

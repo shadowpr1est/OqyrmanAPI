@@ -249,11 +249,24 @@ func (r *bookRepo) ListSimilar(ctx context.Context, bookID uuid.UUID, limit int)
 
 // bookViewQuery is the base SELECT for all BookView methods.
 const bookViewQuery = `
-	SELECT b.id, b.author_id, a.name AS author_name,
-	       b.genre_id, g.name AS genre_name,
+	SELECT b.id, b.author_id, a.name AS author_name, 
+	       a.bio AS author_bio,
+	       a.birth_date AS author_birth_date,
+	       a.death_date AS author_death_date,
+	       a.photo_url AS author_photo_url,
+	       
+	       b.genre_id, g.name AS genre_name, g.slug AS genre_slug,
+	    
+	       bf.id AS book_file_id,
+		   bf.book_id AS book_file_book_id,
+		   bf.format AS book_file_format,
+		   bf.file_url AS book_file_url,
+	       
+	       
 	       b.title, b.isbn, COALESCE(b.cover_url, '') AS cover_url,
 	       b.description, b.language, b.year, b.avg_rating, b.total_pages, b.created_at
 	FROM books b
+	LEFT JOIN book_files bf ON bf.book_id = b.id
 	JOIN authors a ON a.id = b.author_id AND a.deleted_at IS NULL
 	JOIN genres  g ON g.id = b.genre_id  AND g.deleted_at IS NULL
 	WHERE b.deleted_at IS NULL`

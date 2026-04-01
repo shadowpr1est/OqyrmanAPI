@@ -1,15 +1,16 @@
 package book_file
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
 	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/ledongthuc/pdf"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/repository"
 	domainStorage "github.com/shadowpr1est/OqyrmanAPI/internal/domain/storage"
@@ -38,44 +39,52 @@ func NewBookFileUseCase(
 func (u *bookFileUseCase) Upload(
 	ctx context.Context,
 	bookID uuid.UUID,
-	format entity.BookFileFormat,
-	totalPages *int,
 	file *fileupload.File,
 ) (*entity.BookFile, error) {
 	if u.storage == nil {
 		return nil, fmt.Errorf("file storage is not configured")
 	}
 
-	// Enforce file size limit before reading the full stream.
-	maxSize := format.MaxSize()
-	if file.Size > maxSize {
-		return nil, fmt.Errorf("%w: file exceeds maximum allowed size of %d bytes", entity.ErrValidation, maxSize)
+	// Detect format from file extension.
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	var format entity.BookFileFormat
+	switch ext {
+	case ".pdf":
+		format = entity.BookFileFormatPDF
+	case ".epub":
+		format = entity.BookFileFormatEPUB
+	case ".mp3":
+		format = entity.BookFileFormatMP3
+	default:
+		return nil, fmt.Errorf("%w: unsupported file extension %q, allowed: .pdf, .epub, .mp3", entity.ErrValidation, ext)
 	}
 
-	// Read first 512 bytes for magic bytes detection, then seek back to start.
-	// This prevents uploading renamed files (e.g. shell.php renamed to book.pdf).
-	buf := make([]byte, 512)
-	n, err := file.Reader.Read(buf)
-	if err != nil && err != io.EOF {
-		return nil, fmt.Errorf("bookFileUseCase.Upload: cannot read file header: %w", err)
+	// Enforce file size limit before reading the full stream.
+	if file.Size > format.MaxSize() {
+		return nil, fmt.Errorf("%w: file exceeds maximum allowed size of %d bytes", entity.ErrValidation, format.MaxSize())
 	}
-	if err := format.ValidateMagicBytes(buf[:n]); err != nil {
+
+	// Read entire file into memory for magic-byte validation, PDF page counting, and storage upload.
+	data, err := io.ReadAll(file.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("bookFileUseCase.Upload: cannot read file: %w", err)
+	}
+
+	// Validate magic bytes against declared format.
+	headerLen := 512
+	if len(data) < headerLen {
+		headerLen = len(data)
+	}
+	if err := format.ValidateMagicBytes(data[:headerLen]); err != nil {
 		return nil, err
 	}
-	if _, err := file.Reader.Seek(0, io.SeekStart); err != nil {
-		return nil, fmt.Errorf("bookFileUseCase.Upload: cannot seek file: %w", err)
-	}
 
-	// Detect content type from actual bytes — never trust the client-supplied header.
-	contentType := http.DetectContentType(buf[:n])
+	// Detect content type from actual bytes for storage metadata.
+	// For EPUB (ZIP), override to the correct MIME type.
+	contentType := detectContentType(format, data[:headerLen])
 
-	// isAudio is derived from format — never accepted from the caller.
-	isAudio := format.IsAudio()
-
-	ext := strings.ToLower(filepath.Ext(file.Filename))
 	objectKey := fmt.Sprintf("books/%s/%s%s", bookID.String(), uuid.New().String(), ext)
-
-	fileURL, err := u.storage.Upload(ctx, objectKey, file.Reader, file.Size, contentType)
+	fileURL, err := u.storage.Upload(ctx, objectKey, bytes.NewReader(data), int64(len(data)), contentType)
 	if err != nil {
 		return nil, err
 	}
@@ -85,19 +94,20 @@ func (u *bookFileUseCase) Upload(
 		BookID:  bookID,
 		Format:  format,
 		FileURL: fileURL,
-		IsAudio: isAudio,
 	}
-	// DB-level UNIQUE (book_id, is_audio) constraint enforces the 1-audio / 1-document limit.
-	// bookFileRepo.Create maps the pq 23505 error to entity.ErrFileLimitExceeded.
 	result, err := u.bookFileRepo.Create(ctx, bookFile)
 	if err != nil {
 		return nil, err
 	}
 
-	// Update total_pages on the book for document uploads (non-fatal if it fails).
-	if !isAudio && totalPages != nil && *totalPages > 0 {
-		if err := u.bookRepo.UpdateTotalPages(ctx, bookID, *totalPages); err != nil {
-			slog.WarnContext(ctx, "failed to update total_pages", "book_id", bookID, "err", err)
+	// Auto-count pages for PDF and update the book record.
+	if format == entity.BookFileFormatPDF {
+		if pages, err := countPDFPages(data); err == nil && pages > 0 {
+			if err := u.bookRepo.UpdateTotalPages(ctx, bookID, pages); err != nil {
+				slog.WarnContext(ctx, "failed to update total_pages", "book_id", bookID, "err", err)
+			}
+		} else if err != nil {
+			slog.WarnContext(ctx, "failed to count PDF pages", "book_id", bookID, "err", err)
 		}
 	}
 
@@ -131,4 +141,28 @@ func (u *bookFileUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// countPDFPages reads page count from a PDF file in memory.
+func countPDFPages(data []byte) (int, error) {
+	r, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return 0, fmt.Errorf("countPDFPages: %w", err)
+	}
+	return r.NumPage(), nil
+}
+
+// detectContentType returns the correct MIME type for storage metadata.
+// http.DetectContentType is unreliable for EPUB (returns application/zip).
+func detectContentType(format entity.BookFileFormat, buf []byte) string {
+	switch format {
+	case entity.BookFileFormatPDF:
+		return "application/pdf"
+	case entity.BookFileFormatEPUB:
+		return "application/epub+zip"
+	case entity.BookFileFormatMP3:
+		return "audio/mpeg"
+	default:
+		return "application/octet-stream"
+	}
 }

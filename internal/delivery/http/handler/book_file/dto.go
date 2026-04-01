@@ -5,5 +5,4 @@ type bookFileResponse struct {
 	BookID  string `json:"book_id"`
 	Format  string `json:"format"`
 	FileURL string `json:"file_url"`
-	IsAudio bool   `json:"is_audio"`
 }

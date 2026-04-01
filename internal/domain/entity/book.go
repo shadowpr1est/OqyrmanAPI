@@ -25,11 +25,24 @@ type Book struct {
 // BookView — read model for GET endpoints (Book + joined author/genre names).
 // Populated via JOIN; write ops use Book directly.
 type BookView struct {
-	ID          uuid.UUID `db:"id"`
-	AuthorID    uuid.UUID `db:"author_id"`
-	AuthorName  string    `db:"author_name"`
-	GenreID     uuid.UUID `db:"genre_id"`
-	GenreName   string    `db:"genre_name"`
+	ID uuid.UUID `db:"id"`
+
+	AuthorID        uuid.UUID `db:"author_id"`
+	AuthorName      string    `db:"author_name"`
+	AuthorBio       string    `db:"author_bio"`
+	AuthorBirthDate *string   `db:"author_birth_date"` // "2006-01-02"
+	AuthorDeathDate *string   `db:"author_death_date"` // "2006-01-02"
+	AuthorPhotoURL  string    `db:"author_photo_url"`
+
+	GenreID   uuid.UUID `db:"genre_id"`
+	GenreName string    `db:"genre_name"`
+	GenreSlug string    `db:"genre_slug"`
+
+	BookFileID     *uuid.UUID      `db:"book_file_id"`
+	BookFileBookID *uuid.UUID      `db:"book_file_book_id"`
+	BookFileFormat *BookFileFormat `db:"book_file_format"`
+	BookFileUrl    *string         `db:"book_file_url"`
+
 	Title       string    `db:"title"`
 	ISBN        string    `db:"isbn"`
 	CoverURL    string    `db:"cover_url"`

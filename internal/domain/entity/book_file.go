@@ -89,5 +89,4 @@ type BookFile struct {
 	BookID  uuid.UUID      `db:"book_id"`
 	Format  BookFileFormat `db:"format"`
 	FileURL string         `db:"file_url"`
-	IsAudio bool           `db:"is_audio"`
 }
