@@ -505,17 +505,12 @@ func toReservationResponse(r *entity.Reservation) reservationResponse {
 
 func toReservationViewResponse(v *entity.ReservationView) reservationViewResponse {
 	resp := reservationViewResponse{
-		ID:            v.ID.String(),
-		Status:        string(v.Status),
-		ReservedAt:    v.ReservedAt.Format("2006-01-02T15:04:05Z"),
-		DueDate:       v.DueDate.Format("2006-01-02"),
-		LibraryBookID: v.LibraryBookID.String(),
-		User: common.UserRef{
-			ID:       v.UserID.String(),
-			FullName: v.UserFullName,
-			Email:    v.UserEmail,
-		},
-		Book: reservationBookRef{
+		ID:         v.ID.String(),
+		Status:     string(v.Status),
+		ReservedAt: v.ReservedAt.Format(time.RFC3339),
+		DueDate:    v.DueDate.Format("2006-01-02"),
+
+		Book: common.ReservationBookRef{
 			ID:       v.BookID.String(),
 			Title:    v.BookTitle,
 			CoverURL: v.BookCoverURL,
@@ -525,18 +520,19 @@ func toReservationViewResponse(v *entity.ReservationView) reservationViewRespons
 			Name: v.LibraryName,
 		},
 	}
+
 	if v.ReturnedAt != nil {
-		s := v.ReturnedAt.Format("2006-01-02T15:04:05Z")
+		s := v.ReturnedAt.Format(time.RFC3339)
 		resp.ReturnedAt = &s
 	}
+
 	return resp
 }
 
-func toReservationViewResponses(items []*entity.ReservationView) []*reservationViewResponse {
-	resp := make([]*reservationViewResponse, len(items))
+func toReservationViewResponses(items []*entity.ReservationView) []reservationViewResponse {
+	resp := make([]reservationViewResponse, len(items))
 	for i, v := range items {
-		r := toReservationViewResponse(v)
-		resp[i] = &r
+		resp[i] = toReservationViewResponse(v)
 	}
 	return resp
 }

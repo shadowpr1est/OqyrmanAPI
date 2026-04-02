@@ -4317,6 +4317,20 @@ const docTemplate = `{
                 }
             }
         },
+        "common.ReservationBookRef": {
+            "type": "object",
+            "properties": {
+                "cover_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "common.UserRef": {
             "type": "object",
             "properties": {
@@ -4327,9 +4341,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "email": {
-                    "type": "string"
-                },
-                "full_name": {
                     "type": "string"
                 },
                 "id": {
@@ -4896,20 +4907,6 @@ const docTemplate = `{
                 }
             }
         },
-        "reservation.reservationBookRef": {
-            "type": "object",
-            "properties": {
-                "cover_url": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
         "reservation.reservationResponse": {
             "type": "object",
             "properties": {
@@ -4940,7 +4937,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "book": {
-                    "$ref": "#/definitions/reservation.reservationBookRef"
+                    "$ref": "#/definitions/common.ReservationBookRef"
                 },
                 "due_date": {
                     "type": "string"
@@ -5223,10 +5220,6 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "full_name": {
-                    "description": "full_name: принимается только если name и surname не переданы.\nЕсли переданы name/surname — full_name пересчитывается автоматически.",
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 },
@@ -5248,9 +5241,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "email": {
-                    "type": "string"
-                },
-                "full_name": {
                     "type": "string"
                 },
                 "id": {
@@ -5276,16 +5266,7 @@ const docTemplate = `{
         "user.userViewResponse": {
             "type": "object",
             "properties": {
-                "avatar_url": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
                 "email": {
-                    "type": "string"
-                },
-                "full_name": {
                     "type": "string"
                 },
                 "id": {
@@ -5301,12 +5282,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "phone": {
-                    "type": "string"
-                },
-                "qr_code": {
-                    "type": "string"
-                },
-                "role": {
                     "type": "string"
                 },
                 "surname": {

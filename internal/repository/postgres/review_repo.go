@@ -187,7 +187,7 @@ func (r *reviewRepo) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *reviewRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReviewView, error) {
 	var v entity.ReviewView
 	err := r.db.GetContext(ctx, &v, `
-		SELECT rv.id, rv.user_id, u.full_name AS user_full_name,
+		SELECT rv.id, rv.user_id, u.name AS user_name, u.surname AS user_surname,
 		       COALESCE(u.avatar_url, '') AS user_avatar_url,
 		       rv.book_id, b.title AS book_title,
 		       rv.rating, rv.body, rv.created_at
@@ -214,7 +214,7 @@ func (r *reviewRepo) ListByBookView(ctx context.Context, bookID uuid.UUID, limit
 	}
 	var items []*entity.ReviewView
 	if err := r.db.SelectContext(ctx, &items, `
-		SELECT rv.id, rv.user_id, u.full_name AS user_full_name,
+		SELECT rv.id, rv.user_id,  u.name AS user_name, u.surname AS user_surname,
 		       COALESCE(u.avatar_url, '') AS user_avatar_url,
 		       rv.book_id, b.title AS book_title,
 		       rv.rating, rv.body, rv.created_at
@@ -234,7 +234,7 @@ func (r *reviewRepo) ListByBookView(ctx context.Context, bookID uuid.UUID, limit
 func (r *reviewRepo) ListByUserView(ctx context.Context, userID uuid.UUID) ([]*entity.ReviewView, error) {
 	var items []*entity.ReviewView
 	if err := r.db.SelectContext(ctx, &items, `
-		SELECT rv.id, rv.user_id, u.full_name AS user_full_name,
+		SELECT rv.id, rv.user_id,  u.name AS user_name, u.surname AS user_surname,
 		       COALESCE(u.avatar_url, '') AS user_avatar_url,
 		       rv.book_id, b.title AS book_title,
 		       rv.rating, rv.body, rv.created_at

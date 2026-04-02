@@ -77,9 +77,6 @@ func (h *Handler) Update(c *gin.Context) {
 	if req.Phone != nil {
 		patch.Phone = *req.Phone
 	}
-	if req.FullName != nil {
-		patch.FullName = *req.FullName
-	}
 
 	result, err := h.uc.Update(c.Request.Context(), patch)
 	if err != nil {
@@ -348,7 +345,6 @@ func toUserResponse(u *entity.User) userResponse {
 		Phone:     u.Phone,
 		Name:      u.Name,
 		Surname:   u.Surname,
-		FullName:  u.FullName,
 		AvatarURL: u.AvatarURL,
 		Role:      string(u.Role),
 		QRCode:    u.QRCode,
@@ -363,12 +359,7 @@ func toUserViewResponse(v *entity.UserView) userViewResponse {
 		Phone:       v.Phone,
 		Name:        v.Name,
 		Surname:     v.Surname,
-		FullName:    v.FullName,
-		AvatarURL:   v.AvatarURL,
-		Role:        string(v.Role),
 		LibraryName: v.LibraryName,
-		QRCode:      v.QRCode,
-		CreatedAt:   v.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 	if v.LibraryID != nil {
 		s := v.LibraryID.String()

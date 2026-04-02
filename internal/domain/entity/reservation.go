@@ -33,7 +33,8 @@ type ReservationView struct {
 	DueDate       time.Time         `db:"due_date"`
 	ReturnedAt    *time.Time        `db:"returned_at"`
 	UserID        uuid.UUID         `db:"user_id"`
-	UserFullName  string            `db:"user_full_name"`
+	UserName      string            `db:"user_name"`
+	UserSurname   string            `db:"user_surname"`
 	UserEmail     string            `db:"user_email"`
 	LibraryBookID uuid.UUID         `db:"library_book_id"`
 	BookID        uuid.UUID         `db:"book_id"`

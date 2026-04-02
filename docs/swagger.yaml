@@ -294,6 +294,15 @@ definitions:
     - lat
     - lng
     type: object
+  common.ReservationBookRef:
+    properties:
+      cover_url:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+    type: object
   common.UserRef:
     properties:
       avatar_url:
@@ -301,8 +310,6 @@ definitions:
       created_at:
         type: string
       email:
-        type: string
-      full_name:
         type: string
       id:
         type: string
@@ -677,15 +684,6 @@ definitions:
     required:
     - due_date
     type: object
-  reservation.reservationBookRef:
-    properties:
-      cover_url:
-        type: string
-      id:
-        type: string
-      title:
-        type: string
-    type: object
   reservation.reservationResponse:
     properties:
       due_date:
@@ -706,7 +704,7 @@ definitions:
   reservation.reservationViewResponse:
     properties:
       book:
-        $ref: '#/definitions/reservation.reservationBookRef'
+        $ref: '#/definitions/common.ReservationBookRef'
       due_date:
         type: string
       id:
@@ -895,11 +893,6 @@ definitions:
     properties:
       email:
         type: string
-      full_name:
-        description: |-
-          full_name: принимается только если name и surname не переданы.
-          Если переданы name/surname — full_name пересчитывается автоматически.
-        type: string
       name:
         type: string
       phone:
@@ -914,8 +907,6 @@ definitions:
       created_at:
         type: string
       email:
-        type: string
-      full_name:
         type: string
       id:
         type: string
@@ -932,13 +923,7 @@ definitions:
     type: object
   user.userViewResponse:
     properties:
-      avatar_url:
-        type: string
-      created_at:
-        type: string
       email:
-        type: string
-      full_name:
         type: string
       id:
         type: string
@@ -949,10 +934,6 @@ definitions:
       name:
         type: string
       phone:
-        type: string
-      qr_code:
-        type: string
-      role:
         type: string
       surname:
         type: string

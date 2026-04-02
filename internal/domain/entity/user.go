@@ -20,7 +20,6 @@ type User struct {
 	PasswordHash string     `db:"password_hash"`
 	Name         string     `db:"name"`
 	Surname      string     `db:"surname"`
-	FullName     string     `db:"full_name"`
 	Phone        string     `db:"phone"`
 	AvatarURL    string     `db:"avatar_url"`
 	Role         Role       `db:"role"`

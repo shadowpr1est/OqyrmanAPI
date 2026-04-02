@@ -79,7 +79,6 @@ func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, su
 		PasswordHash: string(hash),
 		Name:         name,
 		Surname:      surname,
-		FullName:     name + " " + surname,
 		Phone:        phone,
 		Role:         entity.RoleStaff,
 		LibraryID:    &libraryID,

@@ -39,7 +39,6 @@ func (h *Handler) Register(c *gin.Context) {
 		PasswordHash: req.Password,
 		Name:         req.Name,
 		Surname:      req.Surname,
-		FullName:     req.Name + " " + req.Surname,
 	}
 	if _, err := h.uc.Register(c.Request.Context(), user); err != nil {
 		if errors.Is(err, entity.ErrEmailTaken) {

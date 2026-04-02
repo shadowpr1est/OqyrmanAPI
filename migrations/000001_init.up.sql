@@ -9,7 +9,6 @@ CREATE TABLE users (
     password_hash TEXT         NOT NULL,
     name          VARCHAR(100) NOT NULL DEFAULT '',
     surname       VARCHAR(100) NOT NULL DEFAULT '',
-    full_name     VARCHAR(255) NOT NULL DEFAULT '',
     avatar_url    TEXT         NOT NULL DEFAULT '',
     role          VARCHAR(20)  NOT NULL DEFAULT 'User',
     library_id    UUID,        -- NULL для admin/user, NOT NULL для staff (constraint ниже)

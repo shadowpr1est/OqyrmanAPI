@@ -476,10 +476,11 @@ func (r *reservationRepo) activateReservation(ctx context.Context, id uuid.UUID,
 	return tx.Commit()
 }
 
-// reservationViewQuery is the base SELECT for all ReservationView methods.
+// reservationViewQuery is the base SELECT for all ReservationView methods, ДЛЯ АДМИНОВ И СТАФФ, НЕ ДЛЯ ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ
 const reservationViewQuery = `
 	SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
-	       res.user_id, u.full_name AS user_full_name, u.email AS user_email,
+	       
+	       res.user_id, u.name AS user_name, u.surname AS user_surname, u.email AS user_email,
 	       res.library_book_id, b.id AS book_id, b.title AS book_title,
 	       COALESCE(b.cover_url, '') AS book_cover_url,
 	       lb.library_id, l.name AS library_name
@@ -492,7 +493,23 @@ const reservationViewQuery = `
 func (r *reservationRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
 	var v entity.ReservationView
 	err := r.db.GetContext(ctx, &v,
-		reservationViewQuery+" WHERE res.id = $1", id,
+		`SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
+       res.library_book_id,
+
+       b.id AS book_id, 
+       b.title AS book_title,
+       b.cover_url AS book_cover_url,
+
+       lb.library_id, 
+       l.name AS library_name,
+       l.address AS library_address
+
+FROM reservations res
+JOIN library_books lb ON lb.id = res.library_book_id AND lb.deleted_at IS NULL
+JOIN books         b  ON b.id  = lb.book_id           AND b.deleted_at  IS NULL
+JOIN libraries     l  ON l.id  = lb.library_id        AND l.deleted_at  IS NULL
+
+WHERE res.id = $1`, id,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -512,7 +529,22 @@ func (r *reservationRepo) ListByUserView(ctx context.Context, userID uuid.UUID, 
 	}
 	var items []*entity.ReservationView
 	if err := r.db.SelectContext(ctx, &items,
-		reservationViewQuery+` WHERE res.user_id = $1 ORDER BY res.reserved_at DESC LIMIT $2 OFFSET $3`,
+		`SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
+       res.library_book_id,
+
+       b.id AS book_id, 
+       b.title AS book_title,
+       b.cover_url AS book_cover_url,
+
+       lb.library_id, 
+       l.name AS library_name,
+       l.address AS library_address
+
+FROM reservations res
+JOIN library_books lb ON lb.id = res.library_book_id AND lb.deleted_at IS NULL
+JOIN books         b  ON b.id  = lb.book_id           AND b.deleted_at  IS NULL
+JOIN libraries     l  ON l.id  = lb.library_id        AND l.deleted_at  IS NULL
+ WHERE res.user_id = $1 ORDER BY res.reserved_at DESC LIMIT $2 OFFSET $3`,
 		userID, limit, offset,
 	); err != nil {
 		return nil, 0, fmt.Errorf("reservationRepo.ListByUserView: %w", err)
@@ -541,6 +573,7 @@ func (r *reservationRepo) ListByLibraryView(ctx context.Context, libraryID uuid.
 	return items, total, nil
 }
 
+// Это для админа так что это ок, если он может видеть данные пользователя.
 func (r *reservationRepo) ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
 	var total int
 	if err := r.db.GetContext(ctx, &total,

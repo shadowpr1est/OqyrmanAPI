@@ -28,22 +28,16 @@ type reservationResponse struct {
 	ReturnedAt    *string `json:"returned_at,omitempty"`
 }
 
-type reservationBookRef struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	CoverURL string `json:"cover_url,omitempty"`
-}
-
 type reservationViewResponse struct {
-	ID            string              `json:"id"`
-	Status        string              `json:"status"`
-	ReservedAt    string              `json:"reserved_at"`
-	DueDate       string              `json:"due_date"`
-	ReturnedAt    *string             `json:"returned_at,omitempty"`
-	User          common.UserRef      `json:"user"`
-	LibraryBookID string              `json:"library_book_id"`
-	Book          reservationBookRef  `json:"book"`
-	Library       common.LibraryRef   `json:"library"`
+	ID            string                    `json:"id"`
+	Status        string                    `json:"status"`
+	ReservedAt    string                    `json:"reserved_at"`
+	DueDate       string                    `json:"due_date"`
+	ReturnedAt    *string                   `json:"returned_at,omitempty"`
+	User          common.UserRef            `json:"user"`
+	LibraryBookID string                    `json:"library_book_id"`
+	Book          common.ReservationBookRef `json:"book"`
+	Library       common.LibraryRef         `json:"library"`
 }
 
 func parsePagination(c *gin.Context) (limit, offset int, err error) {

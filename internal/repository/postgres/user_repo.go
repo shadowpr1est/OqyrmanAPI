@@ -22,8 +22,8 @@ func NewUserRepo(db *sqlx.DB) *userRepo {
 
 func (r *userRepo) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
 	query := `
-		INSERT INTO users (id, email, phone, password_hash, full_name, avatar_url, role, library_id, qr_code, created_at)
-		VALUES (:id, :email, :phone, :password_hash, :full_name, :avatar_url, :role, :library_id, :qr_code, :created_at)
+		INSERT INTO users (id, email, phone, password_hash, name, surname, avatar_url, role, library_id, qr_code, created_at)
+		VALUES (:id, :email, :phone, :password_hash, :name, :surname, :avatar_url, :role, :library_id, :qr_code, :created_at)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, user)
 	if err != nil {
@@ -74,25 +74,12 @@ func (r *userRepo) Update(ctx context.Context, user *entity.User) (*entity.User,
 	// role, library_id, qr_code, avatar_url намеренно исключены — не меняются через профиль.
 	// CASE WHEN: пустая строка = поле не передано → сохраняем текущее значение в БД.
 	// Это позволяет хэндлеру не делать предварительный GetByID для partial update.
-	//
-	// full_name: если передан name или surname — пересчитывается автоматически как TRIM(name || ' ' || surname).
-	// Если только full_name — устанавливается напрямую (fallback для обратной совместимости).
 	query := `
 		UPDATE users
 		SET email    = CASE WHEN :email   <> '' THEN :email   ELSE email   END,
 		    phone    = CASE WHEN :phone   <> '' THEN :phone   ELSE phone   END,
 		    name     = CASE WHEN :name    <> '' THEN :name    ELSE name    END,
 		    surname  = CASE WHEN :surname <> '' THEN :surname ELSE surname END,
-		    full_name = CASE
-		                 WHEN :name <> '' OR :surname <> '' THEN
-		                   TRIM(
-		                     CASE WHEN :name    <> '' THEN :name    ELSE name    END
-		                     || ' ' ||
-		                     CASE WHEN :surname <> '' THEN :surname ELSE surname END
-		                   )
-		                 WHEN :full_name <> '' THEN :full_name
-		                 ELSE full_name
-		               END
 		WHERE id = :id AND deleted_at IS NULL
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, user)
@@ -163,7 +150,7 @@ func (r *userRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entit
 	}
 	var users []*entity.UserView
 	if err := r.db.SelectContext(ctx, &users, `
-		SELECT u.id, u.email, u.name, u.surname, u.full_name, u.phone,
+		SELECT u.id, u.email, u.name, u.surname, u.phone,
 		       COALESCE(u.avatar_url, '') AS avatar_url,
 		       u.role, u.library_id, COALESCE(l.name, '') AS library_name,
 		       u.qr_code, u.created_at
@@ -194,16 +181,11 @@ func (r *userRepo) AdminUpdate(
             surname    = COALESCE(NULLIF($4, ''), surname),
             email      = COALESCE(NULLIF($5, ''), email),
             phone      = COALESCE(NULLIF($6, ''), phone),
-            full_name  = CASE
-                           WHEN $3 <> '' OR $4 <> '' THEN
-                             TRIM(COALESCE(NULLIF($3,''), name) || ' ' || COALESCE(NULLIF($4,''), surname))
-                           ELSE full_name
-                         END
         WHERE id = $7 AND deleted_at IS NULL
         RETURNING *
     )
     SELECT 
-        u.id, u.email, u.name, u.surname, u.full_name, u.phone,
+        u.id, u.email, u.name, u.surname, u.phone,
         COALESCE(u.avatar_url, '') AS avatar_url,
         u.role, u.library_id,
         COALESCE(l.name, '') AS library_name,
