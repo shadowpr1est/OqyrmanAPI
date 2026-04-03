@@ -97,7 +97,10 @@ func hashPassword(t *testing.T, password string) string {
 func TestRegister_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
@@ -119,7 +122,10 @@ func TestRegister_Success(t *testing.T) {
 func TestRegister_EmailAlreadyExists(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	existing := &entity.User{ID: uuid.New(), Email: "test@example.com"}
@@ -140,7 +146,10 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 func TestRegister_PasswordTooShort(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
@@ -158,7 +167,10 @@ func TestRegister_PasswordTooShort(t *testing.T) {
 func TestRegister_PasswordNoUppercase(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
@@ -176,7 +188,10 @@ func TestRegister_PasswordNoUppercase(t *testing.T) {
 func TestRegister_PasswordNoDigit(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
@@ -196,7 +211,10 @@ func TestRegister_PasswordNoDigit(t *testing.T) {
 func TestLogin_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userID := uuid.New()
@@ -219,7 +237,10 @@ func TestLogin_Success(t *testing.T) {
 func TestLogin_UserNotFound(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "noone@example.com").Return(nil, errors.New("not found"))
@@ -233,7 +254,10 @@ func TestLogin_UserNotFound(t *testing.T) {
 func TestLogin_WrongPassword(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	hashedPw := hashPassword(t, "CorrectPassword1")
@@ -253,7 +277,10 @@ func TestLogin_WrongPassword(t *testing.T) {
 func TestLogout_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	tokenRepo.On("DeleteByRefreshToken", mock.Anything, "some-refresh-token").Return(nil)
@@ -269,7 +296,10 @@ func TestLogout_Success(t *testing.T) {
 func TestRefreshToken_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	userID := uuid.New()
@@ -298,7 +328,10 @@ func TestRefreshToken_Success(t *testing.T) {
 func TestRefreshToken_Expired(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	expiredToken := &entity.Token{
@@ -318,7 +351,10 @@ func TestRefreshToken_Expired(t *testing.T) {
 func TestRefreshToken_InvalidToken(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
-	jwtManager := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
+	if jwtErr != nil {
+		t.Fatal(jwtErr)
+	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
 
 	_ = userRepo // не используется в этом тесте

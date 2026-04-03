@@ -18,16 +18,6 @@ type extendReservationRequest struct {
 	DueDate string `json:"due_date" binding:"required"`
 }
 
-type reservationResponse struct {
-	ID            string  `json:"id"`
-	UserID        string  `json:"user_id"`
-	LibraryBookID string  `json:"library_book_id"`
-	Status        string  `json:"status"`
-	ReservedAt    string  `json:"reserved_at"`
-	DueDate       string  `json:"due_date"`
-	ReturnedAt    *string `json:"returned_at,omitempty"`
-}
-
 type reservationViewResponse struct {
 	ID            string                    `json:"id"`
 	Status        string                    `json:"status"`

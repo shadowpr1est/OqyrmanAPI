@@ -28,7 +28,7 @@ func NewHandler(uc domainUseCase.ReservationUseCase) *Handler {
 // @Accept      json
 // @Produce     json
 // @Param       input body createReservationRequest true "Данные брони"
-// @Success     201 {object} reservationResponse
+// @Success     201 {object} reservationViewResponse
 // @Failure     400 {object} map[string]string
 // @Failure     409 {object} map[string]string
 // @Router      /reservations [post]
@@ -189,7 +189,7 @@ func (h *Handler) Cancel(c *gin.Context) {
 // @Produce     json
 // @Param       id    path string              true "ID брони"
 // @Param       input body extendReservationRequest true "Новая дата возврата"
-// @Success     200 {object} reservationResponse
+// @Success     200 {object} reservationViewResponse
 // @Failure     400 {object} map[string]string
 // @Failure     404 {object} map[string]string
 // @Router      /reservations/{id}/extend [put]
@@ -497,22 +497,6 @@ func handleReservationError(c *gin.Context, err error) {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}
-}
-
-func toReservationResponse(r *entity.Reservation) reservationResponse {
-	resp := reservationResponse{
-		ID:            r.ID.String(),
-		UserID:        r.UserID.String(),
-		LibraryBookID: r.LibraryBookID.String(),
-		Status:        string(r.Status),
-		ReservedAt:    r.ReservedAt.Format("2006-01-02T15:04:05Z"),
-		DueDate:       r.DueDate.Format("2006-01-02"),
-	}
-	if r.ReturnedAt != nil {
-		s := r.ReturnedAt.Format("2006-01-02T15:04:05Z")
-		resp.ReturnedAt = &s
-	}
-	return resp
 }
 
 // toReservationViewResponse собирает ответ брони.
