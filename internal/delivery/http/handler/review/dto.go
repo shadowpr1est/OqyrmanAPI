@@ -32,7 +32,8 @@ type reviewViewResponse struct {
 	BookID        string `json:"book_id"`
 	BookTitle     string `json:"book_title"`
 	UserID        string `json:"user_id"`
-	UserFullName  string `json:"user_full_name"`
+	UserName      string `json:"user_name"`
+	UserSurname   string `json:"user_surname"`
 	UserAvatarURL string `json:"user_avatar_url,omitempty"`
 	Rating        int    `json:"rating"`
 	Body          string `json:"body"`

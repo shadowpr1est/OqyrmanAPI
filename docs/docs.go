@@ -5069,10 +5069,13 @@ const docTemplate = `{
                 "user_avatar_url": {
                     "type": "string"
                 },
-                "user_full_name": {
+                "user_id": {
                     "type": "string"
                 },
-                "user_id": {
+                "user_name": {
+                    "type": "string"
+                },
+                "user_surname": {
                     "type": "string"
                 }
             }

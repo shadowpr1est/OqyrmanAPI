@@ -35,7 +35,6 @@ type UserView struct {
 	Email       string     `db:"email"`
 	Name        string     `db:"name"`
 	Surname     string     `db:"surname"`
-	FullName    string     `db:"full_name"`
 	Phone       string     `db:"phone"`
 	AvatarURL   string     `db:"avatar_url"`
 	Role        Role       `db:"role"`

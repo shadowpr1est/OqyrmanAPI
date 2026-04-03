@@ -20,7 +20,8 @@ type Review struct {
 type ReviewView struct {
 	ID            uuid.UUID `db:"id"`
 	UserID        uuid.UUID `db:"user_id"`
-	UserFullName  string    `db:"user_full_name"`
+	UserName      string    `db:"user_name"`
+	UserSurname   string    `db:"user_surname"`
 	UserAvatarURL string    `db:"user_avatar_url"`
 	BookID        uuid.UUID `db:"book_id"`
 	BookTitle     string    `db:"book_title"`

@@ -5,9 +5,6 @@ type updateUserRequest struct {
 	Surname *string `json:"surname"`
 	Email   *string `json:"email"`
 	Phone   *string `json:"phone"`
-	// full_name: принимается только если name и surname не переданы.
-	// Если переданы name/surname — full_name пересчитывается автоматически.
-
 	// avatar_url убран — аватар обновляется только через POST /users/me/avatar
 	// (multipart/form-data с загрузкой в MinIO).
 }

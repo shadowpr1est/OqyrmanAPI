@@ -108,7 +108,6 @@ func TestRegister_Success(t *testing.T) {
 		Email:        "test@example.com",
 		Phone:        "+77001234567",
 		PasswordHash: "Password1",
-		FullName:     "Test User",
 	}
 	result, err := uc.Register(context.Background(), user)
 

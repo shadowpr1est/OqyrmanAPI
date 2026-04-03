@@ -493,23 +493,7 @@ const reservationViewQuery = `
 func (r *reservationRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
 	var v entity.ReservationView
 	err := r.db.GetContext(ctx, &v,
-		`SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
-       res.library_book_id,
-
-       b.id AS book_id, 
-       b.title AS book_title,
-       b.cover_url AS book_cover_url,
-
-       lb.library_id, 
-       l.name AS library_name,
-       l.address AS library_address
-
-FROM reservations res
-JOIN library_books lb ON lb.id = res.library_book_id AND lb.deleted_at IS NULL
-JOIN books         b  ON b.id  = lb.book_id           AND b.deleted_at  IS NULL
-JOIN libraries     l  ON l.id  = lb.library_id        AND l.deleted_at  IS NULL
-
-WHERE res.id = $1`, id,
+		reservationViewQuery+` WHERE res.id = $1`, id,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -529,22 +513,7 @@ func (r *reservationRepo) ListByUserView(ctx context.Context, userID uuid.UUID, 
 	}
 	var items []*entity.ReservationView
 	if err := r.db.SelectContext(ctx, &items,
-		`SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
-       res.library_book_id,
-
-       b.id AS book_id, 
-       b.title AS book_title,
-       b.cover_url AS book_cover_url,
-
-       lb.library_id, 
-       l.name AS library_name,
-       l.address AS library_address
-
-FROM reservations res
-JOIN library_books lb ON lb.id = res.library_book_id AND lb.deleted_at IS NULL
-JOIN books         b  ON b.id  = lb.book_id           AND b.deleted_at  IS NULL
-JOIN libraries     l  ON l.id  = lb.library_id        AND l.deleted_at  IS NULL
- WHERE res.user_id = $1 ORDER BY res.reserved_at DESC LIMIT $2 OFFSET $3`,
+		reservationViewQuery+` WHERE res.user_id = $1 ORDER BY res.reserved_at DESC LIMIT $2 OFFSET $3`,
 		userID, limit, offset,
 	); err != nil {
 		return nil, 0, fmt.Errorf("reservationRepo.ListByUserView: %w", err)

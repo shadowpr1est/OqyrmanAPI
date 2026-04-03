@@ -65,7 +65,6 @@ func (h *Handler) Update(c *gin.Context) {
 	// Build a partial entity — only set fields present in the request.
 	// The repo SQL uses CASE WHEN '' to preserve existing DB values for omitted fields,
 	// so no preliminary GetByID round-trip is needed.
-	// When name or surname is provided, full_name is auto-computed by the repo SQL.
 	patch := &entity.User{ID: userID}
 	if req.Name != nil {
 		patch.Name = *req.Name

@@ -790,9 +790,11 @@ definitions:
         type: integer
       user_avatar_url:
         type: string
-      user_full_name:
-        type: string
       user_id:
+        type: string
+      user_name:
+        type: string
+      user_surname:
         type: string
     type: object
   review.updateReviewRequest:

@@ -85,7 +85,7 @@ func TestRegister_Success(t *testing.T) {
 	uc.On("Login", mock.Anything, "a@b.com", "Password1").Return(tokenPair, nil)
 
 	w := serve(r, http.MethodPost, "/auth/register",
-		`{"email":"a@b.com","phone":"+77001234567","password":"Password1","full_name":"Test"}`)
+		`{"email":"a@b.com","phone":"+77001234567","password":"Password1","name":"Test","surname":"User"}`)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
 	assert.Contains(t, w.Body.String(), "access_token")
