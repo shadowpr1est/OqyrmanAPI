@@ -2,7 +2,7 @@ package worker
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/repository"
@@ -26,7 +26,7 @@ func NewOverdueCanceller(repo repository.ReservationRepository, interval time.Du
 // Run запускает воркер. Блокируется до отмены контекста.
 // Предназначен для запуска в отдельной горутине: go canceller.Run(ctx)
 func (w *OverdueCanceller) Run(ctx context.Context) {
-	log.Println("OverdueCanceller: started")
+	slog.InfoContext(ctx, "OverdueCanceller: started")
 
 	// Запуск сразу при старте — не ждём первого тика
 	iterCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -43,7 +43,7 @@ func (w *OverdueCanceller) Run(ctx context.Context) {
 			w.runOnce(iterCtx)
 			cancel()
 		case <-ctx.Done():
-			log.Println("OverdueCanceller: stopped")
+			slog.InfoContext(ctx, "OverdueCanceller: stopped")
 			return
 		}
 	}
@@ -52,10 +52,10 @@ func (w *OverdueCanceller) Run(ctx context.Context) {
 func (w *OverdueCanceller) runOnce(ctx context.Context) {
 	count, err := w.repo.CancelOverdue(ctx)
 	if err != nil {
-		log.Printf("OverdueCanceller: error cancelling overdue reservations: %v", err)
+		slog.ErrorContext(ctx, "OverdueCanceller: error cancelling overdue reservations", "err", err)
 		return
 	}
 	if count > 0 {
-		log.Printf("OverdueCanceller: cancelled %d overdue reservation(s), copies restored", count)
+		slog.InfoContext(ctx, "OverdueCanceller: cancelled overdue reservations", "count", count)
 	}
 }

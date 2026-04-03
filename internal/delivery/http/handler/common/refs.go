@@ -31,23 +31,22 @@ type GenreRef struct {
 type LibraryRef struct {
 	ID      string  `json:"id"`
 	Name    string  `json:"name,omitempty"`
-	Address string  `json:"address,omitempty" binding:"required"`
-	Lat     float64 `json:"lat,omitempty"     binding:"required"`
-	Lng     float64 `json:"lng,omitempty"     binding:"required"`
+	Address string  `json:"address,omitempty"`
+	Lat     float64 `json:"lat,omitempty"`
+	Lng     float64 `json:"lng,omitempty"`
 	Phone   string  `json:"phone,omitempty"`
 }
 
 // UserRef — lightweight user reference for nested API responses.
+// Содержит только данные, необходимые для отображения в контексте (бронь, отзыв и т.д.).
+// Email и Phone присутствуют для staff-контекста (связаться с читателем).
 type UserRef struct {
 	ID        string `json:"id"`
-	Email     string `json:"email"`
-	Phone     string `json:"phone,omitempty"`
 	Name      string `json:"name"`
 	Surname   string `json:"surname"`
+	Email     string `json:"email,omitempty"`
+	Phone     string `json:"phone,omitempty"`
 	AvatarURL string `json:"avatar_url,omitempty"`
-	Role      string `json:"role,omitempty,omitempty"`
-	QRCode    string `json:"qr_code,omitempty,omitempty"`
-	CreatedAt string `json:"created_at,omitempty"`
 }
 
 // BookRef — lightweight book reference for nested API responses.

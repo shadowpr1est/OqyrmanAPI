@@ -115,6 +115,10 @@ func NewRouter(
 
 func (r *Router) Init() *gin.Engine {
 	engine := gin.New()
+	// Не доверяем прокси-заголовкам (X-Forwarded-For) по умолчанию.
+	// В production за load balancer'ом — добавьте реальный IP прокси:
+	//   engine.SetTrustedProxies([]string{"10.0.0.1"})
+	_ = engine.SetTrustedProxies(nil)
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.RequestLogger())
 	engine.Use(middleware.CORS(r.allowedOrigins))

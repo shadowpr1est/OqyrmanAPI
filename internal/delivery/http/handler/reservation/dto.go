@@ -34,10 +34,11 @@ type reservationViewResponse struct {
 	ReservedAt    string                    `json:"reserved_at"`
 	DueDate       string                    `json:"due_date"`
 	ReturnedAt    *string                   `json:"returned_at,omitempty"`
-	User          common.UserRef            `json:"user"`
 	LibraryBookID string                    `json:"library_book_id"`
 	Book          common.ReservationBookRef `json:"book"`
 	Library       common.LibraryRef         `json:"library"`
+	// User присутствует только в staff/admin контексте — при просмотре чужих броней.
+	User *common.UserRef `json:"user,omitempty"`
 }
 
 func parsePagination(c *gin.Context) (limit, offset int, err error) {

@@ -48,7 +48,12 @@ func (r *bookFileRepo) Create(ctx context.Context, file *entity.BookFile) (*enti
 
 func (r *bookFileRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.BookFile, error) {
 	var file entity.BookFile
-	if err := r.db.GetContext(ctx, &file, `SELECT * FROM book_files WHERE id = $1`, id); err != nil {
+	// Проверяем, что родительская книга не удалена (soft delete).
+	err := r.db.GetContext(ctx, &file, `
+		SELECT bf.* FROM book_files bf
+		JOIN books b ON b.id = bf.book_id AND b.deleted_at IS NULL
+		WHERE bf.id = $1`, id)
+	if err != nil {
 		return nil, fmt.Errorf("bookFileRepo.GetByID: %w", err)
 	}
 	return &file, nil
@@ -56,7 +61,12 @@ func (r *bookFileRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.BookF
 
 func (r *bookFileRepo) ListByBook(ctx context.Context, bookID uuid.UUID) ([]*entity.BookFile, error) {
 	var files []*entity.BookFile
-	if err := r.db.SelectContext(ctx, &files, `SELECT * FROM book_files WHERE book_id = $1`, bookID); err != nil {
+	// Проверяем, что родительская книга не удалена (soft delete).
+	err := r.db.SelectContext(ctx, &files, `
+		SELECT bf.* FROM book_files bf
+		JOIN books b ON b.id = bf.book_id AND b.deleted_at IS NULL
+		WHERE bf.book_id = $1`, bookID)
+	if err != nil {
 		return nil, fmt.Errorf("bookFileRepo.ListByBook: %w", err)
 	}
 	return files, nil

@@ -76,12 +76,13 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 	note, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
 		return
 	}
 
+	// Возвращаем 404 вместо 403, чтобы не раскрывать факт существования чужой записи.
 	if note.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "note not found"})
 		return
 	}
 	c.JSON(http.StatusOK, toNoteViewResponse(note))
@@ -205,7 +206,6 @@ func (h *Handler) Delete(c *gin.Context) {
 func toNoteResponse(n *entity.ReadingNote) noteResponse {
 	return noteResponse{
 		ID:        n.ID.String(),
-		UserID:    n.UserID.String(),
 		BookID:    n.BookID.String(),
 		Page:      n.Page,
 		Content:   n.Content,
@@ -216,7 +216,6 @@ func toNoteResponse(n *entity.ReadingNote) noteResponse {
 func toNoteViewResponse(v *entity.ReadingNoteView) noteViewResponse {
 	return noteViewResponse{
 		ID:        v.ID.String(),
-		UserID:    v.UserID.String(),
 		BookID:    v.BookID.String(),
 		BookTitle: v.BookTitle,
 		Page:      v.Page,

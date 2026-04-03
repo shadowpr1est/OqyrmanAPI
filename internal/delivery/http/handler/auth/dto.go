@@ -21,7 +21,17 @@ type refreshRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
+type authUserResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Surname   string `json:"surname"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+	Role      string `json:"role"`
+}
+
 type tokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string           `json:"access_token"`
+	RefreshToken string           `json:"refresh_token"`
+	User         authUserResponse `json:"user"`
 }

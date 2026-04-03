@@ -121,14 +121,26 @@ func (h *Handler) ListNearby(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lat"})
 		return
 	}
+	if lat < -90 || lat > 90 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "lat must be between -90 and 90"})
+		return
+	}
 
 	lng, err := strconv.ParseFloat(c.Query("lng"), 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid lng"})
 		return
 	}
+	if lng < -180 || lng > 180 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "lng must be between -180 and 180"})
+		return
+	}
 
 	radius, _ := strconv.ParseFloat(c.DefaultQuery("radius", "5"), 64)
+	if radius <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "radius must be positive"})
+		return
+	}
 
 	libraries, err := h.uc.ListNearby(c.Request.Context(), lat, lng, radius)
 	if err != nil {

@@ -49,6 +49,9 @@ type userViewResponse struct {
 	Phone       string  `json:"phone"`
 	Name        string  `json:"name"`
 	Surname     string  `json:"surname"`
+	AvatarURL   string  `json:"avatar_url,omitempty"`
+	Role        string  `json:"role"`
 	LibraryID   *string `json:"library_id,omitempty"`
 	LibraryName string  `json:"library_name,omitempty"`
+	CreatedAt   string  `json:"created_at"`
 }

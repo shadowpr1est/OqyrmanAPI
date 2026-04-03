@@ -5,7 +5,9 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -80,6 +82,10 @@ func (h *Handler) Update(c *gin.Context) {
 
 	result, err := h.uc.Update(c.Request.Context(), patch)
 	if err != nil {
+		if errors.Is(err, entity.ErrValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		if errors.Is(err, entity.ErrEmailTaken) {
 			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})
 			return
@@ -254,7 +260,17 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 	}
 	defer f.Close()
 
+	// Проверяем расширение файла до чтения байт — отсекаем явно неподходящие имена.
+	switch strings.ToLower(filepath.Ext(fh.Filename)) {
+	case ".jpg", ".jpeg", ".png", ".webp":
+		// ok
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "only jpeg, png, webp images are allowed"})
+		return
+	}
+
 	// Detect content type from actual file bytes, not the client-supplied header.
+	// Защита от полиглот-файлов: оба условия должны совпадать.
 	buf := make([]byte, 512)
 	n, _ := f.Read(buf)
 	contentType := http.DetectContentType(buf[:n])
@@ -359,7 +375,10 @@ func toUserViewResponse(v *entity.UserView) userViewResponse {
 		Phone:       v.Phone,
 		Name:        v.Name,
 		Surname:     v.Surname,
+		AvatarURL:   v.AvatarURL,
+		Role:        string(v.Role),
 		LibraryName: v.LibraryName,
+		CreatedAt:   v.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 	if v.LibraryID != nil {
 		s := v.LibraryID.String()

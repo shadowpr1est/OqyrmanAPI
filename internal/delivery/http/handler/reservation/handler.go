@@ -81,7 +81,13 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, toReservationResponse(result))
+	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusCreated, toReservationViewResponse(view, false))
 }
 
 // @Summary     Получить бронь
@@ -118,7 +124,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toReservationViewResponse(r))
+	c.JSON(http.StatusOK, toReservationViewResponse(r, role == "Admin" || role == "Staff"))
 }
 
 // @Summary     Мои брони
@@ -145,7 +151,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items":  toReservationViewResponses(items),
+		"items":  toReservationViewResponses(items, false),
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
@@ -222,7 +228,13 @@ func (h *Handler) Extend(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toReservationResponse(result))
+	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, toReservationViewResponse(view, false))
 }
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
@@ -263,7 +275,7 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items":  toReservationViewResponses(items),
+		"items":  toReservationViewResponses(items, true),
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
@@ -357,7 +369,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items":  toReservationViewResponses(items),
+		"items":  toReservationViewResponses(items, true),
 		"total":  total,
 		"limit":  limit,
 		"offset": offset,
@@ -503,13 +515,15 @@ func toReservationResponse(r *entity.Reservation) reservationResponse {
 	return resp
 }
 
-func toReservationViewResponse(v *entity.ReservationView) reservationViewResponse {
+// toReservationViewResponse собирает ответ брони.
+// includeUser=true — для staff/admin контекста (чужие брони); false — для личного списка пользователя.
+func toReservationViewResponse(v *entity.ReservationView, includeUser bool) reservationViewResponse {
 	resp := reservationViewResponse{
-		ID:         v.ID.String(),
-		Status:     string(v.Status),
-		ReservedAt: v.ReservedAt.Format(time.RFC3339),
-		DueDate:    v.DueDate.Format("2006-01-02"),
-
+		ID:            v.ID.String(),
+		Status:        string(v.Status),
+		ReservedAt:    v.ReservedAt.Format(time.RFC3339),
+		DueDate:       v.DueDate.Format("2006-01-02"),
+		LibraryBookID: v.LibraryBookID.String(),
 		Book: common.ReservationBookRef{
 			ID:       v.BookID.String(),
 			Title:    v.BookTitle,
@@ -526,13 +540,22 @@ func toReservationViewResponse(v *entity.ReservationView) reservationViewRespons
 		resp.ReturnedAt = &s
 	}
 
+	if includeUser {
+		resp.User = &common.UserRef{
+			ID:      v.UserID.String(),
+			Name:    v.UserName,
+			Surname: v.UserSurname,
+			Email:   v.UserEmail,
+		}
+	}
+
 	return resp
 }
 
-func toReservationViewResponses(items []*entity.ReservationView) []reservationViewResponse {
+func toReservationViewResponses(items []*entity.ReservationView, includeUser bool) []reservationViewResponse {
 	resp := make([]reservationViewResponse, len(items))
 	for i, v := range items {
-		resp[i] = toReservationViewResponse(v)
+		resp[i] = toReservationViewResponse(v, includeUser)
 	}
 	return resp
 }

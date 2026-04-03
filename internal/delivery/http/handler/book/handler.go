@@ -106,7 +106,13 @@ func (h *Handler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusCreated, toBookResponse(result))
+	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusCreated, toBookViewResponse(view))
 }
 
 // @Summary     Загрузить обложку книги
@@ -165,7 +171,13 @@ func (h *Handler) UploadCover(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-	c.JSON(http.StatusOK, toBookResponse(book))
+	view, err := h.uc.GetByIDView(c.Request.Context(), book.ID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, toBookViewResponse(view))
 }
 
 // @Summary     Получить книгу
@@ -418,8 +430,13 @@ func (h *Handler) Update(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
-
-	c.JSON(http.StatusOK, toBookResponse(result))
+	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, toBookViewResponse(view))
 }
 
 // @Summary     Удалить книгу

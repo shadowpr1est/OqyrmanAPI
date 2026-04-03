@@ -9,6 +9,7 @@ import (
 type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
+	User         *entity.User
 }
 
 type AuthUseCase interface {

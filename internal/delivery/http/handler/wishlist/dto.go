@@ -8,14 +8,12 @@ type addWishlistRequest struct {
 
 type wishlistResponse struct {
 	ID      string `json:"id"`
-	UserID  string `json:"user_id"`
 	BookID  string `json:"book_id"`
 	AddedAt string `json:"added_at"`
 }
 
 type wishlistViewResponse struct {
-	ID      string          `json:"id"`
-	UserID  string          `json:"user_id"`
-	AddedAt string          `json:"added_at"`
-	Book    common.BookRef  `json:"book"`
+	ID      string         `json:"id"`
+	AddedAt string         `json:"added_at"`
+	Book    common.BookRef `json:"book"`
 }

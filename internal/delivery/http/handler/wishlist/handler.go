@@ -136,7 +136,6 @@ func (h *Handler) Exists(c *gin.Context) {
 func toWishlistResponse(w *entity.Wishlist) wishlistResponse {
 	return wishlistResponse{
 		ID:      w.ID.String(),
-		UserID:  w.UserID.String(),
 		BookID:  w.BookID.String(),
 		AddedAt: w.AddedAt.Format("2006-01-02T15:04:05Z"),
 	}
@@ -145,7 +144,6 @@ func toWishlistResponse(w *entity.Wishlist) wishlistResponse {
 func toWishlistViewResponse(v *entity.WishlistView) wishlistViewResponse {
 	return wishlistViewResponse{
 		ID:      v.ID.String(),
-		UserID:  v.UserID.String(),
 		AddedAt: v.AddedAt.Format("2006-01-02T15:04:05Z"),
 		Book: common.BookRef{
 			ID:        v.BookID.String(),

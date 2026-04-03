@@ -101,6 +101,7 @@ func (u *authUseCase) Login(ctx context.Context, email, password string) (*domai
 	return &domainUseCase.TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
+		User:         user,
 	}, nil
 }
 
@@ -177,5 +178,6 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 	return &domainUseCase.TokenPair{
 		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
+		User:         user,
 	}, nil
 }

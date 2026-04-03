@@ -145,7 +145,6 @@ func (h *Handler) Delete(c *gin.Context) {
 func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 	resp := readingSessionResponse{
 		ID:          s.ID.String(),
-		UserID:      s.UserID.String(),
 		BookID:      s.BookID.String(),
 		CurrentPage: s.CurrentPage,
 		Status:      string(s.Status),
@@ -161,7 +160,6 @@ func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 func toReadingSessionViewResponse(v *entity.ReadingSessionView) readingSessionViewResponse {
 	resp := readingSessionViewResponse{
 		ID:          v.ID.String(),
-		UserID:      v.UserID.String(),
 		CurrentPage: v.CurrentPage,
 		Status:      string(v.Status),
 		UpdatedAt:   v.UpdatedAt.Format("2006-01-02T15:04:05Z"),

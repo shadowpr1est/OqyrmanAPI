@@ -65,6 +65,7 @@ func (h *Handler) Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, tokenResponse{
 		AccessToken:  pair.AccessToken,
 		RefreshToken: pair.RefreshToken,
+		User:         toAuthUserResponse(pair.User),
 	})
 }
 
@@ -92,6 +93,7 @@ func (h *Handler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, tokenResponse{
 		AccessToken:  pair.AccessToken,
 		RefreshToken: pair.RefreshToken,
+		User:         toAuthUserResponse(pair.User),
 	})
 }
 
@@ -143,5 +145,20 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 	c.JSON(http.StatusOK, tokenResponse{
 		AccessToken:  pair.AccessToken,
 		RefreshToken: pair.RefreshToken,
+		User:         toAuthUserResponse(pair.User),
 	})
+}
+
+func toAuthUserResponse(u *entity.User) authUserResponse {
+	if u == nil {
+		return authUserResponse{}
+	}
+	return authUserResponse{
+		ID:        u.ID.String(),
+		Name:      u.Name,
+		Surname:   u.Surname,
+		Email:     u.Email,
+		AvatarURL: u.AvatarURL,
+		Role:      string(u.Role),
+	}
 }

@@ -2,6 +2,7 @@ package reservation
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,7 +35,9 @@ func (u *reservationUseCase) notify(ctx context.Context, userID uuid.UUID, title
 		CreatedAt: time.Now(),
 	}
 	// fire-and-forget: не прерываем основной флоу при ошибке уведомления
-	_, _ = u.notifRepo.Create(ctx, n)
+	if _, err := u.notifRepo.Create(ctx, n); err != nil {
+		slog.ErrorContext(ctx, "failed to create notification", "user_id", userID, "err", err)
+	}
 }
 
 func (u *reservationUseCase) Create(ctx context.Context, r *entity.Reservation) (*entity.Reservation, error) {

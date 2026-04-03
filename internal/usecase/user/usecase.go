@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -32,6 +34,11 @@ func (u *userUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, 
 }
 
 func (u *userUseCase) Update(ctx context.Context, user *entity.User) (*entity.User, error) {
+	if user.Email != "" {
+		if _, err := mail.ParseAddress(user.Email); err != nil {
+			return nil, fmt.Errorf("%w: invalid email format", entity.ErrValidation)
+		}
+	}
 	return u.userRepo.Update(ctx, user)
 }
 
@@ -67,7 +74,32 @@ func (u *userUseCase) ListAllView(ctx context.Context, limit, offset int) ([]*en
 	return u.userRepo.ListAllView(ctx, limit, offset)
 }
 
+func validatePassword(p string) error {
+	if len(p) < 8 {
+		return fmt.Errorf("%w: password must be at least 8 characters", entity.ErrValidation)
+	}
+	var hasUpper, hasDigit bool
+	for _, r := range p {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
+	if !hasUpper {
+		return fmt.Errorf("%w: password must contain at least one uppercase letter", entity.ErrValidation)
+	}
+	if !hasDigit {
+		return fmt.Errorf("%w: password must contain at least one digit", entity.ErrValidation)
+	}
+	return nil
+}
+
 func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, surname, phone string, libraryID uuid.UUID) (*entity.UserView, error) {
+	if err := validatePassword(password); err != nil {
+		return nil, err
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("userUseCase.CreateStaff hash: %w", err)

@@ -66,7 +66,13 @@ func (h *Handler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, toReviewResponse(result))
+	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusCreated, toReviewViewResponse(view))
 }
 
 // @Summary     Получить отзыв
@@ -208,7 +214,13 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, toReviewResponse(result))
+	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, toReviewViewResponse(view))
 }
 
 // @Summary     Удалить отзыв

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"log"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -62,5 +63,23 @@ func New() (*Config, error) {
 		}
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
+}
+
+// Validate проверяет критические настройки при старте приложения.
+func (cfg *Config) Validate() error {
+	if len([]byte(cfg.JWT.SecretKey)) < 32 {
+		return errors.New("JWT_SECRET must be at least 32 bytes")
+	}
+	if cfg.App.Env == "production" && cfg.App.AllowedOrigins == "*" {
+		return errors.New("ALLOWED_ORIGINS must not be '*' in production")
+	}
+	if cfg.App.Env == "production" && cfg.DB.SSLMode == "disable" {
+		return errors.New("DB_SSLMODE must not be 'disable' in production")
+	}
+	return nil
 }

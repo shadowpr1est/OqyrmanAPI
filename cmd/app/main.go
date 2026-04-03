@@ -63,6 +63,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -142,7 +143,10 @@ func main() {
 	}
 
 	// jwt
-	jwtManager, _ := jwt.NewManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenTTL)
+	jwtManager, err := jwt.NewManager(cfg.JWT.SecretKey, cfg.JWT.AccessTokenTTL)
+	if err != nil {
+		log.Fatalf("jwt error: %s", err)
+	}
 
 	// repositories
 	userRepo := postgres.NewUserRepo(db)
@@ -186,12 +190,12 @@ func main() {
 	switch {
 	case cfg.AI.OpenAIKey != "":
 		llmClient = openaiLLM.NewClient(cfg.AI.OpenAIKey)
-		log.Println("AI: using OpenAI GPT")
+		slog.Info("AI: using OpenAI GPT")
 	case cfg.AI.AnthropicKey != "":
 		llmClient = anthropic.NewClient(cfg.AI.AnthropicKey)
-		log.Println("AI: using Anthropic Claude")
+		slog.Info("AI: using Anthropic Claude")
 	default:
-		log.Println("AI: no API key set, AI endpoints disabled")
+		slog.Info("AI: no API key set, AI endpoints disabled")
 	}
 	if llmClient != nil {
 		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, llmClient)
@@ -261,8 +265,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("server starting on %s:%s (swagger host: %s)",
-			cfg.App.Host, cfg.App.Port, cfg.App.SwaggerHost)
+		slog.Info("server starting", "addr", cfg.App.Host+":"+cfg.App.Port, "swagger_host", cfg.App.SwaggerHost)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("server error: %s", err)
 		}
@@ -270,7 +273,7 @@ func main() {
 
 	// ждём сигнала
 	<-ctx.Done()
-	log.Println("shutting down...")
+	slog.Info("shutting down...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -278,5 +281,5 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("forced shutdown: %s", err)
 	}
-	log.Println("server stopped")
+	slog.Info("server stopped")
 }
