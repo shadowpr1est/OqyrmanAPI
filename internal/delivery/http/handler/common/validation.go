@@ -7,52 +7,44 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// ValidationError converts a gin binding error into a human-readable message.
-// Instead of "Key: 'loginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag"
-// returns "email: required field"
+// ValidationError converts a gin binding error into a human-readable string.
+// Kept for backward compatibility; prefer ValidationErr(c, err) in handlers.
 func ValidationError(err error) string {
-	var ve validator.ValidationErrors
-	if ok := isValidationErrors(err, &ve); !ok {
-		return err.Error()
+	if errs, ok := err.(validator.ValidationErrors); ok {
+		msgs := make([]string, 0, len(errs))
+		for _, fe := range errs {
+			msgs = append(msgs, fmt.Sprintf("%s: %s", fieldName(fe), fieldMessage(fe)))
+		}
+		return strings.Join(msgs, "; ")
 	}
-
-	msgs := make([]string, 0, len(ve))
-	for _, fe := range ve {
-		msgs = append(msgs, fieldError(fe))
-	}
-	return strings.Join(msgs, "; ")
+	return err.Error()
 }
 
-func isValidationErrors(err error, ve *validator.ValidationErrors) bool {
-	errs, ok := err.(validator.ValidationErrors)
-	if ok {
-		*ve = errs
-	}
-	return ok
+func fieldName(fe validator.FieldError) string {
+	return strings.ToLower(fe.Field())
 }
 
-func fieldError(fe validator.FieldError) string {
-	field := strings.ToLower(fe.Field())
+func fieldMessage(fe validator.FieldError) string {
 	switch fe.Tag() {
 	case "required":
-		return fmt.Sprintf("%s: required field", field)
+		return "required field"
 	case "email":
-		return fmt.Sprintf("%s: invalid email format", field)
+		return "invalid email format"
 	case "min":
-		return fmt.Sprintf("%s: must be at least %s characters", field, fe.Param())
+		return fmt.Sprintf("must be at least %s characters", fe.Param())
 	case "max":
-		return fmt.Sprintf("%s: must be at most %s characters", field, fe.Param())
+		return fmt.Sprintf("must be at most %s characters", fe.Param())
 	case "len":
-		return fmt.Sprintf("%s: must be exactly %s characters", field, fe.Param())
+		return fmt.Sprintf("must be exactly %s characters", fe.Param())
 	case "oneof":
-		return fmt.Sprintf("%s: must be one of [%s]", field, fe.Param())
+		return fmt.Sprintf("must be one of [%s]", fe.Param())
 	case "uuid":
-		return fmt.Sprintf("%s: invalid UUID format", field)
+		return "invalid UUID format"
 	case "gte":
-		return fmt.Sprintf("%s: must be greater than or equal to %s", field, fe.Param())
+		return fmt.Sprintf("must be greater than or equal to %s", fe.Param())
 	case "lte":
-		return fmt.Sprintf("%s: must be less than or equal to %s", field, fe.Param())
+		return fmt.Sprintf("must be less than or equal to %s", fe.Param())
 	default:
-		return fmt.Sprintf("%s: invalid value", field)
+		return "invalid value"
 	}
 }

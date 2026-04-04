@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
@@ -44,7 +45,7 @@ func (h *Handler) List(c *gin.Context) {
 	items, total, err := h.uc.List(c.Request.Context(), limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -81,7 +82,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -144,7 +145,7 @@ func (h *Handler) Create(c *gin.Context) {
 	}, cover)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -219,7 +220,7 @@ func (h *Handler) Update(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -281,7 +282,7 @@ func (h *Handler) Delete(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 

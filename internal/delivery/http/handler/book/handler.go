@@ -103,13 +103,13 @@ func (h *Handler) Create(c *gin.Context) {
 	result, err := h.uc.Create(c.Request.Context(), book, cover)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusCreated, toBookViewResponse(view))
@@ -168,13 +168,13 @@ func (h *Handler) UploadCover(c *gin.Context) {
 	})
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	view, err := h.uc.GetByIDView(c.Request.Context(), book.ID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toBookViewResponse(view))
@@ -227,7 +227,7 @@ func (h *Handler) List(c *gin.Context) {
 	books, total, err := h.uc.ListView(c.Request.Context(), limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -261,7 +261,7 @@ func (h *Handler) ListByAuthor(c *gin.Context) {
 	books, err := h.uc.ListByAuthorView(c.Request.Context(), authorID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -290,7 +290,7 @@ func (h *Handler) ListByGenre(c *gin.Context) {
 	books, err := h.uc.ListByGenreView(c.Request.Context(), genreID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -339,7 +339,7 @@ func (h *Handler) Search(c *gin.Context) {
 	books, total, err := h.uc.SearchView(c.Request.Context(), query, limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -376,7 +376,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateBookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -427,13 +427,13 @@ func (h *Handler) Update(c *gin.Context) {
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toBookViewResponse(view))
@@ -458,7 +458,7 @@ func (h *Handler) Delete(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -485,7 +485,7 @@ func (h *Handler) ListPopular(c *gin.Context) {
 	books, total, err := h.uc.ListPopularView(c.Request.Context(), limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -526,7 +526,7 @@ func (h *Handler) ListSimilar(c *gin.Context) {
 	books, err := h.uc.ListSimilarView(c.Request.Context(), id, limit)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 

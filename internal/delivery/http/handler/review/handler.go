@@ -35,7 +35,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 	var req createReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -63,14 +63,14 @@ func (h *Handler) Create(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
 	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusCreated, toReviewViewResponse(view))
@@ -125,7 +125,7 @@ func (h *Handler) ListByBook(c *gin.Context) {
 	reviews, total, err := h.uc.ListByBookView(c.Request.Context(), bookID, limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -155,7 +155,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 	reviews, err := h.uc.ListByUserView(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -187,7 +187,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateReviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -207,18 +207,18 @@ func (h *Handler) Update(c *gin.Context) {
 	result, err := h.uc.Update(c.Request.Context(), existing, userID)
 	if err != nil {
 		if errors.Is(err, entity.ErrForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			common.Forbidden(c)
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
 	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toReviewViewResponse(view))
@@ -244,11 +244,11 @@ func (h *Handler) Delete(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, entity.ErrForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			common.Forbidden(c)
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.Status(http.StatusNoContent)

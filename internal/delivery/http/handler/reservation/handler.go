@@ -37,7 +37,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 	var req createReservationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -77,14 +77,14 @@ func (h *Handler) Create(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
 	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusCreated, toReservationViewResponse(view, false))
@@ -112,7 +112,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -120,7 +120,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 	callerID := middleware.GetUserID(c)
 	role := middleware.GetRole(c)
 	if r.UserID != callerID && role != "Admin" && role != "Staff" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		common.Forbidden(c)
 		return
 	}
 
@@ -146,7 +146,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 	items, total, err := h.uc.ListByUserView(c.Request.Context(), userID, limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -203,7 +203,7 @@ func (h *Handler) Extend(c *gin.Context) {
 
 	var req extendReservationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -231,7 +231,7 @@ func (h *Handler) Extend(c *gin.Context) {
 	view, err := h.uc.GetByIDView(c.Request.Context(), result.ID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toReservationViewResponse(view, false))
@@ -270,7 +270,7 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 	items, total, err := h.uc.ListByLibraryView(c.Request.Context(), *libraryID, limit, offset, statusPtr)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -364,7 +364,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 	items, total, err := h.uc.ListAllView(c.Request.Context(), limit, offset, statusPtr)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -421,7 +421,7 @@ func (h *Handler) StaffUpdateStatus(c *gin.Context) {
 
 	var req updateStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -456,7 +456,7 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 
 	var req updateStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -495,7 +495,7 @@ func handleReservationError(c *gin.Context, err error) {
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 	}
 }
 

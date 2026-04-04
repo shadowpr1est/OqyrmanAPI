@@ -32,7 +32,7 @@ func NewHandler(uc domainUseCase.GenreUseCase) *Handler {
 func (h *Handler) Create(c *gin.Context) {
 	var req createGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (h *Handler) Create(c *gin.Context) {
 	result, err := h.uc.Create(c.Request.Context(), genre)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -102,7 +102,7 @@ func (h *Handler) List(c *gin.Context) {
 	genres, err := h.uc.List(c.Request.Context())
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateGenreRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -154,7 +154,7 @@ func (h *Handler) Update(c *gin.Context) {
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -180,7 +180,7 @@ func (h *Handler) Delete(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 

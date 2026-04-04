@@ -34,7 +34,7 @@ func (h *Handler) Add(c *gin.Context) {
 
 	var req addWishlistRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -51,7 +51,7 @@ func (h *Handler) Add(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -75,7 +75,7 @@ func (h *Handler) Remove(c *gin.Context) {
 
 	if err := h.uc.Remove(c.Request.Context(), userID, bookID); err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (h *Handler) List(c *gin.Context) {
 	items, err := h.uc.ListByUserView(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *Handler) Exists(c *gin.Context) {
 	exists, err := h.uc.ExistsByUserAndBook(c.Request.Context(), userID, bookID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -28,7 +29,7 @@ func (h *Handler) GetStats(c *gin.Context) {
 	stats, err := h.uc.GetStats(c.Request.Context())
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toStatsResponse(stats))
@@ -45,7 +46,7 @@ func (h *Handler) GetUserStats(c *gin.Context) {
 	stats, err := h.uc.GetUserStats(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toUserStatsResponse(stats))
@@ -67,7 +68,7 @@ func (h *Handler) GetLibraryStats(c *gin.Context) {
 	stats, err := h.uc.GetLibraryStats(c.Request.Context(), *libraryID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toLibraryStatsResponse(stats))

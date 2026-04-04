@@ -33,7 +33,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 	var req createNoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (h *Handler) Create(c *gin.Context) {
 	result, err := h.uc.Create(c.Request.Context(), note)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -108,7 +108,7 @@ func (h *Handler) ListByBook(c *gin.Context) {
 	notes, err := h.uc.ListByUserAndBookView(c.Request.Context(), userID, bookID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -140,7 +140,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateNoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -150,7 +150,7 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	if existing.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		common.Forbidden(c)
 		return
 	}
 
@@ -164,7 +164,7 @@ func (h *Handler) Update(c *gin.Context) {
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -191,13 +191,13 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 	if existing.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		common.Forbidden(c)
 		return
 	}
 
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 

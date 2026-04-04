@@ -33,7 +33,7 @@ func (h *Handler) Upsert(c *gin.Context) {
 
 	var req upsertReadingSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -53,7 +53,7 @@ func (h *Handler) Upsert(c *gin.Context) {
 	result, err := h.uc.Upsert(c.Request.Context(), session)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -97,7 +97,7 @@ func (h *Handler) ListByUser(c *gin.Context) {
 	sessions, err := h.uc.ListByUserView(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -131,13 +131,13 @@ func (h *Handler) Delete(c *gin.Context) {
 		return
 	}
 	if existing.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		common.Forbidden(c)
 		return
 	}
 
 	if err := h.uc.Delete(c.Request.Context(), id); err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 

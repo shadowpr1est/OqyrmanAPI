@@ -38,7 +38,7 @@ func (h *Handler) Recommend(c *gin.Context) {
 	result, err := h.uc.Recommend(c.Request.Context(), userID.String())
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *Handler) CreateConversation(c *gin.Context) {
 	conv, err := h.uc.CreateConversation(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "create conversation error", "err", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *Handler) ListConversations(c *gin.Context) {
 	convs, err := h.uc.ListConversations(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "list conversations error", "err", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -130,10 +130,10 @@ func (h *Handler) GetConversation(c *gin.Context) {
 		case errors.Is(err, entity.ErrConversationNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
 		case errors.Is(err, entity.ErrForbidden):
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			common.Forbidden(c)
 		default:
 			slog.ErrorContext(c.Request.Context(), "get conversation error", "err", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			common.InternalError(c)
 		}
 		return
 	}
@@ -184,7 +184,7 @@ func (h *Handler) SendMessage(c *gin.Context) {
 
 	var req sendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -202,10 +202,10 @@ func (h *Handler) SendMessage(c *gin.Context) {
 		case errors.Is(err, entity.ErrConversationNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
 		case errors.Is(err, entity.ErrForbidden):
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			common.Forbidden(c)
 		default:
 			slog.ErrorContext(c.Request.Context(), "send message error", "err", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			common.InternalError(c)
 		}
 		return
 	}
@@ -255,10 +255,10 @@ func (h *Handler) DeleteConversation(c *gin.Context) {
 		case errors.Is(err, entity.ErrConversationNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
 		case errors.Is(err, entity.ErrForbidden):
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			common.Forbidden(c)
 		default:
 			slog.ErrorContext(c.Request.Context(), "delete conversation error", "err", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			common.InternalError(c)
 		}
 		return
 	}

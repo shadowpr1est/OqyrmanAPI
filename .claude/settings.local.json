@@ -33,7 +33,9 @@
       "Bash(git pull:*)",
       "Bash(git stash:*)",
       "Bash(go version:*)",
-      "Bash(go mod:*)"
+      "Bash(go mod:*)",
+      "Bash(perl -i -pe 's/\"email already taken\"/\"email_already_taken\"/' internal/delivery/http/handler/auth/handler_test.go)",
+      "Bash(perl -i -pe 's/\"invalid credentials\"/\"invalid_credentials\"/' internal/delivery/http/handler/auth/handler_test.go)"
     ]
   }
 }

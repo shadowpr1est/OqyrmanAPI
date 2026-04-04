@@ -59,7 +59,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (h *Handler) Update(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *Handler) ListAll(c *gin.Context) {
 	users, total, err := h.uc.ListAllView(c.Request.Context(), limit, offset)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	items := make([]userViewResponse, len(users))
@@ -155,7 +155,7 @@ func (h *Handler) AdminUpdateUser(c *gin.Context) {
 
 	var req adminUpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -212,7 +212,7 @@ func (h *Handler) AdminDelete(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -294,7 +294,7 @@ func (h *Handler) UploadAvatar(c *gin.Context) {
 	})
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.JSON(http.StatusOK, toUserResponse(user))
@@ -311,7 +311,7 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	if err := h.uc.Delete(c.Request.Context(), userID); err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -331,7 +331,7 @@ func (h *Handler) Delete(c *gin.Context) {
 func (h *Handler) CreateStaff(c *gin.Context) {
 	var req createStaffRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -348,7 +348,7 @@ func (h *Handler) CreateStaff(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 
@@ -398,7 +398,7 @@ func (h *Handler) ListSessions(c *gin.Context) {
 	sessions, err := h.uc.ListSessions(c.Request.Context(), userID)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	resp := make([]sessionResponse, len(sessions))
@@ -428,7 +428,7 @@ func (h *Handler) RevokeSession(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -443,7 +443,7 @@ func (h *Handler) RevokeAllSessions(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	if err := h.uc.RevokeAllSessions(c.Request.Context(), userID); err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -461,7 +461,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	var req changePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
+		common.ValidationErr(c, err)
 		return
 	}
 	if err := h.uc.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
@@ -470,7 +470,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		common.InternalError(c)
 		return
 	}
 	c.Status(http.StatusNoContent)

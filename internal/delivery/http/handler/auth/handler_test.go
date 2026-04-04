@@ -142,7 +142,7 @@ func TestRegister_EmailExists(t *testing.T) {
 		`{"email":"a@b.com","phone":"+77001234567","password":"Password1","name":"Test","surname":"User"}`)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
-	assert.Contains(t, w.Body.String(), "email already taken")
+	assert.Contains(t, w.Body.String(), "email_already_taken")
 }
 
 func TestRegister_InternalError(t *testing.T) {
@@ -194,12 +194,12 @@ func TestLogin_WrongCredentials(t *testing.T) {
 	r := newTestRouter(h)
 
 	uc.On("Login", mock.Anything, "a@b.com", "WrongPass1").
-		Return(nil, errors.New("invalid credentials"))
+		Return(nil, errors.New("invalid_credentials"))
 
 	w := serve(r, http.MethodPost, "/auth/login", `{"email":"a@b.com","password":"WrongPass1"}`)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
-	assert.Contains(t, w.Body.String(), "invalid credentials")
+	assert.Contains(t, w.Body.String(), "invalid_credentials")
 }
 
 // ─── Logout ───────────────────────────────────────────────────────────────────
