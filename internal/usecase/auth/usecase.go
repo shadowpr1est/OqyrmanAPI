@@ -247,7 +247,7 @@ func (u *authUseCase) sendCode(ctx context.Context, user *entity.User) error {
 		ID:        uuid.New(),
 		UserID:    user.ID,
 		Code:      string(codeHash),
-		ExpiresAt: time.Now().Add(15 * time.Minute),
+		ExpiresAt: time.Now().Add(5 * time.Minute),
 		CreatedAt: time.Now(),
 	}
 	if err := u.verifRepo.Save(ctx, record); err != nil {
@@ -312,7 +312,7 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 		ID:        uuid.New(),
 		UserID:    user.ID,
 		Code:      string(codeHash),
-		ExpiresAt: time.Now().Add(15 * time.Minute),
+		ExpiresAt: time.Now().Add(5 * time.Minute),
 		CreatedAt: time.Now(),
 	}
 	if err := u.resetRepo.Save(ctx, record); err != nil {
