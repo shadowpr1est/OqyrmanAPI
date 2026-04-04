@@ -1,13 +1,14 @@
 package email
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/smtp"
 	"time"
 )
 
-const dialTimeout = 5 * time.Second
+const dialTimeout = 10 * time.Second
 
 // Sender отправляет письма через SMTP.
 type Sender struct {
@@ -43,9 +44,18 @@ func (s *Sender) send(to, subject, body string) error {
 
 	client, err := smtp.NewClient(conn, s.host)
 	if err != nil {
+		conn.Close()
 		return fmt.Errorf("smtp client: %w", err)
 	}
 	defer client.Close()
+
+	// Порт 587 использует STARTTLS — апгрейдим соединение до TLS если сервер поддерживает
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		tlsCfg := &tls.Config{ServerName: s.host}
+		if err := client.StartTLS(tlsCfg); err != nil {
+			return fmt.Errorf("smtp starttls: %w", err)
+		}
+	}
 
 	auth := smtp.PlainAuth("", s.username, s.password, s.host)
 	if err := client.Auth(auth); err != nil {
