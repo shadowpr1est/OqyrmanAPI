@@ -2,8 +2,12 @@ package email
 
 import (
 	"fmt"
+	"net"
 	"net/smtp"
+	"time"
 )
+
+const dialTimeout = 5 * time.Second
 
 // Sender отправляет письма через SMTP.
 type Sender struct {
@@ -29,38 +33,67 @@ func (s *Sender) Enabled() bool {
 	return s.host != "" && s.from != ""
 }
 
-// SendPasswordResetCode отправляет 6-значный код сброса пароля.
-func (s *Sender) SendPasswordResetCode(to, code string) error {
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+func (s *Sender) send(to, subject, body string) error {
+	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 
-	subject := "Сброс пароля — Oqyrman"
-	body := fmt.Sprintf(
-		"Вы запросили сброс пароля.\r\n\r\nВаш код: %s\r\n\r\nКод действителен 15 минут.\r\nЕсли вы не запрашивали сброс — проигнорируйте это письмо.",
-		code,
-	)
-	msg := []byte(fmt.Sprintf(
+	conn, err := net.DialTimeout("tcp", addr, dialTimeout)
+	if err != nil {
+		return fmt.Errorf("smtp dial: %w", err)
+	}
+
+	client, err := smtp.NewClient(conn, s.host)
+	if err != nil {
+		return fmt.Errorf("smtp client: %w", err)
+	}
+	defer client.Close()
+
+	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+	if err := client.Auth(auth); err != nil {
+		return fmt.Errorf("smtp auth: %w", err)
+	}
+
+	if err := client.Mail(s.from); err != nil {
+		return fmt.Errorf("smtp mail from: %w", err)
+	}
+	if err := client.Rcpt(to); err != nil {
+		return fmt.Errorf("smtp rcpt: %w", err)
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp data: %w", err)
+	}
+
+	msg := fmt.Sprintf(
 		"From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
 		s.from, to, subject, body,
-	))
+	)
+	if _, err := fmt.Fprint(w, msg); err != nil {
+		return fmt.Errorf("smtp write: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("smtp close data: %w", err)
+	}
 
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-	return smtp.SendMail(addr, auth, s.from, []string{to}, msg)
+	return client.Quit()
 }
 
 // SendVerificationCode отправляет 6-значный код подтверждения на указанный email.
 func (s *Sender) SendVerificationCode(to, code string) error {
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
-
 	subject := "Подтверждение email — Oqyrman"
 	body := fmt.Sprintf(
-		"Добро пожаловать в Oqyrman!\r\n\r\nВаш код подтверждения: %s\r\n\r\nКод действителен 15 минут.\r\nЕсли вы не регистрировались — проигнорируйте это письмо.",
+		"Добро пожаловать в Oqyrman!\r\n\r\nВаш код подтверждения: %s\r\n\r\nКод действителен 5 минут.\r\nЕсли вы не регистрировались — проигнорируйте это письмо.",
 		code,
 	)
-	msg := []byte(fmt.Sprintf(
-		"From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
-		s.from, to, subject, body,
-	))
+	return s.send(to, subject, body)
+}
 
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-	return smtp.SendMail(addr, auth, s.from, []string{to}, msg)
+// SendPasswordResetCode отправляет 6-значный код сброса пароля.
+func (s *Sender) SendPasswordResetCode(to, code string) error {
+	subject := "Сброс пароля — Oqyrman"
+	body := fmt.Sprintf(
+		"Вы запросили сброс пароля.\r\n\r\nВаш код: %s\r\n\r\nКод действителен 5 минут.\r\nЕсли вы не запрашивали сброс — проигнорируйте это письмо.",
+		code,
+	)
+	return s.send(to, subject, body)
 }
