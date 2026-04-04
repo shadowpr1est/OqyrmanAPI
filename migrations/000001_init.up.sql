@@ -199,9 +199,9 @@ CREATE TABLE events (
 
 -- ─── Email verification codes ─────────────────────────────────────────────────
 CREATE TABLE email_verification_codes (
-    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    code       CHAR(6) NOT NULL,
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code       TEXT        NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id)
@@ -209,9 +209,9 @@ CREATE TABLE email_verification_codes (
 
 -- ─── Password reset codes ─────────────────────────────────────────────────────
 CREATE TABLE password_reset_codes (
-    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id    UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    code       CHAR(6) NOT NULL,
+    id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code       TEXT        NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (user_id)
