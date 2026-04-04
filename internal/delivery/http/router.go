@@ -122,6 +122,7 @@ func (r *Router) Init() *gin.Engine {
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.RequestLogger())
 	engine.Use(middleware.CORS(r.allowedOrigins))
+	engine.Use(middleware.InjectRequestMeta())
 	engine.MaxMultipartMemory = 20 << 20 // 20 MB
 	engine.GET("/health", func(c *gin.Context) {
 		ctx := c.Request.Context()

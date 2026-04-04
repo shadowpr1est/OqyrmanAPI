@@ -221,9 +221,9 @@ func (u *authUseCase) sendCode(ctx context.Context, user *entity.User) error {
 	}
 
 	if u.emailSender != nil && u.emailSender.Enabled() {
-		if err := u.emailSender.SendVerificationCode(user.Email, code); err != nil {
-			return fmt.Errorf("authUseCase.sendCode email: %w", err)
-		}
+		// Ошибка отправки письма не отменяет регистрацию: код уже сохранён в БД,
+		// пользователь может запросить повтор через /auth/resend-code.
+		_ = u.emailSender.SendVerificationCode(user.Email, code)
 	}
 
 	return nil
@@ -354,6 +354,11 @@ func (u *authUseCase) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 			return nil, err
 		}
 		user.GoogleID = &info.Sub
+		// Google подтвердил email — верифицируем аккаунт если ещё не верифицирован
+		if !user.EmailVerified {
+			_ = u.userRepo.SetEmailVerified(ctx, user.ID)
+			user.EmailVerified = true
+		}
 		return u.issueTokenPair(ctx, user)
 	}
 	if !errors.Is(err, entity.ErrNotFound) {
