@@ -57,6 +57,9 @@ func (m *mockAuthUseCase) VerifyEmail(ctx context.Context, email, code string) (
 func (m *mockAuthUseCase) ForgotPassword(ctx context.Context, email string) error {
 	return m.Called(ctx, email).Error(0)
 }
+func (m *mockAuthUseCase) ResendResetCode(ctx context.Context, email string) error {
+	return nil
+}
 func (m *mockAuthUseCase) ResetPassword(ctx context.Context, email, code, newPassword string) error {
 	return m.Called(ctx, email, code, newPassword).Error(0)
 }

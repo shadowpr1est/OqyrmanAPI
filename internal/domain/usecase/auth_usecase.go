@@ -23,6 +23,8 @@ type AuthUseCase interface {
 	VerifyEmail(ctx context.Context, email, code string) (*TokenPair, error)
 	// ForgotPassword отправляет код сброса пароля на email.
 	ForgotPassword(ctx context.Context, email string) error
+	// ResendResetCode повторно отправляет код сброса пароля.
+	ResendResetCode(ctx context.Context, email string) error
 	// ResetPassword проверяет код и устанавливает новый пароль.
 	ResetPassword(ctx context.Context, email, code, newPassword string) error
 	// LoginWithGoogle верифицирует Google ID token и возвращает JWT токены.

@@ -163,6 +163,7 @@ func (r *Router) Init() *gin.Engine {
 				{
 					sensitive.POST("/resend-code", r.auth.ResendCode)
 					sensitive.POST("/forgot-password", r.auth.ForgotPassword)
+					sensitive.POST("/resend-reset-code", r.auth.ResendResetCode)
 					sensitive.POST("/reset-password", r.auth.ResetPassword)
 				}
 			}

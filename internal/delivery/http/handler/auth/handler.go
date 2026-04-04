@@ -245,6 +245,25 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "if this email exists, a reset code has been sent"})
 }
 
+// @Summary     Повторно отправить код сброса пароля
+// @Tags        auth
+// @Accept      json
+// @Produce     json
+// @Param       input body resendResetCodeRequest true "Email"
+// @Success     200 {object} map[string]string
+// @Router      /auth/resend-reset-code [post]
+func (h *Handler) ResendResetCode(c *gin.Context) {
+	var req resendResetCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Всегда 200 — не раскрываем существование email
+	_ = h.uc.ResendResetCode(c.Request.Context(), req.Email)
+	c.JSON(http.StatusOK, gin.H{"message": "if this email exists, a new reset code has been sent"})
+}
+
 // @Summary     Сброс пароля
 // @Tags        auth
 // @Accept      json

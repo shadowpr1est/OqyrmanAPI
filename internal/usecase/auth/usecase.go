@@ -313,7 +313,7 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 		ID:        uuid.New(),
 		UserID:    user.ID,
 		Code:      string(codeHash),
-		ExpiresAt: time.Now().Add(3 * time.Minute),
+		ExpiresAt: time.Now().Add(5 * time.Minute),
 		CreatedAt: time.Now(),
 	}
 	if err := u.resetRepo.Save(ctx, record); err != nil {
@@ -326,6 +326,36 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 		}
 	}
 
+	return nil
+}
+
+func (u *authUseCase) ResendResetCode(ctx context.Context, email string) error {
+	user, err := u.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		// Не раскрываем факт существования email
+		return nil
+	}
+	code, err := generateCode()
+	if err != nil {
+		return fmt.Errorf("authUseCase.ResendResetCode generate: %w", err)
+	}
+	codeHash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("authUseCase.ResendResetCode hash: %w", err)
+	}
+	record := &entity.PasswordResetCode{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		Code:      string(codeHash),
+		ExpiresAt: time.Now().Add(5 * time.Minute),
+		CreatedAt: time.Now(),
+	}
+	if err := u.resetRepo.Save(ctx, record); err != nil {
+		return fmt.Errorf("authUseCase.ResendResetCode save: %w", err)
+	}
+	if u.emailSender != nil && u.emailSender.Enabled() {
+		_ = u.emailSender.SendPasswordResetCode(user.Email, code)
+	}
 	return nil
 }
 
