@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -33,7 +34,7 @@ func NewHandler(uc domainUseCase.AuthorUseCase) *Handler {
 func (h *Handler) Create(c *gin.Context) {
 	var req createAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -146,7 +147,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateAuthorRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 

@@ -33,7 +33,7 @@ func NewHandler(uc domainUseCase.LibraryBookUseCase) *Handler {
 func (h *Handler) Create(c *gin.Context) {
 	var req createLibraryBookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -172,7 +172,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateLibraryBookRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
@@ -30,7 +31,7 @@ func NewHandler(uc domainUseCase.AuthUseCase) *Handler {
 func (h *Handler) Register(c *gin.Context) {
 	var req registerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -82,7 +83,7 @@ func (h *Handler) Register(c *gin.Context) {
 func (h *Handler) VerifyEmail(c *gin.Context) {
 	var req verifyEmailRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -121,7 +122,7 @@ func (h *Handler) VerifyEmail(c *gin.Context) {
 func (h *Handler) ResendCode(c *gin.Context) {
 	var req resendCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -153,7 +154,7 @@ func (h *Handler) ResendCode(c *gin.Context) {
 func (h *Handler) Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -185,7 +186,7 @@ func (h *Handler) Login(c *gin.Context) {
 func (h *Handler) Logout(c *gin.Context) {
 	var req logoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -209,7 +210,7 @@ func (h *Handler) Logout(c *gin.Context) {
 func (h *Handler) RefreshToken(c *gin.Context) {
 	var req refreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -236,7 +237,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 func (h *Handler) ForgotPassword(c *gin.Context) {
 	var req forgotPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -255,7 +256,7 @@ func (h *Handler) ForgotPassword(c *gin.Context) {
 func (h *Handler) ResendResetCode(c *gin.Context) {
 	var req resendResetCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -275,7 +276,7 @@ func (h *Handler) ResendResetCode(c *gin.Context) {
 func (h *Handler) ResetPassword(c *gin.Context) {
 	var req resetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -307,7 +308,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 func (h *Handler) LoginWithGoogle(c *gin.Context) {
 	var req googleLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 

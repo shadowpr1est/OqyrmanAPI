@@ -37,7 +37,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 	var req createReservationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -203,7 +203,7 @@ func (h *Handler) Extend(c *gin.Context) {
 
 	var req extendReservationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -421,7 +421,7 @@ func (h *Handler) StaffUpdateStatus(c *gin.Context) {
 
 	var req updateStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 
@@ -456,7 +456,7 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 
 	var req updateStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": common.ValidationError(err)})
 		return
 	}
 

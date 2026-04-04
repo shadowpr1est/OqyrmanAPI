@@ -32,7 +32,8 @@
       "Read(//c/Users/sem1c/go/pkg/mod/cache/download/github.com/openai/openai-go/@v/**)",
       "Bash(git pull:*)",
       "Bash(git stash:*)",
-      "Bash(go version:*)"
+      "Bash(go version:*)",
+      "Bash(go mod:*)"
     ]
   }
 }
