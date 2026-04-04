@@ -37,9 +37,13 @@ var (
 	// Handler должен вернуть 409 Conflict.
 	ErrFileLimitExceeded = errors.New("file limit exceeded for this book")
 
-	// ErrEmailTaken — email уже занят другим пользователем.
+	// ErrEmailTaken — email уже занят верифицированным пользователем.
 	// Handler должен вернуть 409 Conflict.
 	ErrEmailTaken = errors.New("email already taken")
+
+	// ErrPhoneTaken — телефон уже занят верифицированным пользователем.
+	// Handler должен вернуть 409 Conflict.
+	ErrPhoneTaken = errors.New("phone already taken")
 
 	// ErrActiveReservationsExist — нельзя удалить запись библиотечной книги,
 	// пока есть активные или ожидающие резервации.

@@ -62,14 +62,6 @@ func NewAuthUseCase(
 }
 
 func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.User, error) {
-	existing, err := u.userRepo.GetByEmail(ctx, user.Email)
-	if err != nil && !errors.Is(err, entity.ErrNotFound) {
-		return nil, fmt.Errorf("authUseCase.Register lookup: %w", err)
-	}
-	if existing != nil {
-		return nil, entity.ErrEmailTaken
-	}
-
 	if err := validateEmail(user.Email); err != nil {
 		return nil, err
 	}
@@ -81,6 +73,27 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 		return nil, err
 	}
 	user.Phone = normalized
+
+	// Если email уже занят — разрешаем перерегистрацию только если аккаунт не верифицирован
+	if existing, err := u.userRepo.GetByEmail(ctx, user.Email); err == nil {
+		if existing.EmailVerified {
+			return nil, entity.ErrEmailTaken
+		}
+		// Неверифицированный — удаляем, чтобы освободить email и телефон
+		_ = u.userRepo.HardDelete(ctx, existing.ID)
+	} else if !errors.Is(err, entity.ErrNotFound) {
+		return nil, fmt.Errorf("authUseCase.Register lookup email: %w", err)
+	}
+
+	// Если телефон занят — аналогичная логика
+	if existing, err := u.userRepo.GetByPhone(ctx, user.Phone); err == nil {
+		if existing.EmailVerified {
+			return nil, entity.ErrPhoneTaken
+		}
+		_ = u.userRepo.HardDelete(ctx, existing.ID)
+	} else if !errors.Is(err, entity.ErrNotFound) {
+		return nil, fmt.Errorf("authUseCase.Register lookup phone: %w", err)
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
 	if err != nil {

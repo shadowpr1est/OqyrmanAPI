@@ -47,6 +47,10 @@ func (h *Handler) Register(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})
 			return
 		}
+		if errors.Is(err, entity.ErrPhoneTaken) {
+			c.JSON(http.StatusConflict, gin.H{"error": "phone already taken"})
+			return
+		}
 		if errors.Is(err, entity.ErrValidation) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return

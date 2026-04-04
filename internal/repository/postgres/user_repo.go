@@ -265,6 +265,28 @@ func (r *userRepo) AdminUpdate(
 	return &view, nil
 }
 
+func (r *userRepo) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
+	var user entity.User
+	err := r.db.GetContext(ctx, &user,
+		`SELECT * FROM users WHERE phone = $1 AND deleted_at IS NULL`, phone,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("userRepo.GetByPhone: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *userRepo) HardDelete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("userRepo.HardDelete: %w", err)
+	}
+	return nil
+}
+
 func (r *userRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE users SET password_hash = $1 WHERE id = $2 AND deleted_at IS NULL`,

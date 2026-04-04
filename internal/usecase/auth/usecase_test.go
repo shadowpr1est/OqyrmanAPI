@@ -75,6 +75,12 @@ func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*e
 func (m *mockUserRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
 	return m.Called(ctx, id, passwordHash).Error(0)
 }
+func (m *mockUserRepo) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
+	return nil, entity.ErrNotFound
+}
+func (m *mockUserRepo) HardDelete(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
 
 type mockVerifRepo struct{ mock.Mock }
 
@@ -181,7 +187,7 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	}
 	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
-	existing := &entity.User{ID: uuid.New(), Email: "test@example.com"}
+	existing := &entity.User{ID: uuid.New(), Email: "test@example.com", EmailVerified: true}
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(existing, nil)
 
 	user := &entity.User{

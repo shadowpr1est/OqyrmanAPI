@@ -23,4 +23,8 @@ type UserRepository interface {
 	ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error)
 	// UpdatePassword replaces the password hash for the given user.
 	UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error
+	// GetByPhone returns a user by phone number.
+	GetByPhone(ctx context.Context, phone string) (*entity.User, error)
+	// HardDelete permanently removes a user row (used to release unique constraints on re-registration).
+	HardDelete(ctx context.Context, id uuid.UUID) error
 }
