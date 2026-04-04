@@ -969,6 +969,16 @@ definitions:
       surname:
         type: string
     type: object
+  user.changePasswordRequest:
+    properties:
+      new_password:
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
   user.createStaffRequest:
     properties:
       email:
@@ -991,6 +1001,19 @@ definitions:
     - password
     - phone
     - surname
+    type: object
+  user.sessionResponse:
+    properties:
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      ip:
+        type: string
+      user_agent:
+        type: string
     type: object
   user.updateUserRequest:
     properties:
@@ -3124,6 +3147,18 @@ paths:
       summary: Отметить уведомление как прочитанное
       tags:
       - notifications
+  /notifications/stream:
+    get:
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+      security:
+      - BearerAuth: []
+      summary: SSE — поток уведомлений
+      tags:
+      - notifications
   /reading-sessions:
     get:
       produces:
@@ -3747,6 +3782,31 @@ paths:
       summary: Загрузить аватар пользователя
       tags:
       - users
+  /users/me/change-password:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Текущий и новый пароль
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/user.changePasswordRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Сменить пароль
+      tags:
+      - users
   /users/me/qr:
     get:
       produces:
@@ -3761,6 +3821,53 @@ paths:
       security:
       - BearerAuth: []
       summary: QR-код читательского билета
+      tags:
+      - users
+  /users/me/sessions:
+    delete:
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Отозвать все сессии
+      tags:
+      - users
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/user.sessionResponse'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Список активных сессий
+      tags:
+      - users
+  /users/me/sessions/{id}:
+    delete:
+      parameters:
+      - description: ID сессии
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отозвать сессию
       tags:
       - users
   /users/me/stats:

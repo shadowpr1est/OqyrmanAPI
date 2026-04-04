@@ -9,6 +9,7 @@ import (
 
 type PasswordResetCodeRepository interface {
 	Save(ctx context.Context, code *entity.PasswordResetCode) error
-	GetByUserAndCode(ctx context.Context, userID uuid.UUID, code string) (*entity.PasswordResetCode, error)
+	// GetByUserID возвращает актуальный код для пользователя (для сравнения хеша в usecase).
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*entity.PasswordResetCode, error)
 	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
 }

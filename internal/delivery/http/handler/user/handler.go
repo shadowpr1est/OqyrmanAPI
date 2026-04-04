@@ -385,3 +385,102 @@ func toUserViewResponse(v *entity.UserView) userViewResponse {
 	}
 	return resp
 }
+
+// @Summary     Список активных сессий
+// @Tags        users
+// @Security    BearerAuth
+// @Produce     json
+// @Success     200 {array}  sessionResponse
+// @Router      /users/me/sessions [get]
+func (h *Handler) ListSessions(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	sessions, err := h.uc.ListSessions(c.Request.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	resp := make([]sessionResponse, len(sessions))
+	for i, s := range sessions {
+		resp[i] = toSessionResponse(s)
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// @Summary     Отозвать сессию
+// @Tags        users
+// @Security    BearerAuth
+// @Param       id path string true "ID сессии"
+// @Success     204
+// @Failure     404 {object} map[string]string
+// @Router      /users/me/sessions/{id} [delete]
+func (h *Handler) RevokeSession(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	sessionID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
+		return
+	}
+	if err := h.uc.RevokeSession(c.Request.Context(), sessionID, userID); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Отозвать все сессии
+// @Tags        users
+// @Security    BearerAuth
+// @Success     204
+// @Router      /users/me/sessions [delete]
+func (h *Handler) RevokeAllSessions(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	if err := h.uc.RevokeAllSessions(c.Request.Context(), userID); err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Сменить пароль
+// @Tags        users
+// @Security    BearerAuth
+// @Accept      json
+// @Param       input body changePasswordRequest true "Текущий и новый пароль"
+// @Success     204
+// @Failure     400 {object} map[string]string
+// @Router      /users/me/change-password [post]
+func (h *Handler) ChangePassword(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	var req changePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.uc.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
+		if errors.Is(err, entity.ErrValidation) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func toSessionResponse(t *entity.Token) sessionResponse {
+	return sessionResponse{
+		ID:        t.ID.String(),
+		UserAgent: t.UserAgent,
+		IP:        t.IP,
+		CreatedAt: t.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		ExpiresAt: t.ExpiresAt.Format("2006-01-02T15:04:05Z"),
+	}
+}

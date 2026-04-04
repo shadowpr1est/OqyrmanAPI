@@ -21,4 +21,6 @@ type UserRepository interface {
 
 	// View method — used by admin GET /users; returns joined library data.
 	ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error)
+	// UpdatePassword replaces the password hash for the given user.
+	UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error
 }

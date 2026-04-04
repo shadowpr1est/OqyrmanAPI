@@ -232,7 +232,7 @@ func main() {
 	libraryBookHandler := libraryBookH.NewHandler(libraryBookUseCase)
 	reservHandler := reservationH.NewHandler(reservUseCase)
 	reviewHandler := reviewH.NewHandler(reviewUseCase)
-	notifHandler := notificationH.NewHandler(notifUseCase)
+	notifHandler := notificationH.NewHandler(notifUseCase, notifHub)
 	eventHandler := eventH.NewHandler(eventUseCase)
 
 	ctx, stop := signal.NotifyContext(context.Background(),

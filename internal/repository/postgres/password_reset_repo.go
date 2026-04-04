@@ -36,19 +36,19 @@ func (r *passwordResetCodeRepo) Save(ctx context.Context, code *entity.PasswordR
 	return nil
 }
 
-func (r *passwordResetCodeRepo) GetByUserAndCode(ctx context.Context, userID uuid.UUID, code string) (*entity.PasswordResetCode, error) {
+func (r *passwordResetCodeRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*entity.PasswordResetCode, error) {
 	var c entity.PasswordResetCode
 	err := r.db.GetContext(ctx, &c, `
 		SELECT id, user_id, code, expires_at, created_at
 		FROM password_reset_codes
-		WHERE user_id = $1 AND code = $2`,
-		userID, code,
+		WHERE user_id = $1`,
+		userID,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, entity.ErrResetCodeNotFound
 		}
-		return nil, fmt.Errorf("passwordResetCodeRepo.GetByUserAndCode: %w", err)
+		return nil, fmt.Errorf("passwordResetCodeRepo.GetByUserID: %w", err)
 	}
 	return &c, nil
 }

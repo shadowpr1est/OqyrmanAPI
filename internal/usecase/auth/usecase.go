@@ -132,12 +132,15 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, email, code string) (*dom
 		return nil, entity.ErrAlreadyVerified
 	}
 
-	record, err := u.verifRepo.GetByUserAndCode(ctx, user.ID, code)
+	record, err := u.verifRepo.GetByUserID(ctx, user.ID)
 	if err != nil {
-		return nil, err // ErrCodeNotFound
+		return nil, entity.ErrCodeNotFound
 	}
 	if time.Now().After(record.ExpiresAt) {
 		_ = u.verifRepo.DeleteByUserID(ctx, user.ID)
+		return nil, entity.ErrCodeNotFound
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(record.Code), []byte(code)); err != nil {
 		return nil, entity.ErrCodeNotFound
 	}
 
@@ -202,10 +205,14 @@ func (u *authUseCase) sendCode(ctx context.Context, user *entity.User) error {
 		return fmt.Errorf("authUseCase.sendCode generate: %w", err)
 	}
 
+	codeHash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("authUseCase.sendCode hash: %w", err)
+	}
 	record := &entity.EmailVerificationCode{
 		ID:        uuid.New(),
 		UserID:    user.ID,
-		Code:      code,
+		Code:      string(codeHash),
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 		CreatedAt: time.Now(),
 	}
@@ -263,10 +270,14 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 		return fmt.Errorf("authUseCase.ForgotPassword generate: %w", err)
 	}
 
+	codeHash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("authUseCase.ForgotPassword hash: %w", err)
+	}
 	record := &entity.PasswordResetCode{
 		ID:        uuid.New(),
 		UserID:    user.ID,
-		Code:      code,
+		Code:      string(codeHash),
 		ExpiresAt: time.Now().Add(15 * time.Minute),
 		CreatedAt: time.Now(),
 	}
@@ -293,12 +304,15 @@ func (u *authUseCase) ResetPassword(ctx context.Context, email, code, newPasswor
 		return errors.New("invalid or expired code")
 	}
 
-	record, err := u.resetRepo.GetByUserAndCode(ctx, user.ID, code)
+	record, err := u.resetRepo.GetByUserID(ctx, user.ID)
 	if err != nil {
 		return entity.ErrResetCodeNotFound
 	}
 	if time.Now().After(record.ExpiresAt) {
 		_ = u.resetRepo.DeleteByUserID(ctx, user.ID)
+		return entity.ErrResetCodeNotFound
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(record.Code), []byte(code)); err != nil {
 		return entity.ErrResetCodeNotFound
 	}
 
@@ -307,8 +321,7 @@ func (u *authUseCase) ResetPassword(ctx context.Context, email, code, newPasswor
 		return err
 	}
 
-	user.PasswordHash = string(hash)
-	if _, err := u.userRepo.Update(ctx, user); err != nil {
+	if err := u.userRepo.UpdatePassword(ctx, user.ID, string(hash)); err != nil {
 		return fmt.Errorf("authUseCase.ResetPassword update: %w", err)
 	}
 

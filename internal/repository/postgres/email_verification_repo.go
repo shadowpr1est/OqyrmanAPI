@@ -36,19 +36,19 @@ func (r *emailVerificationCodeRepo) Save(ctx context.Context, code *entity.Email
 	return nil
 }
 
-func (r *emailVerificationCodeRepo) GetByUserAndCode(ctx context.Context, userID uuid.UUID, code string) (*entity.EmailVerificationCode, error) {
+func (r *emailVerificationCodeRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*entity.EmailVerificationCode, error) {
 	var c entity.EmailVerificationCode
 	err := r.db.GetContext(ctx, &c, `
 		SELECT id, user_id, code, expires_at, created_at
 		FROM email_verification_codes
-		WHERE user_id = $1 AND code = $2`,
-		userID, code,
+		WHERE user_id = $1`,
+		userID,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, entity.ErrCodeNotFound
 		}
-		return nil, fmt.Errorf("emailVerificationCodeRepo.GetByUserAndCode: %w", err)
+		return nil, fmt.Errorf("emailVerificationCodeRepo.GetByUserID: %w", err)
 	}
 	return &c, nil
 }

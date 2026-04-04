@@ -69,6 +69,9 @@ func (m *mockUserRepo) SetGoogleID(ctx context.Context, id uuid.UUID, googleID s
 func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
 	return nil, 0, nil
 }
+func (m *mockUserRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	return m.Called(ctx, id, passwordHash).Error(0)
+}
 
 // ─── AdminUpdateUser ──────────────────────────────────────────────────────────
 

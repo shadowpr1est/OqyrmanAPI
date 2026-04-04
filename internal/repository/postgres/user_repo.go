@@ -264,3 +264,18 @@ func (r *userRepo) AdminUpdate(
 
 	return &view, nil
 }
+
+func (r *userRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE users SET password_hash = $1 WHERE id = $2 AND deleted_at IS NULL`,
+		passwordHash, id,
+	)
+	if err != nil {
+		return fmt.Errorf("userRepo.UpdatePassword: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return entity.ErrNotFound
+	}
+	return nil
+}

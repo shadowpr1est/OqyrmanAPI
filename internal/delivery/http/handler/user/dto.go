@@ -52,3 +52,16 @@ type userViewResponse struct {
 	LibraryName string  `json:"library_name,omitempty"`
 	CreatedAt   string  `json:"created_at"`
 }
+
+type sessionResponse struct {
+	ID        string `json:"id"`
+	UserAgent string `json:"user_agent"`
+	IP        string `json:"ip"`
+	CreatedAt string `json:"created_at"`
+	ExpiresAt string `json:"expires_at"`
+}
+
+type changePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}

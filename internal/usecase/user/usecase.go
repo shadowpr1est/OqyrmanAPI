@@ -148,6 +148,24 @@ func (u *userUseCase) RevokeAllSessions(ctx context.Context, userID uuid.UUID) e
 	return u.tokenRepo.DeleteAllByUserID(ctx, userID)
 }
 
+func (u *userUseCase) ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error {
+	user, err := u.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+		return fmt.Errorf("%w: incorrect current password", entity.ErrValidation)
+	}
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return u.userRepo.UpdatePassword(ctx, userID, string(hash))
+}
+
 func (u *userUseCase) UploadAvatar(ctx context.Context, id uuid.UUID, avatar *fileupload.File) (*entity.User, error) {
 	if u.storage == nil {
 		return nil, errors.New("file storage is not configured")

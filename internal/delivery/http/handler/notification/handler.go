@@ -1,8 +1,10 @@
 package notification
 
 import (
-	"log/slog"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -13,12 +15,18 @@ import (
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
 
-type Handler struct {
-	uc domainUseCase.NotificationUseCase
+// Subscriber is satisfied by *hub.NotificationHub.
+type Subscriber interface {
+	Subscribe(userID uuid.UUID) (connID string, ch <-chan *entity.Notification, cancel func())
 }
 
-func NewHandler(uc domainUseCase.NotificationUseCase) *Handler {
-	return &Handler{uc: uc}
+type Handler struct {
+	uc  domainUseCase.NotificationUseCase
+	hub Subscriber // nil → SSE endpoint returns 503
+}
+
+func NewHandler(uc domainUseCase.NotificationUseCase, hub Subscriber) *Handler {
+	return &Handler{uc: uc, hub: hub}
 }
 
 // @Summary     Мои уведомления
@@ -133,4 +141,46 @@ func toNotificationResponse(n *entity.Notification) notificationResponse {
 		resp.ReadAt = &t
 	}
 	return resp
+}
+
+// @Summary     SSE — поток уведомлений
+// @Tags        notifications
+// @Security    BearerAuth
+// @Produce     text/event-stream
+// @Success     200
+// @Router      /notifications/stream [get]
+func (h *Handler) Stream(c *gin.Context) {
+	if h.hub == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "SSE not available"})
+		return
+	}
+
+	userID := middleware.GetUserID(c)
+	_, ch, cancel := h.hub.Subscribe(userID)
+	defer cancel()
+
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("X-Accel-Buffering", "no")
+	c.Writer.WriteHeader(http.StatusOK)
+	c.Writer.Flush()
+
+	ctx := c.Request.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case n, ok := <-ch:
+			if !ok {
+				return
+			}
+			data, err := json.Marshal(toNotificationResponse(n))
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(c.Writer, "data: %s\n\n", data)
+			c.Writer.Flush()
+		}
+	}
 }

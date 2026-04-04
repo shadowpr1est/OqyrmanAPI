@@ -213,6 +213,10 @@ func (r *Router) Init() *gin.Engine {
 			protected.POST("/users/me/avatar", r.user.UploadAvatar)
 			protected.GET("/users/me/qr", r.user.GetQR)
 			protected.GET("/users/me/stats", r.stats.GetUserStats)
+			protected.POST("/users/me/change-password", r.user.ChangePassword)
+			protected.GET("/users/me/sessions", r.user.ListSessions)
+			protected.DELETE("/users/me/sessions/:id", r.user.RevokeSession)
+			protected.DELETE("/users/me/sessions", r.user.RevokeAllSessions)
 
 			// book files — детальные данные только для авторизованных
 			protected.GET("/book-files/:id", r.bookFile.GetByID)
@@ -251,6 +255,7 @@ func (r *Router) Init() *gin.Engine {
 
 			// notifications
 			protected.GET("/notifications", r.notification.ListMy)
+			protected.GET("/notifications/stream", r.notification.Stream)
 			protected.PATCH("/notifications/:id/read", r.notification.MarkRead)
 			protected.DELETE("/notifications/:id", r.notification.Delete)
 

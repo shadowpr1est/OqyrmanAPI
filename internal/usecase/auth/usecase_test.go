@@ -72,14 +72,17 @@ func (m *mockUserRepo) SetGoogleID(ctx context.Context, id uuid.UUID, googleID s
 func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
 	return nil, 0, nil
 }
+func (m *mockUserRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	return m.Called(ctx, id, passwordHash).Error(0)
+}
 
 type mockVerifRepo struct{ mock.Mock }
 
 func (m *mockVerifRepo) Save(ctx context.Context, code *entity.EmailVerificationCode) error {
 	return m.Called(ctx, code).Error(0)
 }
-func (m *mockVerifRepo) GetByUserAndCode(ctx context.Context, userID uuid.UUID, code string) (*entity.EmailVerificationCode, error) {
-	args := m.Called(ctx, userID, code)
+func (m *mockVerifRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*entity.EmailVerificationCode, error) {
+	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

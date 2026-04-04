@@ -23,4 +23,6 @@ type UserUseCase interface {
 	ListSessions(ctx context.Context, userID uuid.UUID) ([]*entity.Token, error)
 	RevokeSession(ctx context.Context, sessionID, userID uuid.UUID) error
 	RevokeAllSessions(ctx context.Context, userID uuid.UUID) error
+	// ChangePassword verifies oldPassword and sets newPassword.
+	ChangePassword(ctx context.Context, userID uuid.UUID, oldPassword, newPassword string) error
 }
