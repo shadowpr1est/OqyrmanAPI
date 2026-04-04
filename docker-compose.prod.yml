@@ -37,6 +37,16 @@ services:
     networks:
       - oqyrman_net
 
+  frontend:
+    build:
+      context: ../Oqyrman-frontend
+      dockerfile: Dockerfile
+    container_name: oqyrman_frontend
+    expose:
+      - "80"
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
 
   migrate:
     image: migrate/migrate:latest
@@ -126,6 +136,7 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - app
+      - frontend
 
     restart: unless-stopped
     networks:
