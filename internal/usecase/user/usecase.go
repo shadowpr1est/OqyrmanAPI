@@ -17,16 +17,18 @@ import (
 	domainStorage "github.com/shadowpr1est/OqyrmanAPI/internal/domain/storage"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/phone"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type userUseCase struct {
-	userRepo repository.UserRepository
-	storage  domainStorage.FileStorage
+	userRepo  repository.UserRepository
+	tokenRepo repository.TokenRepository
+	storage   domainStorage.FileStorage
 }
 
-func NewUserUseCase(userRepo repository.UserRepository, storage domainStorage.FileStorage) domainUseCase.UserUseCase {
-	return &userUseCase{userRepo: userRepo, storage: storage}
+func NewUserUseCase(userRepo repository.UserRepository, tokenRepo repository.TokenRepository, storage domainStorage.FileStorage) domainUseCase.UserUseCase {
+	return &userUseCase{userRepo: userRepo, tokenRepo: tokenRepo, storage: storage}
 }
 
 func (u *userUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
@@ -96,8 +98,12 @@ func validatePassword(p string) error {
 	return nil
 }
 
-func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, surname, phone string, libraryID uuid.UUID) (*entity.UserView, error) {
+func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, surname, rawPhone string, libraryID uuid.UUID) (*entity.UserView, error) {
 	if err := validatePassword(password); err != nil {
+		return nil, err
+	}
+	normalizedPhone, err := phone.Normalize(rawPhone)
+	if err != nil {
 		return nil, err
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -111,7 +117,7 @@ func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, su
 		PasswordHash: string(hash),
 		Name:         name,
 		Surname:      surname,
-		Phone:        phone,
+		Phone:        normalizedPhone,
 		Role:         entity.RoleStaff,
 		LibraryID:    &libraryID,
 		QRCode:       uuid.New().String(),
@@ -128,6 +134,18 @@ func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, su
 
 	// Возвращаем UserView с именем библиотеки
 	return u.userRepo.AdminUpdate(ctx, user.ID, nil, nil, nil, nil, nil, nil)
+}
+
+func (u *userUseCase) ListSessions(ctx context.Context, userID uuid.UUID) ([]*entity.Token, error) {
+	return u.tokenRepo.ListByUserID(ctx, userID)
+}
+
+func (u *userUseCase) RevokeSession(ctx context.Context, sessionID, userID uuid.UUID) error {
+	return u.tokenRepo.DeleteByID(ctx, sessionID, userID)
+}
+
+func (u *userUseCase) RevokeAllSessions(ctx context.Context, userID uuid.UUID) error {
+	return u.tokenRepo.DeleteAllByUserID(ctx, userID)
 }
 
 func (u *userUseCase) UploadAvatar(ctx context.Context, id uuid.UUID, avatar *fileupload.File) (*entity.User, error) {

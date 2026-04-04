@@ -3,27 +3,32 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ─── Users ────────────────────────────────────────────────────────────────────
 CREATE TABLE users (
-    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    email         VARCHAR(255) NOT NULL UNIQUE,
-    phone         VARCHAR(20)  NOT NULL UNIQUE,
-    password_hash TEXT         NOT NULL,
-    name          VARCHAR(100) NOT NULL DEFAULT '',
-    surname       VARCHAR(100) NOT NULL DEFAULT '',
-    avatar_url    TEXT         NOT NULL DEFAULT '',
-    role          VARCHAR(20)  NOT NULL DEFAULT 'User',
-    library_id    UUID,        -- NULL для admin/user, NOT NULL для staff (constraint ниже)
-    qr_code       TEXT         NOT NULL DEFAULT '',
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ
+    id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    email             VARCHAR(255) NOT NULL UNIQUE,
+    phone             VARCHAR(20)  NOT NULL UNIQUE,
+    password_hash     TEXT         NOT NULL,
+    name              VARCHAR(100) NOT NULL DEFAULT '',
+    surname           VARCHAR(100) NOT NULL DEFAULT '',
+    avatar_url        TEXT         NOT NULL DEFAULT '',
+    role              VARCHAR(20)  NOT NULL DEFAULT 'User',
+    library_id        UUID,        -- NULL для admin/user, NOT NULL для staff (constraint ниже)
+    qr_code           TEXT         NOT NULL DEFAULT '',
+    email_verified    BOOLEAN      NOT NULL DEFAULT false,
+    email_verified_at TIMESTAMPTZ,
+    google_id         TEXT         UNIQUE,
+    created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at        TIMESTAMPTZ
 );
 
 -- ─── Tokens ───────────────────────────────────────────────────────────────────
 CREATE TABLE tokens (
-    id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id       UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    refresh_token TEXT        NOT NULL UNIQUE,
-    expires_at    TIMESTAMPTZ NOT NULL,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token TEXT         NOT NULL UNIQUE,
+    expires_at    TIMESTAMPTZ  NOT NULL,
+    user_agent    TEXT         NOT NULL DEFAULT '',
+    ip            VARCHAR(45)  NOT NULL DEFAULT '',
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
 -- ─── Authors ──────────────────────────────────────────────────────────────────
@@ -65,8 +70,6 @@ CREATE TABLE books (
 );
 
 -- ─── Book files ───────────────────────────────────────────────────────────────
--- Constraint uq_book_file_type enforces max 1 audio + 1 document file per book.
--- Application-level check (magic bytes, size) happens in the usecase before insert.
 CREATE TABLE book_files (
     id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     book_id  UUID        NOT NULL REFERENCES books(id) ON DELETE CASCADE,
@@ -194,6 +197,44 @@ CREATE TABLE events (
     deleted_at  TIMESTAMPTZ
 );
 
+-- ─── Email verification codes ─────────────────────────────────────────────────
+CREATE TABLE email_verification_codes (
+    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code       CHAR(6) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id)
+);
+
+-- ─── Password reset codes ─────────────────────────────────────────────────────
+CREATE TABLE password_reset_codes (
+    id         UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID    NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code       CHAR(6) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id)
+);
+
+-- ─── Conversations ────────────────────────────────────────────────────────────
+CREATE TABLE conversations (
+    id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title      VARCHAR(255) NOT NULL DEFAULT 'Новый чат',
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+-- ─── Chat messages ────────────────────────────────────────────────────────────
+CREATE TABLE chat_messages (
+    id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID        NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role            VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant')),
+    content         TEXT        NOT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- ─── Indexes ──────────────────────────────────────────────────────────────────
 
 -- users
@@ -236,3 +277,12 @@ CREATE INDEX idx_books_title_trgm       ON books   USING GIN (title       gin_tr
 CREATE INDEX idx_books_description_trgm ON books   USING GIN (description gin_trgm_ops) WHERE deleted_at IS NULL;
 CREATE INDEX idx_authors_name_trgm      ON authors USING GIN (name        gin_trgm_ops) WHERE deleted_at IS NULL;
 CREATE INDEX idx_genres_slug            ON genres  (slug) WHERE deleted_at IS NULL;
+
+-- email verification & password reset
+CREATE INDEX idx_email_verification_codes_user_id ON email_verification_codes(user_id);
+CREATE INDEX idx_password_reset_codes_user_id     ON password_reset_codes(user_id);
+
+-- conversations & chat
+CREATE INDEX idx_conversations_user_id    ON conversations(user_id);
+CREATE INDEX idx_chat_messages_conv_id    ON chat_messages(conversation_id);
+CREATE INDEX idx_chat_messages_created_at ON chat_messages(conversation_id, created_at);

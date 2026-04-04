@@ -1,9 +1,73 @@
 basePath: /api/v1
 definitions:
+  ai.conversationDetailResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/ai.messageDTO'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  ai.conversationListItem:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  ai.createConversationResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  ai.messageDTO:
+    properties:
+      content:
+        type: string
+      conversation_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+    type: object
   ai.recommendResponse:
     properties:
       recommendations:
         type: string
+    type: object
+  ai.sendMessageRequest:
+    properties:
+      message:
+        type: string
+    required:
+    - message
+    type: object
+  ai.sendMessageResponse:
+    properties:
+      ai_message:
+        $ref: '#/definitions/ai.messageDTO'
+      user_message:
+        $ref: '#/definitions/ai.messageDTO'
     type: object
   auth.authUserResponse:
     properties:
@@ -19,6 +83,20 @@ definitions:
         type: string
       surname:
         type: string
+    type: object
+  auth.forgotPasswordRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  auth.googleLoginRequest:
+    properties:
+      id_token:
+        type: string
+    required:
+    - id_token
     type: object
   auth.loginRequest:
     properties:
@@ -64,6 +142,34 @@ definitions:
     - phone
     - surname
     type: object
+  auth.registerResponse:
+    properties:
+      message:
+        type: string
+      user_id:
+        type: string
+    type: object
+  auth.resendCodeRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  auth.resetPasswordRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+    required:
+    - code
+    - email
+    - new_password
+    type: object
   auth.tokenResponse:
     properties:
       access_token:
@@ -72,6 +178,16 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/auth.authUserResponse'
+    type: object
+  auth.verifyEmailRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+    required:
+    - code
+    - email
     type: object
   author.authorResponse:
     properties:
@@ -682,23 +798,6 @@ definitions:
         type: string
     required:
     - due_date
-    type: object
-  reservation.reservationResponse:
-    properties:
-      due_date:
-        type: string
-      id:
-        type: string
-      library_book_id:
-        type: string
-      reserved_at:
-        type: string
-      returned_at:
-        type: string
-      status:
-        type: string
-      user_id:
-        type: string
     type: object
   reservation.reservationViewResponse:
     properties:
@@ -1824,6 +1923,207 @@ paths:
       summary: Создать сотрудника (admin)
       tags:
       - users
+  /ai/conversations:
+    get:
+      description: Возвращает все беседы текущего пользователя
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/ai.conversationListItem'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Список бесед
+      tags:
+      - ai
+    post:
+      description: Создаёт новую беседу с AI ассистентом
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/ai.createConversationResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать беседу
+      tags:
+      - ai
+  /ai/conversations/{id}:
+    delete:
+      description: Удаляет беседу и все её сообщения
+      parameters:
+      - description: ID беседы
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Удалить беседу
+      tags:
+      - ai
+    get:
+      description: Возвращает беседу вместе со всеми сообщениями
+      parameters:
+      - description: ID беседы
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.conversationDetailResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Получить беседу
+      tags:
+      - ai
+  /ai/conversations/{id}/messages:
+    post:
+      consumes:
+      - application/json
+      description: Отправляет сообщение в беседу и получает ответ AI
+      parameters:
+      - description: ID беседы
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Сообщение
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/ai.sendMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.sendMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отправить сообщение
+      tags:
+      - ai
   /ai/recommend:
     post:
       description: Генерирует рекомендации на основе истории чтения и вишлиста пользователя
@@ -1851,6 +2151,56 @@ paths:
       summary: Персональные рекомендации книг
       tags:
       - ai
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.forgotPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Забыл пароль
+      tags:
+      - auth
+  /auth/google:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Google ID token
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.googleLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.tokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Вход через Google
+      tags:
+      - auth
   /auth/login:
     post:
       consumes:
@@ -1871,6 +2221,12 @@ paths:
             $ref: '#/definitions/auth.tokenResponse'
         "401":
           description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties:
               type: string
@@ -1947,6 +2303,103 @@ paths:
         "201":
           description: Created
           schema:
+            $ref: '#/definitions/auth.registerResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Регистрация
+      tags:
+      - auth
+  /auth/resend-code:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.resendCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Повторно отправить код
+      tags:
+      - auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email, код и новый пароль
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.resetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Сброс пароля
+      tags:
+      - auth
+  /auth/verify-email:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email и 6-значный код
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.verifyEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
             $ref: '#/definitions/auth.tokenResponse'
         "400":
           description: Bad Request
@@ -1954,7 +2407,13 @@ paths:
             additionalProperties:
               type: string
             type: object
-      summary: Регистрация
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Подтвердить email
       tags:
       - auth
   /authors:
@@ -2780,7 +3239,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/reservation.reservationResponse'
+            $ref: '#/definitions/reservation.reservationViewResponse'
         "400":
           description: Bad Request
           schema:
@@ -2874,7 +3333,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/reservation.reservationResponse'
+            $ref: '#/definitions/reservation.reservationViewResponse'
         "400":
           description: Bad Request
           schema:

@@ -12,4 +12,7 @@ type TokenRepository interface {
 	GetByRefreshToken(ctx context.Context, refreshToken string) (*entity.Token, error)
 	DeleteByRefreshToken(ctx context.Context, refreshToken string) error
 	DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error
+	// Session management
+	ListByUserID(ctx context.Context, userID uuid.UUID) ([]*entity.Token, error)
+	DeleteByID(ctx context.Context, id, userID uuid.UUID) error
 }

@@ -60,8 +60,49 @@ func (m *mockUserRepo) AdminUpdate(ctx context.Context, id uuid.UUID, role *enti
 func (m *mockUserRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, url string) error {
 	return m.Called(ctx, id, url).Error(0)
 }
+func (m *mockUserRepo) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (m *mockUserRepo) GetByGoogleID(ctx context.Context, googleID string) (*entity.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) SetGoogleID(ctx context.Context, id uuid.UUID, googleID string) error {
+	return nil
+}
 func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
 	return nil, 0, nil
+}
+
+type mockVerifRepo struct{ mock.Mock }
+
+func (m *mockVerifRepo) Save(ctx context.Context, code *entity.EmailVerificationCode) error {
+	return m.Called(ctx, code).Error(0)
+}
+func (m *mockVerifRepo) GetByUserAndCode(ctx context.Context, userID uuid.UUID, code string) (*entity.EmailVerificationCode, error) {
+	args := m.Called(ctx, userID, code)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.EmailVerificationCode), args.Error(1)
+}
+func (m *mockVerifRepo) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
+	return m.Called(ctx, userID).Error(0)
+}
+
+type mockResetRepo struct{ mock.Mock }
+
+func (m *mockResetRepo) Save(ctx context.Context, code *entity.PasswordResetCode) error {
+	return m.Called(ctx, code).Error(0)
+}
+func (m *mockResetRepo) GetByUserAndCode(ctx context.Context, userID uuid.UUID, code string) (*entity.PasswordResetCode, error) {
+	args := m.Called(ctx, userID, code)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.PasswordResetCode), args.Error(1)
+}
+func (m *mockResetRepo) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
+	return m.Called(ctx, userID).Error(0)
 }
 
 type mockTokenRepo struct{ mock.Mock }
@@ -78,6 +119,12 @@ func (m *mockTokenRepo) GetByRefreshToken(ctx context.Context, token string) (*e
 }
 func (m *mockTokenRepo) DeleteByRefreshToken(ctx context.Context, token string) error {
 	return m.Called(ctx, token).Error(0)
+}
+func (m *mockTokenRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*entity.Token, error) {
+	return nil, nil
+}
+func (m *mockTokenRepo) DeleteByID(ctx context.Context, id, userID uuid.UUID) error {
+	return nil
 }
 func (m *mockTokenRepo) DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error {
 	return m.Called(ctx, userID).Error(0)
@@ -97,15 +144,17 @@ func hashPassword(t *testing.T, password string) string {
 func TestRegister_Success(t *testing.T) {
 	userRepo := new(mockUserRepo)
 	tokenRepo := new(mockTokenRepo)
+	verifRepo := new(mockVerifRepo)
 	jwtManager, jwtErr := jwt.NewManager("test-secret-key-32-bytes-minimum!", 60)
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, verifRepo, nil, nil, jwtManager, "", 30)
 
+	createdUser := &entity.User{ID: uuid.New(), Email: "test@example.com"}
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
-	userRepo.On("Create", mock.Anything, mock.AnythingOfType("*entity.User")).
-		Return(&entity.User{ID: uuid.New(), Email: "test@example.com"}, nil)
+	userRepo.On("Create", mock.Anything, mock.AnythingOfType("*entity.User")).Return(createdUser, nil)
+	verifRepo.On("Save", mock.Anything, mock.AnythingOfType("*entity.EmailVerificationCode")).Return(nil)
 
 	user := &entity.User{
 		Email:        "test@example.com",
@@ -117,6 +166,7 @@ func TestRegister_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	userRepo.AssertExpectations(t)
+	verifRepo.AssertExpectations(t)
 }
 
 func TestRegister_EmailAlreadyExists(t *testing.T) {
@@ -126,7 +176,7 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	existing := &entity.User{ID: uuid.New(), Email: "test@example.com"}
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(existing, nil)
@@ -150,7 +200,7 @@ func TestRegister_PasswordTooShort(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
@@ -171,7 +221,7 @@ func TestRegister_PasswordNoUppercase(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
@@ -192,7 +242,7 @@ func TestRegister_PasswordNoDigit(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
@@ -215,12 +265,12 @@ func TestLogin_Success(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	userID := uuid.New()
 	hashedPw := hashPassword(t, "Password1")
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(
-		&entity.User{ID: userID, Email: "test@example.com", PasswordHash: hashedPw, Role: entity.RoleUser},
+		&entity.User{ID: userID, Email: "test@example.com", PasswordHash: hashedPw, Role: entity.RoleUser, EmailVerified: true},
 		nil,
 	)
 	tokenRepo.On("Save", mock.Anything, mock.AnythingOfType("*entity.Token")).Return(nil)
@@ -241,7 +291,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "noone@example.com").Return(nil, errors.New("not found"))
 
@@ -258,7 +308,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	hashedPw := hashPassword(t, "CorrectPassword1")
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(
@@ -281,7 +331,7 @@ func TestLogout_Success(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	tokenRepo.On("DeleteByRefreshToken", mock.Anything, "some-refresh-token").Return(nil)
 
@@ -300,7 +350,7 @@ func TestRefreshToken_Success(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	userID := uuid.New()
 	existingToken := &entity.Token{
@@ -332,7 +382,7 @@ func TestRefreshToken_Expired(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	expiredToken := &entity.Token{
 		ID:           uuid.New(),
@@ -355,7 +405,7 @@ func TestRefreshToken_InvalidToken(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, jwtManager, 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
 
 	_ = userRepo // не используется в этом тесте
 

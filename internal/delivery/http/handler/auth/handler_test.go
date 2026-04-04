@@ -44,6 +44,29 @@ func (m *mockAuthUseCase) RefreshToken(ctx context.Context, refreshToken string)
 	}
 	return args.Get(0).(*domainUseCase.TokenPair), args.Error(1)
 }
+func (m *mockAuthUseCase) SendVerificationCode(ctx context.Context, email string) error {
+	return m.Called(ctx, email).Error(0)
+}
+func (m *mockAuthUseCase) VerifyEmail(ctx context.Context, email, code string) (*domainUseCase.TokenPair, error) {
+	args := m.Called(ctx, email, code)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domainUseCase.TokenPair), args.Error(1)
+}
+func (m *mockAuthUseCase) ForgotPassword(ctx context.Context, email string) error {
+	return m.Called(ctx, email).Error(0)
+}
+func (m *mockAuthUseCase) ResetPassword(ctx context.Context, email, code, newPassword string) error {
+	return m.Called(ctx, email, code, newPassword).Error(0)
+}
+func (m *mockAuthUseCase) LoginWithGoogle(ctx context.Context, idToken string) (*domainUseCase.TokenPair, error) {
+	args := m.Called(ctx, idToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domainUseCase.TokenPair), args.Error(1)
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,14 +105,13 @@ func TestRegister_Success(t *testing.T) {
 
 	user := &entity.User{ID: uuid.New(), Email: "a@b.com"}
 	uc.On("Register", mock.Anything, mock.AnythingOfType("*entity.User")).Return(user, nil)
-	uc.On("Login", mock.Anything, "a@b.com", "Password1").Return(tokenPair, nil)
 
 	w := serve(r, http.MethodPost, "/auth/register",
 		`{"email":"a@b.com","phone":"+77001234567","password":"Password1","name":"Test","surname":"User"}`)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
-	assert.Contains(t, w.Body.String(), "access_token")
-	assert.Contains(t, w.Body.String(), "refresh_token")
+	assert.Contains(t, w.Body.String(), "message")
+	assert.Contains(t, w.Body.String(), "user_id")
 	uc.AssertExpectations(t)
 }
 
@@ -111,27 +133,25 @@ func TestRegister_EmailExists(t *testing.T) {
 	r := newTestRouter(h)
 
 	uc.On("Register", mock.Anything, mock.AnythingOfType("*entity.User")).
-		Return(nil, errors.New("email already exists"))
+		Return(nil, entity.ErrEmailTaken)
 
 	w := serve(r, http.MethodPost, "/auth/register",
-		`{"email":"a@b.com","phone":"+77001234567","password":"Password1"}`)
+		`{"email":"a@b.com","phone":"+77001234567","password":"Password1","name":"Test","surname":"User"}`)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "email already exists")
-	uc.AssertNotCalled(t, "Login")
+	assert.Equal(t, http.StatusConflict, w.Code)
+	assert.Contains(t, w.Body.String(), "email already taken")
 }
 
-func TestRegister_LoginFails(t *testing.T) {
+func TestRegister_InternalError(t *testing.T) {
 	uc := new(mockAuthUseCase)
 	h := NewHandler(uc)
 	r := newTestRouter(h)
 
-	user := &entity.User{ID: uuid.New(), Email: "a@b.com"}
-	uc.On("Register", mock.Anything, mock.AnythingOfType("*entity.User")).Return(user, nil)
-	uc.On("Login", mock.Anything, "a@b.com", "Password1").Return(nil, errors.New("db error"))
+	uc.On("Register", mock.Anything, mock.AnythingOfType("*entity.User")).
+		Return(nil, errors.New("db error"))
 
 	w := serve(r, http.MethodPost, "/auth/register",
-		`{"email":"a@b.com","phone":"+77001234567","password":"Password1"}`)
+		`{"email":"a@b.com","phone":"+77001234567","password":"Password1","name":"Test","surname":"User"}`)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 	assert.Contains(t, w.Body.String(), "internal server error")

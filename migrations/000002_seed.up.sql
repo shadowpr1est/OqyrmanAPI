@@ -1670,3 +1670,5 @@ INSERT INTO reservations (id, user_id, library_book_id, status, reserved_at, due
  NULL)
 
 ON CONFLICT (id) DO NOTHING;
+-- Все seed-пользователи считаются верифицированными
+UPDATE users SET email_verified = true, email_verified_at = now();

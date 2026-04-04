@@ -35,3 +35,31 @@ type tokenResponse struct {
 	RefreshToken string           `json:"refresh_token"`
 	User         authUserResponse `json:"user"`
 }
+
+type verifyEmailRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code"  binding:"required,len=6"`
+}
+
+type resendCodeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type registerResponse struct {
+	Message string `json:"message"`
+	UserID  string `json:"user_id"`
+}
+
+type forgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type resetPasswordRequest struct {
+	Email       string `json:"email"        binding:"required,email"`
+	Code        string `json:"code"         binding:"required,len=6"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+type googleLoginRequest struct {
+	IDToken string `json:"id_token" binding:"required"`
+}

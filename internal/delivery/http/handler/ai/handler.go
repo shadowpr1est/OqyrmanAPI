@@ -5,9 +5,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
+
+const maxMessageLen = 2000
 
 type Handler struct {
 	uc domainUseCase.AIUseCase
@@ -39,38 +43,220 @@ func (h *Handler) Recommend(c *gin.Context) {
 	c.JSON(http.StatusOK, recommendResponse{Recommendations: result})
 }
 
-// @Summary     Чат с книжным ассистентом
-// @Description Отвечает на вопросы пользователя по книгам и чтению
+// @Summary     Создать беседу
+// @Description Создаёт новую беседу с AI ассистентом
+// @Tags        ai
+// @Security    BearerAuth
+// @Produce     json
+// @Success     201 {object} createConversationResponse
+// @Failure     401 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/conversations [post]
+func (h *Handler) CreateConversation(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	conv, err := h.uc.CreateConversation(c.Request.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "create conversation error", "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, createConversationResponse{
+		ID:        conv.ID,
+		Title:     conv.Title,
+		CreatedAt: conv.CreatedAt,
+		UpdatedAt: conv.UpdatedAt,
+	})
+}
+
+// @Summary     Список бесед
+// @Description Возвращает все беседы текущего пользователя
+// @Tags        ai
+// @Security    BearerAuth
+// @Produce     json
+// @Success     200 {array} conversationListItem
+// @Failure     401 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/conversations [get]
+func (h *Handler) ListConversations(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	convs, err := h.uc.ListConversations(c.Request.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "list conversations error", "err", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	items := make([]conversationListItem, len(convs))
+	for i, cv := range convs {
+		items[i] = conversationListItem{
+			ID:        cv.ID,
+			Title:     cv.Title,
+			CreatedAt: cv.CreatedAt,
+			UpdatedAt: cv.UpdatedAt,
+		}
+	}
+	c.JSON(http.StatusOK, items)
+}
+
+// @Summary     Получить беседу
+// @Description Возвращает беседу вместе со всеми сообщениями
+// @Tags        ai
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "ID беседы"
+// @Success     200 {object} conversationDetailResponse
+// @Failure     401 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/conversations/{id} [get]
+func (h *Handler) GetConversation(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid conversation id"})
+		return
+	}
+
+	conv, msgs, err := h.uc.GetConversation(c.Request.Context(), id, userID)
+	if err != nil {
+		switch err {
+		case entity.ErrConversationNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
+		case entity.ErrForbidden:
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		default:
+			slog.ErrorContext(c.Request.Context(), "get conversation error", "err", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		}
+		return
+	}
+
+	msgDTOs := make([]messageDTO, len(msgs))
+	for i, m := range msgs {
+		msgDTOs[i] = messageDTO{
+			ID:             m.ID,
+			ConversationID: m.ConversationID,
+			Role:           m.Role,
+			Content:        m.Content,
+			CreatedAt:      m.CreatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, conversationDetailResponse{
+		ID:        conv.ID,
+		Title:     conv.Title,
+		CreatedAt: conv.CreatedAt,
+		UpdatedAt: conv.UpdatedAt,
+		Messages:  msgDTOs,
+	})
+}
+
+// @Summary     Отправить сообщение
+// @Description Отправляет сообщение в беседу и получает ответ AI
 // @Tags        ai
 // @Security    BearerAuth
 // @Accept      json
 // @Produce     json
-// @Param       input body chatRequest  true "Сообщение пользователя"
-// @Success     200 {object} chatResponse
+// @Param       id    path string          true "ID беседы"
+// @Param       input body sendMessageRequest true "Сообщение"
+// @Success     200 {object} sendMessageResponse
 // @Failure     400 {object} map[string]string
 // @Failure     401 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
 // @Failure     500 {object} map[string]string
-// @Router      /ai/chat [post]
-const maxChatMessageLen = 2000
+// @Router      /ai/conversations/{id}/messages [post]
+func (h *Handler) SendMessage(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 
-func (h *Handler) Chat(c *gin.Context) {
-	var req chatRequest
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid conversation id"})
+		return
+	}
+
+	var req sendMessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if len([]rune(req.Message)) > maxChatMessageLen {
+	if len([]rune(req.Message)) > maxMessageLen {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "message must not exceed 2000 characters"})
 		return
 	}
 
-	result, err := h.uc.Chat(c.Request.Context(), req.Message)
+	userMsg, aiMsg, err := h.uc.SendMessage(c.Request.Context(), id, userID, req.Message)
 	if err != nil {
-		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		switch err {
+		case entity.ErrConversationNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
+		case entity.ErrForbidden:
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		default:
+			slog.ErrorContext(c.Request.Context(), "send message error", "err", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		}
 		return
 	}
 
-	c.JSON(http.StatusOK, chatResponse{Reply: result})
+	c.JSON(http.StatusOK, sendMessageResponse{
+		UserMessage: messageDTO{
+			ID:             userMsg.ID,
+			ConversationID: userMsg.ConversationID,
+			Role:           userMsg.Role,
+			Content:        userMsg.Content,
+			CreatedAt:      userMsg.CreatedAt,
+		},
+		AIMessage: messageDTO{
+			ID:             aiMsg.ID,
+			ConversationID: aiMsg.ConversationID,
+			Role:           aiMsg.Role,
+			Content:        aiMsg.Content,
+			CreatedAt:      aiMsg.CreatedAt,
+		},
+	})
+}
+
+// @Summary     Удалить беседу
+// @Description Удаляет беседу и все её сообщения
+// @Tags        ai
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "ID беседы"
+// @Success     204
+// @Failure     401 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/conversations/{id} [delete]
+func (h *Handler) DeleteConversation(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid conversation id"})
+		return
+	}
+
+	err = h.uc.DeleteConversation(c.Request.Context(), id, userID)
+	if err != nil {
+		switch err {
+		case entity.ErrConversationNotFound:
+			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
+		case entity.ErrForbidden:
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		default:
+			slog.ErrorContext(c.Request.Context(), "delete conversation error", "err", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		}
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }

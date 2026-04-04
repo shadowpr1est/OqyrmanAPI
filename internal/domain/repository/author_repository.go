@@ -14,4 +14,5 @@ type AuthorRepository interface {
 	List(ctx context.Context, limit, offset int) ([]*entity.Author, int, error)
 	Update(ctx context.Context, author *entity.Author) (*entity.Author, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	UpdatePhotoURL(ctx context.Context, id uuid.UUID, url string) error
 }

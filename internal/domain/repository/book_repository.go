@@ -30,4 +30,5 @@ type BookRepository interface {
 	SearchView(ctx context.Context, query string, limit, offset int) ([]*entity.BookView, int, error)
 	ListPopularView(ctx context.Context, limit, offset int) ([]*entity.BookView, int, error)
 	ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error)
+	ListRecommendedView(ctx context.Context, userID uuid.UUID, limit int) ([]*entity.BookView, error)
 }

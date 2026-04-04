@@ -22,8 +22,8 @@ func NewUserRepo(db *sqlx.DB) *userRepo {
 
 func (r *userRepo) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
 	query := `
-		INSERT INTO users (id, email, phone, password_hash, name, surname, avatar_url, role, library_id, qr_code, created_at)
-		VALUES (:id, :email, :phone, :password_hash, :name, :surname, :avatar_url, :role, :library_id, :qr_code, :created_at)
+		INSERT INTO users (id, email, phone, password_hash, name, surname, avatar_url, role, library_id, qr_code, google_id, created_at)
+		VALUES (:id, :email, :phone, :password_hash, :name, :surname, :avatar_url, :role, :library_id, :qr_code, :google_id, :created_at)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, user)
 	if err != nil {
@@ -121,6 +121,34 @@ func (r *userRepo) Delete(ctx context.Context, id uuid.UUID) error {
 		return entity.ErrNotFound
 	}
 	return nil
+}
+
+func (r *userRepo) GetByGoogleID(ctx context.Context, googleID string) (*entity.User, error) {
+	var user entity.User
+	err := r.db.GetContext(ctx, &user,
+		`SELECT * FROM users WHERE google_id = $1 AND deleted_at IS NULL`, googleID,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("userRepo.GetByGoogleID: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *userRepo) SetGoogleID(ctx context.Context, id uuid.UUID, googleID string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET google_id = $1 WHERE id = $2`, googleID, id,
+	)
+	return err
+}
+
+func (r *userRepo) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET email_verified = true, email_verified_at = now() WHERE id = $1`, id,
+	)
+	return err
 }
 
 func (r *userRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, avatarURL string) error {

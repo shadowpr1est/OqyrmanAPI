@@ -57,6 +57,15 @@ func (m *mockUserRepo) AdminUpdate(ctx context.Context, id uuid.UUID, role *enti
 func (m *mockUserRepo) UpdateAvatarURL(ctx context.Context, id uuid.UUID, url string) error {
 	return m.Called(ctx, id, url).Error(0)
 }
+func (m *mockUserRepo) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (m *mockUserRepo) GetByGoogleID(ctx context.Context, googleID string) (*entity.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) SetGoogleID(ctx context.Context, id uuid.UUID, googleID string) error {
+	return nil
+}
 func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
 	return nil, 0, nil
 }
@@ -65,7 +74,7 @@ func (m *mockUserRepo) ListAllView(ctx context.Context, limit, offset int) ([]*e
 
 func TestAdminUpdateUser_StaffWithLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil)
+	uc := user.NewUserUseCase(repo, nil, nil)
 
 	id := uuid.New()
 	libID := uuid.New()
@@ -83,7 +92,7 @@ func TestAdminUpdateUser_StaffWithLibraryID(t *testing.T) {
 
 func TestAdminUpdateUser_StaffWithoutLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil)
+	uc := user.NewUserUseCase(repo, nil, nil)
 
 	role := entity.RoleStaff
 	_, err := uc.AdminUpdateUser(context.Background(), uuid.New(), &role, nil, nil, nil, nil, nil)
@@ -95,7 +104,7 @@ func TestAdminUpdateUser_StaffWithoutLibraryID(t *testing.T) {
 
 func TestAdminUpdateUser_AdminWithoutLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil)
+	uc := user.NewUserUseCase(repo, nil, nil)
 
 	id := uuid.New()
 	role := entity.RoleAdmin
@@ -112,7 +121,7 @@ func TestAdminUpdateUser_AdminWithoutLibraryID(t *testing.T) {
 
 func TestAdminUpdateUser_AdminWithLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil)
+	uc := user.NewUserUseCase(repo, nil, nil)
 
 	libID := uuid.New()
 	role := entity.RoleAdmin
@@ -125,7 +134,7 @@ func TestAdminUpdateUser_AdminWithLibraryID(t *testing.T) {
 
 func TestAdminUpdateUser_UserWithLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil)
+	uc := user.NewUserUseCase(repo, nil, nil)
 
 	libID := uuid.New()
 	role := entity.RoleUser
@@ -138,7 +147,7 @@ func TestAdminUpdateUser_UserWithLibraryID(t *testing.T) {
 
 func TestAdminUpdateUser_UserWithoutLibraryID(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil)
+	uc := user.NewUserUseCase(repo, nil, nil)
 
 	id := uuid.New()
 	role := entity.RoleUser
@@ -155,7 +164,7 @@ func TestAdminUpdateUser_UserWithoutLibraryID(t *testing.T) {
 
 func TestAdminUpdateUser_RepoError(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil)
+	uc := user.NewUserUseCase(repo, nil, nil)
 
 	id := uuid.New()
 	role := entity.RoleUser
@@ -172,7 +181,7 @@ func TestAdminUpdateUser_RepoError(t *testing.T) {
 
 func TestUploadAvatar_NoStorage(t *testing.T) {
 	repo := new(mockUserRepo)
-	uc := user.NewUserUseCase(repo, nil) // storage = nil
+	uc := user.NewUserUseCase(repo, nil, nil) // storage = nil
 
 	_, err := uc.UploadAvatar(context.Background(), uuid.New(), nil)
 

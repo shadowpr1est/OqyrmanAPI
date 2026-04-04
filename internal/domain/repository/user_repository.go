@@ -15,6 +15,9 @@ type UserRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	AdminUpdate(ctx context.Context, id uuid.UUID, role *entity.Role, libraryID *uuid.UUID, name, surname, email, phone *string) (*entity.UserView, error)
 	UpdateAvatarURL(ctx context.Context, id uuid.UUID, avatarURL string) error
+	SetEmailVerified(ctx context.Context, id uuid.UUID) error
+	GetByGoogleID(ctx context.Context, googleID string) (*entity.User, error)
+	SetGoogleID(ctx context.Context, id uuid.UUID, googleID string) error
 
 	// View method — used by admin GET /users; returns joined library data.
 	ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error)

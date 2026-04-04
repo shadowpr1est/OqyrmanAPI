@@ -152,8 +152,18 @@ func (r *Router) Init() *gin.Engine {
 			authGroup.Use(middleware.RateLimitWithGroup(rl, "auth", 20))
 			{
 				authGroup.POST("/register", r.auth.Register)
+				authGroup.POST("/verify-email", r.auth.VerifyEmail)
 				authGroup.POST("/login", r.auth.Login)
 				authGroup.POST("/refresh", r.auth.RefreshToken)
+				authGroup.POST("/google", r.auth.LoginWithGoogle)
+				// Чувствительные эндпоинты — 5 req/min per IP (брутфорс-защита)
+				sensitive := authGroup.Group("/")
+				sensitive.Use(middleware.RateLimitWithGroup(rl, "auth-sensitive", 5))
+				{
+					sensitive.POST("/resend-code", r.auth.ResendCode)
+					sensitive.POST("/forgot-password", r.auth.ForgotPassword)
+					sensitive.POST("/reset-password", r.auth.ResetPassword)
+				}
 			}
 
 			// authors
@@ -257,7 +267,11 @@ func (r *Router) Init() *gin.Engine {
 				aiGroup.Use(middleware.RateLimitWithGroup(rl, "ai", 10))
 				{
 					aiGroup.POST("/recommend", r.ai.Recommend)
-					aiGroup.POST("/chat", r.ai.Chat)
+					aiGroup.POST("/conversations", r.ai.CreateConversation)
+					aiGroup.GET("/conversations", r.ai.ListConversations)
+					aiGroup.GET("/conversations/:id", r.ai.GetConversation)
+					aiGroup.POST("/conversations/:id/messages", r.ai.SendMessage)
+					aiGroup.DELETE("/conversations/:id", r.ai.DeleteConversation)
 				}
 			}
 

@@ -25,7 +25,11 @@
       "Bash(git push:*)",
       "Bash(grep:*)",
       "Bash(go get:*)",
-      "Bash(go vet:*)"
+      "Bash(go vet:*)",
+      "Bash(xargs basename:*)",
+      "Bash(printf \\\\n-- Все seed-пользователи считаются верифицированными\\\\nUPDATE users SET email_verified = true, email_verified_at = now\\(\\);\\\\n:*)",
+      "Read(//c/Users/sem1c/go/pkg/mod/github.com/openai/openai-go@v1.12.0/**)",
+      "Read(//c/Users/sem1c/go/pkg/mod/cache/download/github.com/openai/openai-go/@v/**)"
     ]
   }
 }

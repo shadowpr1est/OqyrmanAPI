@@ -21,8 +21,8 @@ func NewTokenRepo(db *sqlx.DB) *tokenRepo {
 
 func (r *tokenRepo) Save(ctx context.Context, token *entity.Token) error {
 	query := `
-		INSERT INTO tokens (id, user_id, refresh_token, expires_at, created_at)
-		VALUES (:id, :user_id, :refresh_token, :expires_at, :created_at)`
+		INSERT INTO tokens (id, user_id, refresh_token, expires_at, user_agent, ip, created_at)
+		VALUES (:id, :user_id, :refresh_token, :expires_at, :user_agent, :ip, :created_at)`
 	if _, err := r.db.NamedExecContext(ctx, query, token); err != nil {
 		return fmt.Errorf("tokenRepo.Save: %w", err)
 	}
@@ -51,6 +51,30 @@ func (r *tokenRepo) DeleteByRefreshToken(ctx context.Context, refreshToken strin
 func (r *tokenRepo) DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error {
 	if _, err := r.db.ExecContext(ctx, `DELETE FROM tokens WHERE user_id = $1`, userID); err != nil {
 		return fmt.Errorf("tokenRepo.DeleteAllByUserID: %w", err)
+	}
+	return nil
+}
+
+func (r *tokenRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*entity.Token, error) {
+	var tokens []*entity.Token
+	if err := r.db.SelectContext(ctx, &tokens,
+		`SELECT * FROM tokens WHERE user_id = $1 ORDER BY created_at DESC`, userID,
+	); err != nil {
+		return nil, fmt.Errorf("tokenRepo.ListByUserID: %w", err)
+	}
+	return tokens, nil
+}
+
+func (r *tokenRepo) DeleteByID(ctx context.Context, id, userID uuid.UUID) error {
+	result, err := r.db.ExecContext(ctx,
+		`DELETE FROM tokens WHERE id = $1 AND user_id = $2`, id, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("tokenRepo.DeleteByID: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return entity.ErrNotFound
 	}
 	return nil
 }

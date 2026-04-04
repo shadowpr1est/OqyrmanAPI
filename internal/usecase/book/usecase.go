@@ -125,3 +125,7 @@ func (u *bookUseCase) ListPopularView(ctx context.Context, limit, offset int) ([
 func (u *bookUseCase) ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error) {
 	return u.bookRepo.ListSimilarView(ctx, bookID, limit)
 }
+
+func (u *bookUseCase) GetRecommendedView(ctx context.Context, userID uuid.UUID, limit int) ([]*entity.BookView, error) {
+	return u.bookRepo.ListRecommendedView(ctx, userID, limit)
+}

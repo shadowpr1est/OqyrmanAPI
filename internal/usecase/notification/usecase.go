@@ -10,12 +10,18 @@ import (
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
 
-type notificationUseCase struct {
-	repo repository.NotificationRepository
+// Broadcaster is satisfied by *hub.NotificationHub.
+type Broadcaster interface {
+	Send(userID uuid.UUID, n *entity.Notification)
 }
 
-func NewNotificationUseCase(repo repository.NotificationRepository) domainUseCase.NotificationUseCase {
-	return &notificationUseCase{repo: repo}
+type notificationUseCase struct {
+	repo repository.NotificationRepository
+	hub  Broadcaster // optional — nil disables SSE push
+}
+
+func NewNotificationUseCase(repo repository.NotificationRepository, hub Broadcaster) domainUseCase.NotificationUseCase {
+	return &notificationUseCase{repo: repo, hub: hub}
 }
 
 func (u *notificationUseCase) Create(ctx context.Context, userID uuid.UUID, title, body string) (*entity.Notification, error) {
@@ -27,7 +33,14 @@ func (u *notificationUseCase) Create(ctx context.Context, userID uuid.UUID, titl
 		IsRead:    false,
 		CreatedAt: time.Now(),
 	}
-	return u.repo.Create(ctx, n)
+	saved, err := u.repo.Create(ctx, n)
+	if err != nil {
+		return nil, err
+	}
+	if u.hub != nil {
+		u.hub.Send(userID, saved)
+	}
+	return saved, nil
 }
 
 func (u *notificationUseCase) ListMy(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entity.Notification, int, error) {

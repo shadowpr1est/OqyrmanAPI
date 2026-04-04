@@ -117,6 +117,9 @@ func (m *mockBookRepo) ListPopularView(ctx context.Context, limit, offset int) (
 func (m *mockBookRepo) ListSimilarView(ctx context.Context, bookID uuid.UUID, limit int) ([]*entity.BookView, error) {
 	return nil, nil
 }
+func (m *mockBookRepo) ListRecommendedView(ctx context.Context, userID uuid.UUID, limit int) ([]*entity.BookView, error) {
+	return nil, nil
+}
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 

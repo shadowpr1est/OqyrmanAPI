@@ -127,6 +127,20 @@ func (r *authorRepo) Update(ctx context.Context, author *entity.Author) (*entity
 	return author, nil
 }
 
+func (r *authorRepo) UpdatePhotoURL(ctx context.Context, id uuid.UUID, url string) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE authors SET photo_url = $1 WHERE id = $2 AND deleted_at IS NULL`, url, id,
+	)
+	if err != nil {
+		return fmt.Errorf("authorRepo.UpdatePhotoURL: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return entity.ErrNotFound
+	}
+	return nil
+}
+
 func (r *authorRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE authors SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id,

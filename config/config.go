@@ -8,11 +8,25 @@ import (
 )
 
 type Config struct {
-	App   AppConfig
-	DB    DBConfig
-	JWT   JWTConfig
-	Minio MinioConfig
-	AI    AIConfig
+	App    AppConfig
+	DB     DBConfig
+	JWT    JWTConfig
+	Minio  MinioConfig
+	AI     AIConfig
+	Email  EmailConfig
+	Google GoogleConfig
+}
+
+type GoogleConfig struct {
+	ClientID string `env:"GOOGLE_CLIENT_ID" env-default:""`
+}
+
+type EmailConfig struct {
+	Host     string `env:"SMTP_HOST"     env-default:""`
+	Port     int    `env:"SMTP_PORT"     env-default:"587"`
+	Username string `env:"SMTP_USERNAME" env-default:""`
+	Password string `env:"SMTP_PASSWORD" env-default:""`
+	From     string `env:"SMTP_FROM"     env-default:""`
 }
 type AIConfig struct {
 	AnthropicKey string `env:"ANTHROPIC_API_KEY" env-default:""`

@@ -92,6 +92,7 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/internal/repository/postgres"
 	aiUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/ai"
 	authUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/auth"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/email"
 	authorUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/author"
 	bookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book"
 	bookFileUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book_file"
@@ -107,6 +108,7 @@ import (
 	statsUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/stats"
 	userUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/user"
 	wishlistUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/wishlist"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/hub"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm/anthropic"
@@ -151,6 +153,8 @@ func main() {
 	// repositories
 	userRepo := postgres.NewUserRepo(db)
 	tokenRepo := postgres.NewTokenRepo(db)
+	verifRepo := postgres.NewEmailVerificationCodeRepo(db)
+	resetRepo := postgres.NewPasswordResetCodeRepo(db)
 	authorRepo := postgres.NewAuthorRepo(db)
 	genreRepo := postgres.NewGenreRepo(db)
 	bookRepo := postgres.NewBookRepo(db)
@@ -165,12 +169,23 @@ func main() {
 	reviewRepo := postgres.NewReviewRepo(db)
 	notifRepo := postgres.NewNotificationRepo(db)
 	eventRepo := postgres.NewEventRepo(db)
+	convRepo := postgres.NewConversationRepo(db)
+
+	// email sender (SMTP опционален — без него коды пишутся только в БД)
+	emailSender := email.NewSender(
+		cfg.Email.Host, cfg.Email.Port,
+		cfg.Email.Username, cfg.Email.Password,
+		cfg.Email.From,
+	)
+
+	// notification hub (SSE push)
+	notifHub := hub.New()
 
 	// usecases
-	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, jwtManager, cfg.JWT.RefreshTokenTTL)
+	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, verifRepo, resetRepo, emailSender, jwtManager, cfg.Google.ClientID, cfg.JWT.RefreshTokenTTL)
 	bookUseCase := bookUC.NewBookUseCase(bookRepo, minioStorage)
-	userUseCase := userUC.NewUserUseCase(userRepo, minioStorage)
-	authorUseCase := authorUC.NewAuthorUseCase(authorRepo)
+	userUseCase := userUC.NewUserUseCase(userRepo, tokenRepo, minioStorage)
+	authorUseCase := authorUC.NewAuthorUseCase(authorRepo, minioStorage)
 	genreUseCase := genreUC.NewGenreUseCase(genreRepo)
 	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo, bookRepo, minioStorage)
 	sessionUseCase := readingSessionUC.NewReadingSessionUseCase(sessionRepo)
@@ -181,7 +196,7 @@ func main() {
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
 	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, notifRepo)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
-	notifUseCase := notificationUC.NewNotificationUseCase(notifRepo)
+	notifUseCase := notificationUC.NewNotificationUseCase(notifRepo, notifHub)
 	eventUseCase := eventUC.NewEventUseCase(eventRepo, minioStorage)
 
 	// AI
@@ -198,7 +213,7 @@ func main() {
 		slog.Info("AI: no API key set, AI endpoints disabled")
 	}
 	if llmClient != nil {
-		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, llmClient)
+		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, convRepo, llmClient)
 		aiHandler = aiH.NewHandler(aiUseCase)
 	}
 

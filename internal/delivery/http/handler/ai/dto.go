@@ -1,13 +1,52 @@
 package ai
 
-type chatRequest struct {
-	Message string `json:"message" binding:"required"`
-}
+import (
+	"time"
 
-type chatResponse struct {
-	Reply string `json:"reply"`
-}
+	"github.com/google/uuid"
+)
 
 type recommendResponse struct {
 	Recommendations string `json:"recommendations"`
+}
+
+// ── Conversations ─────────────────────────────────────────────────────────────
+
+type createConversationResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Title     string    `json:"title"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type conversationListItem struct {
+	ID        uuid.UUID `json:"id"`
+	Title     string    `json:"title"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type messageDTO struct {
+	ID             uuid.UUID `json:"id"`
+	ConversationID uuid.UUID `json:"conversation_id"`
+	Role           string    `json:"role"`
+	Content        string    `json:"content"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type conversationDetailResponse struct {
+	ID        uuid.UUID    `json:"id"`
+	Title     string       `json:"title"`
+	CreatedAt time.Time    `json:"created_at"`
+	UpdatedAt time.Time    `json:"updated_at"`
+	Messages  []messageDTO `json:"messages"`
+}
+
+type sendMessageRequest struct {
+	Message string `json:"message" binding:"required"`
+}
+
+type sendMessageResponse struct {
+	UserMessage messageDTO `json:"user_message"`
+	AIMessage   messageDTO `json:"ai_message"`
 }

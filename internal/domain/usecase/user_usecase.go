@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
+	_ "github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload" // keep for fileupload.File
 )
 
 type UserUseCase interface {
@@ -18,4 +19,8 @@ type UserUseCase interface {
 	CreateStaff(ctx context.Context, email, password, name, surname, phone string, libraryID uuid.UUID) (*entity.UserView, error)
 	// View method — returns enriched nested data for admin GET /users.
 	ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error)
+	// Session management
+	ListSessions(ctx context.Context, userID uuid.UUID) ([]*entity.Token, error)
+	RevokeSession(ctx context.Context, sessionID, userID uuid.UUID) error
+	RevokeAllSessions(ctx context.Context, userID uuid.UUID) error
 }

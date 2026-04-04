@@ -385,6 +385,51 @@ func (r *bookRepo) ListSimilarView(ctx context.Context, bookID uuid.UUID, limit 
 	return items, nil
 }
 
+func (r *bookRepo) ListRecommendedView(ctx context.Context, userID uuid.UUID, limit int) ([]*entity.BookView, error) {
+	var items []*entity.BookView
+	err := r.db.SelectContext(ctx, &items, bookViewQuery+`
+		AND b.id NOT IN (
+			SELECT book_id FROM reading_sessions WHERE user_id = $1
+			UNION
+			SELECT book_id FROM wishlists WHERE user_id = $1
+		)
+		AND (
+			b.genre_id IN (
+				SELECT DISTINCT bk.genre_id FROM reading_sessions rs
+				JOIN books bk ON rs.book_id = bk.id
+				WHERE rs.user_id = $1
+				UNION
+				SELECT DISTINCT bk.genre_id FROM wishlists w
+				JOIN books bk ON w.book_id = bk.id
+				WHERE w.user_id = $1
+			)
+			OR b.author_id IN (
+				SELECT DISTINCT bk.author_id FROM reading_sessions rs
+				JOIN books bk ON rs.book_id = bk.id
+				WHERE rs.user_id = $1
+				UNION
+				SELECT DISTINCT bk.author_id FROM wishlists w
+				JOIN books bk ON w.book_id = bk.id
+				WHERE w.user_id = $1
+			)
+		)
+		ORDER BY b.avg_rating DESC
+		LIMIT $2`,
+		userID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("bookRepo.ListRecommendedView: %w", err)
+	}
+	// Fallback to popular if user has no reading history
+	if len(items) == 0 {
+		items, _, err = r.ListPopularView(ctx, limit, 0)
+		if err != nil {
+			return nil, fmt.Errorf("bookRepo.ListRecommendedView fallback: %w", err)
+		}
+	}
+	return items, nil
+}
+
 func (r *bookRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	result, err := r.db.ExecContext(ctx,
 		`UPDATE books SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL`, id,

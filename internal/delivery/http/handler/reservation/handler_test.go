@@ -176,10 +176,13 @@ func TestCreate_Success(t *testing.T) {
 	libBookID := uuid.New()
 	result := makeReservation(uuid.New(), testUserID)
 	result.LibraryBookID = libBookID
+	view := makeReservationView(result.ID, testUserID)
 
 	uc.On("Create", mock.Anything, mock.AnythingOfType("*entity.Reservation")).Return(result, nil)
+	uc.On("GetByIDView", mock.Anything, result.ID).Return(view, nil)
 
-	body := fmt.Sprintf(`{"library_book_id":"%s","due_date":"2027-01-01"}`, libBookID)
+	validDate := time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02")
+	body := fmt.Sprintf(`{"library_book_id":"%s","due_date":"%s"}`, libBookID, validDate)
 	w := serveJSON(r, http.MethodPost, "/reservations", body)
 
 	assert.Equal(t, http.StatusCreated, w.Code)
@@ -235,8 +238,9 @@ func TestCreate_InvalidLibraryBookID(t *testing.T) {
 	r := gin.New()
 	r.POST("/reservations", injectUser(testUserID, h.Create))
 
-	w := serveJSON(r, http.MethodPost, "/reservations",
-		`{"library_book_id":"not-a-uuid","due_date":"2027-01-01"}`)
+	validDate := time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02")
+	body := fmt.Sprintf(`{"library_book_id":"not-a-uuid","due_date":"%s"}`, validDate)
+	w := serveJSON(r, http.MethodPost, "/reservations", body)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "invalid library_book_id")
@@ -252,7 +256,8 @@ func TestCreate_NoAvailableCopies(t *testing.T) {
 	uc.On("Create", mock.Anything, mock.AnythingOfType("*entity.Reservation")).
 		Return(nil, entity.ErrNoAvailableCopies)
 
-	body := fmt.Sprintf(`{"library_book_id":"%s","due_date":"2027-01-01"}`, uuid.New())
+	validDate := time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02")
+	body := fmt.Sprintf(`{"library_book_id":"%s","due_date":"%s"}`, uuid.New(), validDate)
 	w := serveJSON(r, http.MethodPost, "/reservations", body)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
@@ -269,7 +274,8 @@ func TestCreate_DuplicateReservation(t *testing.T) {
 	uc.On("Create", mock.Anything, mock.AnythingOfType("*entity.Reservation")).
 		Return(nil, entity.ErrDuplicateReservation)
 
-	body := fmt.Sprintf(`{"library_book_id":"%s","due_date":"2027-01-01"}`, uuid.New())
+	validDate := time.Now().Add(7 * 24 * time.Hour).Format("2006-01-02")
+	body := fmt.Sprintf(`{"library_book_id":"%s","due_date":"%s"}`, uuid.New(), validDate)
 	w := serveJSON(r, http.MethodPost, "/reservations", body)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
@@ -283,10 +289,11 @@ func TestGetByID_Success(t *testing.T) {
 	h := NewHandler(uc)
 
 	r := gin.New()
-	r.GET("/reservations/:id", h.GetByID)
+	r.GET("/reservations/:id", injectUser(testUserID, h.GetByID))
 
 	id := uuid.New()
-	uc.On("GetByIDView", mock.Anything, id).Return(makeReservationView(id, testUserID), nil)
+	view := makeReservationView(id, testUserID)
+	uc.On("GetByIDView", mock.Anything, id).Return(view, nil)
 
 	w := serveJSON(r, http.MethodGet, "/reservations/"+id.String(), "")
 
