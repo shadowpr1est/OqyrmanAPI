@@ -112,7 +112,7 @@ func (m *mockNotifRepo) Delete(ctx context.Context, id, userID uuid.UUID) error 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 func newUC(resRepo *mockReservationRepo, notifRepo *mockNotifRepo) domainUseCase.ReservationUseCase {
-	return reservation.NewReservationUseCase(resRepo, notifRepo)
+	return reservation.NewReservationUseCase(resRepo, notifRepo, nil)
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────────

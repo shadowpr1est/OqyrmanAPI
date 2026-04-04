@@ -41,6 +41,13 @@ func (u *userUseCase) Update(ctx context.Context, user *entity.User) (*entity.Us
 			return nil, fmt.Errorf("%w: invalid email format", entity.ErrValidation)
 		}
 	}
+	if user.Phone != "" {
+		normalized, err := phone.Normalize(user.Phone)
+		if err != nil {
+			return nil, err
+		}
+		user.Phone = normalized
+	}
 	return u.userRepo.Update(ctx, user)
 }
 
@@ -112,16 +119,17 @@ func (u *userUseCase) CreateStaff(ctx context.Context, email, password, name, su
 	}
 
 	user := &entity.User{
-		ID:           uuid.New(),
-		Email:        email,
-		PasswordHash: string(hash),
-		Name:         name,
-		Surname:      surname,
-		Phone:        normalizedPhone,
-		Role:         entity.RoleStaff,
-		LibraryID:    &libraryID,
-		QRCode:       uuid.New().String(),
-		CreatedAt:    time.Now(),
+		ID:            uuid.New(),
+		Email:         email,
+		PasswordHash:  string(hash),
+		Name:          name,
+		Surname:       surname,
+		Phone:         normalizedPhone,
+		Role:          entity.RoleStaff,
+		LibraryID:     &libraryID,
+		QRCode:        uuid.New().String(),
+		EmailVerified: true, // staff создаётся администратором — верификация не нужна
+		CreatedAt:     time.Now(),
 	}
 
 	if _, err := u.userRepo.Create(ctx, user); err != nil {

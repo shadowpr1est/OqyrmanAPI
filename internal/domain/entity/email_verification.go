@@ -12,7 +12,7 @@ var (
 	ErrAlreadyVerified      = errors.New("email already verified")
 	ErrEmailNotFound        = errors.New("user with this email not found")
 	ErrEmailNotVerified     = errors.New("email not verified")
-	ErrRegistrationPending  = errors.New("registration pending: verification code is still active, please check your email or wait 5 minutes")
+	ErrRegistrationPending  = errors.New("registration pending: verification code is still active, please check your email or wait 3 minutes")
 )
 
 type EmailVerificationCode struct {

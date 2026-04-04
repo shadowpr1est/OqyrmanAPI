@@ -400,6 +400,7 @@ func TestRefreshToken_Expired(t *testing.T) {
 		ExpiresAt:    time.Now().Add(-1 * time.Hour), // уже истёк
 	}
 	tokenRepo.On("GetByRefreshToken", mock.Anything, "expired-token").Return(expiredToken, nil)
+	tokenRepo.On("DeleteByRefreshToken", mock.Anything, "expired-token").Return(nil)
 
 	_, err := uc.RefreshToken(context.Background(), "expired-token")
 

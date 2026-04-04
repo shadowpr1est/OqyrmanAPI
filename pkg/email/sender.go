@@ -92,7 +92,7 @@ func (s *Sender) send(to, subject, body string) error {
 func (s *Sender) SendVerificationCode(to, code string) error {
 	subject := "Подтверждение email — Oqyrman"
 	body := fmt.Sprintf(
-		"Добро пожаловать в Oqyrman!\r\n\r\nВаш код подтверждения: %s\r\n\r\nКод действителен 5 минут.\r\nЕсли вы не регистрировались — проигнорируйте это письмо.",
+		"Добро пожаловать в Oqyrman!\r\n\r\nВаш код подтверждения: %s\r\n\r\nКод действителен 3 минуты.\r\nЕсли вы не регистрировались — проигнорируйте это письмо.",
 		code,
 	)
 	return s.send(to, subject, body)
@@ -102,7 +102,7 @@ func (s *Sender) SendVerificationCode(to, code string) error {
 func (s *Sender) SendPasswordResetCode(to, code string) error {
 	subject := "Сброс пароля — Oqyrman"
 	body := fmt.Sprintf(
-		"Вы запросили сброс пароля.\r\n\r\nВаш код: %s\r\n\r\nКод действителен 5 минут.\r\nЕсли вы не запрашивали сброс — проигнорируйте это письмо.",
+		"Вы запросили сброс пароля.\r\n\r\nВаш код: %s\r\n\r\nКод действителен 3 минуты.\r\nЕсли вы не запрашивали сброс — проигнорируйте это письмо.",
 		code,
 	)
 	return s.send(to, subject, body)

@@ -79,7 +79,7 @@ func (r *userRepo) Update(ctx context.Context, user *entity.User) (*entity.User,
 		SET email    = CASE WHEN :email   <> '' THEN :email   ELSE email   END,
 		    phone    = CASE WHEN :phone   <> '' THEN :phone   ELSE phone   END,
 		    name     = CASE WHEN :name    <> '' THEN :name    ELSE name    END,
-		    surname  = CASE WHEN :surname <> '' THEN :surname ELSE surname END,
+		    surname  = CASE WHEN :surname <> '' THEN :surname ELSE surname END
 		WHERE id = :id AND deleted_at IS NULL
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, user)
@@ -208,7 +208,7 @@ func (r *userRepo) AdminUpdate(
             name       = COALESCE(NULLIF($3, ''), name),
             surname    = COALESCE(NULLIF($4, ''), surname),
             email      = COALESCE(NULLIF($5, ''), email),
-            phone      = COALESCE(NULLIF($6, ''), phone),
+            phone      = COALESCE(NULLIF($6, ''), phone)
         WHERE id = $7 AND deleted_at IS NULL
         RETURNING *
     )

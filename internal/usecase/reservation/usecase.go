@@ -11,18 +11,26 @@ import (
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
 
+// Broadcaster is satisfied by *hub.NotificationHub.
+type Broadcaster interface {
+	Send(userID uuid.UUID, n *entity.Notification)
+}
+
 type reservationUseCase struct {
 	reservationRepo repository.ReservationRepository
 	notifRepo       repository.NotificationRepository
+	hub             Broadcaster // optional — nil disables SSE push
 }
 
 func NewReservationUseCase(
 	repo repository.ReservationRepository,
 	notifRepo repository.NotificationRepository,
+	hub Broadcaster,
 ) domainUseCase.ReservationUseCase {
 	return &reservationUseCase{
 		reservationRepo: repo,
 		notifRepo:       notifRepo,
+		hub:             hub,
 	}
 }
 
@@ -34,9 +42,13 @@ func (u *reservationUseCase) notify(ctx context.Context, userID uuid.UUID, title
 		Body:      body,
 		CreatedAt: time.Now(),
 	}
-	// fire-and-forget: не прерываем основной флоу при ошибке уведомления
-	if _, err := u.notifRepo.Create(ctx, n); err != nil {
+	saved, err := u.notifRepo.Create(ctx, n)
+	if err != nil {
 		slog.ErrorContext(ctx, "failed to create notification", "user_id", userID, "err", err)
+		return
+	}
+	if u.hub != nil {
+		u.hub.Send(userID, saved)
 	}
 }
 

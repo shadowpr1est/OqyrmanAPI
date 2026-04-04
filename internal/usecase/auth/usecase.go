@@ -201,6 +201,7 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 		return nil, errors.New("invalid refresh token")
 	}
 	if time.Now().After(token.ExpiresAt) {
+		_ = u.tokenRepo.DeleteByRefreshToken(ctx, refreshToken)
 		return nil, errors.New("refresh token expired")
 	}
 
@@ -247,7 +248,7 @@ func (u *authUseCase) sendCode(ctx context.Context, user *entity.User) error {
 		ID:        uuid.New(),
 		UserID:    user.ID,
 		Code:      string(codeHash),
-		ExpiresAt: time.Now().Add(5 * time.Minute),
+		ExpiresAt: time.Now().Add(3 * time.Minute),
 		CreatedAt: time.Now(),
 	}
 	if err := u.verifRepo.Save(ctx, record); err != nil {
@@ -312,7 +313,7 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 		ID:        uuid.New(),
 		UserID:    user.ID,
 		Code:      string(codeHash),
-		ExpiresAt: time.Now().Add(5 * time.Minute),
+		ExpiresAt: time.Now().Add(3 * time.Minute),
 		CreatedAt: time.Now(),
 	}
 	if err := u.resetRepo.Save(ctx, record); err != nil {

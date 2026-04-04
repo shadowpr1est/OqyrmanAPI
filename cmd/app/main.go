@@ -194,7 +194,7 @@ func main() {
 	noteUseCase := readingNoteUC.NewReadingNoteUseCase(noteRepo)
 	libraryUseCase := libraryUC.NewLibraryUseCase(libraryRepo)
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
-	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, notifRepo)
+	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, notifRepo, notifHub)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)
 	notifUseCase := notificationUC.NewNotificationUseCase(notifRepo, notifHub)
 	eventUseCase := eventUC.NewEventUseCase(eventRepo, minioStorage)
