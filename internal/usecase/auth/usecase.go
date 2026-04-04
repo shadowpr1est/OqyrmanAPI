@@ -74,12 +74,15 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 	}
 	user.Phone = normalized
 
-	// Если email уже занят — разрешаем перерегистрацию только если аккаунт не верифицирован
+	// Если email уже занят — перерегистрация разрешена только если аккаунт не верифицирован
+	// И только если код верификации уже истёк (защита от DoS чужих аккаунтов)
 	if existing, err := u.userRepo.GetByEmail(ctx, user.Email); err == nil {
 		if existing.EmailVerified {
 			return nil, entity.ErrEmailTaken
 		}
-		// Неверифицированный — удаляем, чтобы освободить email и телефон
+		if err := u.checkReregistrationAllowed(ctx, existing.ID); err != nil {
+			return nil, err
+		}
 		_ = u.userRepo.HardDelete(ctx, existing.ID)
 	} else if !errors.Is(err, entity.ErrNotFound) {
 		return nil, fmt.Errorf("authUseCase.Register lookup email: %w", err)
@@ -89,6 +92,9 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 	if existing, err := u.userRepo.GetByPhone(ctx, user.Phone); err == nil {
 		if existing.EmailVerified {
 			return nil, entity.ErrPhoneTaken
+		}
+		if err := u.checkReregistrationAllowed(ctx, existing.ID); err != nil {
+			return nil, err
 		}
 		_ = u.userRepo.HardDelete(ctx, existing.ID)
 	} else if !errors.Is(err, entity.ErrNotFound) {
@@ -211,6 +217,21 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+// checkReregistrationAllowed возвращает ошибку, если у неверифицированного пользователя
+// есть активный (не истёкший) код верификации — в этом случае перерегистрация запрещена,
+// чтобы нельзя было сбросить чужую регистрацию пока код ещё действует.
+func (u *authUseCase) checkReregistrationAllowed(ctx context.Context, userID uuid.UUID) error {
+	record, err := u.verifRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		// Кода нет — можно перерегистрироваться
+		return nil
+	}
+	if time.Now().Before(record.ExpiresAt) {
+		return entity.ErrRegistrationPending
+	}
+	return nil
+}
 
 func (u *authUseCase) sendCode(ctx context.Context, user *entity.User) error {
 	code, err := generateCode()
