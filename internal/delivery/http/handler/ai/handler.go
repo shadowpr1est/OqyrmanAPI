@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -124,10 +125,10 @@ func (h *Handler) GetConversation(c *gin.Context) {
 
 	conv, msgs, err := h.uc.GetConversation(c.Request.Context(), id, userID)
 	if err != nil {
-		switch err {
-		case entity.ErrConversationNotFound:
+		switch {
+		case errors.Is(err, entity.ErrConversationNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
-		case entity.ErrForbidden:
+		case errors.Is(err, entity.ErrForbidden):
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		default:
 			slog.ErrorContext(c.Request.Context(), "get conversation error", "err", err)
@@ -193,10 +194,13 @@ func (h *Handler) SendMessage(c *gin.Context) {
 
 	userMsg, aiMsg, err := h.uc.SendMessage(c.Request.Context(), id, userID, req.Message)
 	if err != nil {
-		switch err {
-		case entity.ErrConversationNotFound:
+		switch {
+		case errors.Is(err, entity.ErrValidation):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		case errors.Is(err, entity.ErrConversationNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
-		case entity.ErrForbidden:
+		case errors.Is(err, entity.ErrForbidden):
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		default:
 			slog.ErrorContext(c.Request.Context(), "send message error", "err", err)
@@ -246,10 +250,10 @@ func (h *Handler) DeleteConversation(c *gin.Context) {
 
 	err = h.uc.DeleteConversation(c.Request.Context(), id, userID)
 	if err != nil {
-		switch err {
-		case entity.ErrConversationNotFound:
+		switch {
+		case errors.Is(err, entity.ErrConversationNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
-		case entity.ErrForbidden:
+		case errors.Is(err, entity.ErrForbidden):
 			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		default:
 			slog.ErrorContext(c.Request.Context(), "delete conversation error", "err", err)

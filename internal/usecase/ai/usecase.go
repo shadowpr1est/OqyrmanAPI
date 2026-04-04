@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -113,10 +114,17 @@ func (u *aiUseCase) CreateConversation(ctx context.Context, userID uuid.UUID) (*
 }
 
 func (u *aiUseCase) SendMessage(ctx context.Context, convID, userID uuid.UUID, message string) (*entity.ChatMessage, *entity.ChatMessage, error) {
+	if len([]rune(strings.TrimSpace(message))) == 0 {
+		return nil, nil, fmt.Errorf("%w: message must not be empty", entity.ErrValidation)
+	}
+
 	// Проверяем владение беседой
 	conv, err := u.convRepo.GetByID(ctx, convID)
 	if err != nil {
-		return nil, nil, entity.ErrConversationNotFound
+		if errors.Is(err, entity.ErrNotFound) {
+			return nil, nil, entity.ErrConversationNotFound
+		}
+		return nil, nil, fmt.Errorf("aiUseCase.SendMessage get conv: %w", err)
 	}
 	if conv.UserID != userID {
 		return nil, nil, entity.ErrForbidden
@@ -185,7 +193,10 @@ func (u *aiUseCase) ListConversations(ctx context.Context, userID uuid.UUID) ([]
 func (u *aiUseCase) GetConversation(ctx context.Context, id, userID uuid.UUID) (*entity.Conversation, []*entity.ChatMessage, error) {
 	conv, err := u.convRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, nil, entity.ErrConversationNotFound
+		if errors.Is(err, entity.ErrNotFound) {
+			return nil, nil, entity.ErrConversationNotFound
+		}
+		return nil, nil, fmt.Errorf("aiUseCase.GetConversation: %w", err)
 	}
 	if conv.UserID != userID {
 		return nil, nil, entity.ErrForbidden
@@ -200,7 +211,10 @@ func (u *aiUseCase) GetConversation(ctx context.Context, id, userID uuid.UUID) (
 func (u *aiUseCase) DeleteConversation(ctx context.Context, id, userID uuid.UUID) error {
 	conv, err := u.convRepo.GetByID(ctx, id)
 	if err != nil {
-		return entity.ErrConversationNotFound
+		if errors.Is(err, entity.ErrNotFound) {
+			return entity.ErrConversationNotFound
+		}
+		return fmt.Errorf("aiUseCase.DeleteConversation: %w", err)
 	}
 	if conv.UserID != userID {
 		return entity.ErrForbidden
