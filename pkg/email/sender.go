@@ -92,12 +92,11 @@ func (s *Sender) headerContent() string {
 	if s.logoURL != "" {
 		return fmt.Sprintf(
 			`<img src="%s" alt="Oqyrman" style="height:44px;display:block;margin:0 auto 8px;">
-              <span style="display:block;color:#A8D5C2;font-size:11px;letter-spacing:0.8px;text-transform:uppercase;">Ваша библиотека онлайн</span>`,
+              <span style="display:block;color:#A8D5C2;font-size:15px;letter-spacing:0.5px;">Oqyrman</span>`,
 			s.logoURL,
 		)
 	}
-	return `<span style="color:#FFFFFF;font-size:24px;font-weight:700;letter-spacing:0.5px;">Oqyrman</span>
-              <span style="display:block;color:#A8D5C2;font-size:11px;margin-top:6px;letter-spacing:0.8px;text-transform:uppercase;">Ваша библиотека онлайн</span>`
+	return `<span style="color:#FFFFFF;font-size:24px;font-weight:700;letter-spacing:0.5px;">Oqyrman</span>`
 }
 
 func (s *Sender) buildEmail(title, heading, description, code, expiry, disclaimer string) string {
@@ -157,7 +156,7 @@ func (s *Sender) buildEmail(title, heading, description, code, expiry, disclaime
           <!-- Footer -->
           <tr>
             <td style="padding:20px 40px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#9CA3AF;">© 2025 Oqyrman · Не отвечайте на это письмо</p>
+              <p style="margin:0;font-size:12px;color:#9CA3AF;">© 2026 Oqyrman · Не отвечайте на это письмо</p>
             </td>
           </tr>
 
