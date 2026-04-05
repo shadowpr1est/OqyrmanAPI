@@ -171,18 +171,14 @@ func main() {
 	eventRepo := postgres.NewEventRepo(db)
 	convRepo := postgres.NewConversationRepo(db)
 
-	// email sender (SMTP опционален — без него коды пишутся только в БД)
-	emailSender := email.NewSender(
-		cfg.Email.Host, cfg.Email.Port,
-		cfg.Email.Username, cfg.Email.Password,
-		cfg.Email.From,
-	)
+	// email sender (Resend опционален — без него коды пишутся только в БД)
+	emailSender := email.NewSender(cfg.Email.ResendAPIKey, cfg.Email.From, cfg.Email.LogoURL)
 
 	// notification hub (SSE push)
 	notifHub := hub.New()
 
 	// usecases
-	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, verifRepo, resetRepo, emailSender, jwtManager, cfg.Google.ClientID, cfg.JWT.RefreshTokenTTL)
+	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, verifRepo, resetRepo, emailSender, jwtManager, cfg.Google.ClientID, cfg.JWT.SecretKey, cfg.JWT.RefreshTokenTTL)
 	bookUseCase := bookUC.NewBookUseCase(bookRepo, minioStorage)
 	userUseCase := userUC.NewUserUseCase(userRepo, tokenRepo, minioStorage)
 	authorUseCase := authorUC.NewAuthorUseCase(authorRepo, minioStorage)
@@ -243,6 +239,8 @@ func main() {
 	// background workers
 	overdueCanceller := worker.NewOverdueCanceller(reservationRepo, 24*time.Hour)
 	go overdueCanceller.Run(ctx)
+	tokenCleaner := worker.NewTokenCleaner(tokenRepo, 6*time.Hour)
+	go tokenCleaner.Run(ctx)
 	// router
 	router := httpDelivery.NewRouter(
 		ctx,

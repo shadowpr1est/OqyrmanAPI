@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -71,8 +72,11 @@ func RateLimitWithGroup(rl *RateLimiter, group string, limit int) gin.HandlerFun
 	return func(c *gin.Context) {
 		key := c.ClientIP() + ":" + group
 		if !rl.allow(key, limit) {
+			retryAfter := int(rl.window.Seconds())
+			c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-				"error": "too many requests, please try again later",
+				"code":    "too_many_requests",
+				"message": "too many requests, please try again later",
 			})
 			return
 		}

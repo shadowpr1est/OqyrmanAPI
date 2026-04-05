@@ -15,4 +15,6 @@ type TokenRepository interface {
 	// Session management
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]*entity.Token, error)
 	DeleteByID(ctx context.Context, id, userID uuid.UUID) error
+	// DeleteExpired удаляет все истёкшие токены. Вызывается фоновым воркером.
+	DeleteExpired(ctx context.Context) (int64, error)
 }

@@ -22,11 +22,9 @@ type GoogleConfig struct {
 }
 
 type EmailConfig struct {
-	Host     string `env:"SMTP_HOST"     env-default:""`
-	Port     int    `env:"SMTP_PORT"     env-default:"587"`
-	Username string `env:"SMTP_USERNAME" env-default:""`
-	Password string `env:"SMTP_PASSWORD" env-default:""`
-	From     string `env:"SMTP_FROM"     env-default:""`
+	ResendAPIKey string `env:"RESEND_API_KEY"  env-default:""`
+	From         string `env:"EMAIL_FROM"      env-default:"noreply@oqyrman.app"`
+	LogoURL      string `env:"EMAIL_LOGO_URL"  env-default:""`
 }
 type AIConfig struct {
 	AnthropicKey string `env:"ANTHROPIC_API_KEY" env-default:""`

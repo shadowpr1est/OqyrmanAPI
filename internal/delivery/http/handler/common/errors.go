@@ -36,6 +36,7 @@ const (
 	CodeInvalidToken        = "invalid_token"
 	CodeTokenExpired        = "token_expired"
 	CodeInvalidGoogleToken  = "invalid_google_token"
+	CodeTooManyRequests     = "too_many_requests"
 )
 
 func Err(c *gin.Context, status int, code, message string) {

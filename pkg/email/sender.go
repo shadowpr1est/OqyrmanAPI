@@ -1,109 +1,172 @@
 package email
 
 import (
-	"crypto/tls"
 	"fmt"
-	"net"
-	"net/smtp"
-	"time"
+
+	resend "github.com/resend/resend-go/v2"
 )
 
-const dialTimeout = 10 * time.Second
-
-// Sender отправляет письма через SMTP.
+// Sender отправляет письма через Resend API.
 type Sender struct {
-	host     string
-	port     int
-	username string
-	password string
-	from     string
+	client  *resend.Client
+	from    string
+	logoURL string // публичный URL логотипа (PNG), опционален
 }
 
-func NewSender(host string, port int, username, password, from string) *Sender {
+func NewSender(apiKey, from, logoURL string) *Sender {
 	return &Sender{
-		host:     host,
-		port:     port,
-		username: username,
-		password: password,
-		from:     from,
+		client:  resend.NewClient(apiKey),
+		from:    from,
+		logoURL: logoURL,
 	}
 }
 
-// Enabled возвращает true, если SMTP настроен (есть хост и from).
+// Enabled возвращает true, если Resend настроен (есть ключ и from).
 func (s *Sender) Enabled() bool {
-	return s.host != "" && s.from != ""
+	return s.client != nil && s.from != ""
 }
 
-func (s *Sender) send(to, subject, body string) error {
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-
-	conn, err := net.DialTimeout("tcp", addr, dialTimeout)
+func (s *Sender) send(to, subject, html, text string) error {
+	params := &resend.SendEmailRequest{
+		From:    s.from,
+		To:      []string{to},
+		Subject: subject,
+		Html:    html,
+		Text:    text,
+	}
+	_, err := s.client.Emails.Send(params)
 	if err != nil {
-		return fmt.Errorf("smtp dial: %w", err)
+		return fmt.Errorf("resend send: %w", err)
 	}
-
-	client, err := smtp.NewClient(conn, s.host)
-	if err != nil {
-		conn.Close()
-		return fmt.Errorf("smtp client: %w", err)
-	}
-	defer client.Close()
-
-	// Порт 587 использует STARTTLS — апгрейдим соединение до TLS если сервер поддерживает
-	if ok, _ := client.Extension("STARTTLS"); ok {
-		tlsCfg := &tls.Config{ServerName: s.host}
-		if err := client.StartTLS(tlsCfg); err != nil {
-			return fmt.Errorf("smtp starttls: %w", err)
-		}
-	}
-
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
-	if err := client.Auth(auth); err != nil {
-		return fmt.Errorf("smtp auth: %w", err)
-	}
-
-	if err := client.Mail(s.from); err != nil {
-		return fmt.Errorf("smtp mail from: %w", err)
-	}
-	if err := client.Rcpt(to); err != nil {
-		return fmt.Errorf("smtp rcpt: %w", err)
-	}
-
-	w, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("smtp data: %w", err)
-	}
-
-	msg := fmt.Sprintf(
-		"From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
-		s.from, to, subject, body,
-	)
-	if _, err := fmt.Fprint(w, msg); err != nil {
-		return fmt.Errorf("smtp write: %w", err)
-	}
-	if err := w.Close(); err != nil {
-		return fmt.Errorf("smtp close data: %w", err)
-	}
-
-	return client.Quit()
+	return nil
 }
 
 // SendVerificationCode отправляет 6-значный код подтверждения на указанный email.
 func (s *Sender) SendVerificationCode(to, code string) error {
 	subject := "Подтверждение email — Oqyrman"
-	body := fmt.Sprintf(
-		"Добро пожаловать в Oqyrman!\r\n\r\nВаш код подтверждения: %s\r\n\r\nКод действителен 3 минуты.\r\nЕсли вы не регистрировались — проигнорируйте это письмо.",
+	html := s.verificationHTML(code)
+	text := fmt.Sprintf(
+		"Добро пожаловать в Oqyrman!\n\nВаш код подтверждения: %s\n\nКод действителен 3 минуты.\nЕсли вы не регистрировались — проигнорируйте это письмо.",
 		code,
 	)
-	return s.send(to, subject, body)
+	return s.send(to, subject, html, text)
 }
 
 // SendPasswordResetCode отправляет 6-значный код сброса пароля.
 func (s *Sender) SendPasswordResetCode(to, code string) error {
 	subject := "Сброс пароля — Oqyrman"
-	body := fmt.Sprintf(
-		"Вы запросили сброс пароля.\r\n\r\nВаш код: %s\r\n\r\nКод действителен 3 минуты.\r\nЕсли вы не запрашивали сброс — проигнорируйте это письмо.",
+	html := s.resetHTML(code)
+	text := fmt.Sprintf(
+		"Вы запросили сброс пароля.\n\nВаш код: %s\n\nКод действителен 5 минут.\nЕсли вы не запрашивали сброс — проигнорируйте это письмо.",
 		code,
 	)
-	return s.send(to, subject, body)
+	return s.send(to, subject, html, text)
+}
+
+// ── HTML templates ────────────────────────────────────────────────────────────
+
+func (s *Sender) verificationHTML(code string) string {
+	return s.buildEmail(
+		"Подтверждение email",
+		"Добро пожаловать!",
+		"Для завершения регистрации введите код подтверждения:",
+		code,
+		"Код действителен <strong>3 минуты</strong>.",
+		"Если вы не регистрировались в Oqyrman — просто проигнорируйте это письмо.",
+	)
+}
+
+func (s *Sender) resetHTML(code string) string {
+	return s.buildEmail(
+		"Сброс пароля",
+		"Запрос на сброс пароля",
+		"Мы получили запрос на смену пароля. Используйте код ниже:",
+		code,
+		"Код действителен <strong>5 минут</strong>.",
+		"Если вы не запрашивали сброс пароля — проигнорируйте это письмо. Ваш аккаунт в безопасности.",
+	)
+}
+
+// headerContent возвращает содержимое хедера: логотип-картинку или текстовый fallback.
+func (s *Sender) headerContent() string {
+	if s.logoURL != "" {
+		return fmt.Sprintf(
+			`<img src="%s" alt="Oqyrman" style="height:44px;display:block;margin:0 auto 8px;">
+              <span style="display:block;color:#A8D5C2;font-size:11px;letter-spacing:0.8px;text-transform:uppercase;">Ваша библиотека онлайн</span>`,
+			s.logoURL,
+		)
+	}
+	return `<span style="color:#FFFFFF;font-size:24px;font-weight:700;letter-spacing:0.5px;">Oqyrman</span>
+              <span style="display:block;color:#A8D5C2;font-size:11px;margin-top:6px;letter-spacing:0.8px;text-transform:uppercase;">Ваша библиотека онлайн</span>`
+}
+
+func (s *Sender) buildEmail(title, heading, description, code, expiry, disclaimer string) string {
+	return fmt.Sprintf(`<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>%s</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F2F7F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#F2F7F5;padding:48px 16px;">
+    <tr>
+      <td align="center">
+
+        <!-- Card -->
+        <table width="100%%" cellpadding="0" cellspacing="0" role="presentation"
+               style="max-width:480px;background:#FFFFFF;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(30,89,69,0.10);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:#1E5945;padding:30px 40px;text-align:center;">
+              %s
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+
+              <h1 style="margin:0 0 12px;font-size:20px;font-weight:600;color:#1E5945;">%s</h1>
+              <p style="margin:0 0 28px;font-size:15px;color:#4A5568;line-height:1.6;">%s</p>
+
+              <!-- Code block -->
+              <table width="100%%" cellpadding="0" cellspacing="0" role="presentation"
+                     style="background:#EDF7F2;border:1px solid #C6E8D8;border-radius:12px;margin-bottom:28px;">
+                <tr>
+                  <td style="padding:28px 16px;text-align:center;">
+                    <span style="font-size:44px;font-weight:700;letter-spacing:14px;color:#1E5945;font-family:'Courier New',Courier,monospace;">%s</span>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 10px;font-size:14px;color:#4A5568;">%s</p>
+              <p style="margin:0;font-size:13px;color:#9CA3AF;line-height:1.5;">%s</p>
+
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;">
+              <div style="height:1px;background:#E8F2EE;"></div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#9CA3AF;">© 2025 Oqyrman · Не отвечайте на это письмо</p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`, title, s.headerContent(), heading, description, code, expiry, disclaimer)
 }

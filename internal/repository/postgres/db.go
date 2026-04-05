@@ -25,9 +25,10 @@ func NewPostgresDB(cfg *config.Config) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("postgres connect: %w", err)
 	}
 
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(50)
+	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(2 * time.Minute)
 
 	return db, nil
 }

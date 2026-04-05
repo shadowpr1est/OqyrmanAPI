@@ -9,6 +9,14 @@ var (
 	// Handler должен вернуть 400 Bad Request с сообщением из err.Error().
 	ErrValidation = errors.New("validation error")
 
+	// ErrTokenExpired — refresh token истёк.
+	// Handler должен вернуть 401 с кодом token_expired.
+	ErrTokenExpired = errors.New("refresh token expired")
+
+	// ErrAccountLocked — аккаунт временно заблокирован из-за слишком многих неудачных попыток входа.
+	// Handler должен вернуть 429 Too Many Requests.
+	ErrAccountLocked = errors.New("account temporarily locked due to too many failed login attempts")
+
 	// ErrNoAvailableCopies — все копии книги заняты, бронь невозможна.
 	// Handler должен вернуть 409 Conflict.
 	ErrNoAvailableCopies = errors.New("no available copies")

@@ -13,6 +13,7 @@ require (
 	github.com/lib/pq v1.11.2
 	github.com/minio/minio-go/v7 v7.0.99
 	github.com/openai/openai-go v1.12.0
+	github.com/resend/resend-go/v2 v2.28.0
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1

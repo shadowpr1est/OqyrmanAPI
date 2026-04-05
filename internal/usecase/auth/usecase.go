@@ -2,10 +2,15 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/mail"
+	"sync"
 	"time"
 	"unicode"
 
@@ -20,12 +25,24 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	bcryptCost       = 12
+	maxLoginAttempts = 10
+	lockoutDuration  = 15 * time.Minute
+)
+
 // EmailSender — минимальный интерфейс для отправки кода верификации.
 // Позволяет подменять реализацию в тестах.
 type EmailSender interface {
 	Enabled() bool
 	SendVerificationCode(to, code string) error
 	SendPasswordResetCode(to, code string) error
+}
+
+type loginRecord struct {
+	count         int
+	lockedAt      *time.Time
+	lastAttemptAt time.Time
 }
 
 type authUseCase struct {
@@ -36,7 +53,12 @@ type authUseCase struct {
 	emailSender     EmailSender
 	jwt             *jwt.Manager
 	googleClientID  string
+	otpSecret       []byte
 	refreshTokenTTL time.Duration
+
+	// защита от брутфорса: блокировка аккаунта после maxLoginAttempts неудачных попыток
+	loginMu      sync.Mutex
+	loginRecords map[string]*loginRecord
 }
 
 func NewAuthUseCase(
@@ -47,6 +69,7 @@ func NewAuthUseCase(
 	emailSender EmailSender,
 	jwt *jwt.Manager,
 	googleClientID string,
+	otpSecret string,
 	refreshTokenTTLDays int,
 ) domainUseCase.AuthUseCase {
 	return &authUseCase{
@@ -57,7 +80,9 @@ func NewAuthUseCase(
 		emailSender:     emailSender,
 		jwt:             jwt,
 		googleClientID:  googleClientID,
+		otpSecret:       []byte(otpSecret),
 		refreshTokenTTL: time.Duration(refreshTokenTTLDays) * 24 * time.Hour,
+		loginRecords:    make(map[string]*loginRecord),
 	}
 }
 
@@ -101,7 +126,7 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 		return nil, fmt.Errorf("authUseCase.Register lookup phone: %w", err)
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(user.PasswordHash), bcryptCost)
 	if err != nil {
 		return nil, err
 	}
@@ -110,14 +135,13 @@ func (u *authUseCase) Register(ctx context.Context, user *entity.User) (*entity.
 	user.PasswordHash = string(hash)
 	user.Role = entity.RoleUser
 	user.CreatedAt = time.Now()
-	user.QRCode = user.ID.String()
+	user.QRCode = generateQRToken()
 
 	created, err := u.userRepo.Create(ctx, user)
 	if err != nil {
 		return nil, err
 	}
 
-	// Отправляем код верификации (если SMTP настроен).
 	if err := u.sendCode(ctx, created); err != nil {
 		return nil, err
 	}
@@ -159,7 +183,7 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, email, code string) (*dom
 		_ = u.verifRepo.DeleteByUserID(ctx, user.ID)
 		return nil, entity.ErrCodeNotFound
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(record.Code), []byte(code)); err != nil {
+	if !u.verifyHMAC(code, record.Code) {
 		return nil, entity.ErrCodeNotFound
 	}
 
@@ -168,26 +192,35 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, email, code string) (*dom
 	}
 	_ = u.verifRepo.DeleteByUserID(ctx, user.ID)
 
-	// Обновляем поле в памяти для генерации токена
 	user.EmailVerified = true
 
 	return u.issueTokenPair(ctx, user)
 }
 
 func (u *authUseCase) Login(ctx context.Context, email, password string) (*domainUseCase.TokenPair, error) {
+	// Проверяем блокировку до обращения к БД — не раскрываем факт существования email
+	if err := u.checkAndRecordFailedLogin(email, false); err != nil {
+		return nil, err
+	}
+
 	user, err := u.userRepo.GetByEmail(ctx, email)
 	if err != nil {
+		_ = u.checkAndRecordFailedLogin(email, true)
 		return nil, errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		_ = u.checkAndRecordFailedLogin(email, true)
 		return nil, errors.New("invalid credentials")
 	}
 
 	if !user.EmailVerified {
+		// Успешная аутентификация — сбрасываем счётчик неудач
+		u.resetLoginAttempts(email)
 		return nil, entity.ErrEmailNotVerified
 	}
 
+	u.resetLoginAttempts(email)
 	return u.issueTokenPair(ctx, user)
 }
 
@@ -202,7 +235,7 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 	}
 	if time.Now().After(token.ExpiresAt) {
 		_ = u.tokenRepo.DeleteByRefreshToken(ctx, refreshToken)
-		return nil, errors.New("refresh token expired")
+		return nil, entity.ErrTokenExpired
 	}
 
 	user, err := u.userRepo.GetByID(ctx, token.UserID)
@@ -225,7 +258,6 @@ func (u *authUseCase) RefreshToken(ctx context.Context, refreshToken string) (*d
 func (u *authUseCase) checkReregistrationAllowed(ctx context.Context, userID uuid.UUID) error {
 	record, err := u.verifRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		// Кода нет — можно перерегистрироваться
 		return nil
 	}
 	if time.Now().Before(record.ExpiresAt) {
@@ -234,20 +266,84 @@ func (u *authUseCase) checkReregistrationAllowed(ctx context.Context, userID uui
 	return nil
 }
 
+// checkAndRecordFailedLogin проверяет блокировку (record=false) или фиксирует неудачную попытку (record=true).
+// Возвращает entity.ErrAccountLocked если аккаунт заблокирован.
+func (u *authUseCase) checkAndRecordFailedLogin(email string, record bool) error {
+	u.loginMu.Lock()
+	defer u.loginMu.Unlock()
+
+	rec, exists := u.loginRecords[email]
+	if !exists {
+		if record {
+			u.loginRecords[email] = &loginRecord{count: 1, lastAttemptAt: time.Now()}
+		}
+		return nil
+	}
+
+	// Блокировка истекла — сбрасываем
+	if rec.lockedAt != nil && time.Since(*rec.lockedAt) >= lockoutDuration {
+		delete(u.loginRecords, email)
+		if record {
+			u.loginRecords[email] = &loginRecord{count: 1, lastAttemptAt: time.Now()}
+		}
+		return nil
+	}
+
+	// Аккаунт заблокирован
+	if rec.lockedAt != nil {
+		return entity.ErrAccountLocked
+	}
+
+	// Запись устарела (давно не было попыток) — сбрасываем
+	if time.Since(rec.lastAttemptAt) > lockoutDuration {
+		delete(u.loginRecords, email)
+		if record {
+			u.loginRecords[email] = &loginRecord{count: 1, lastAttemptAt: time.Now()}
+		}
+		return nil
+	}
+
+	if record {
+		rec.count++
+		rec.lastAttemptAt = time.Now()
+		if rec.count >= maxLoginAttempts {
+			now := time.Now()
+			rec.lockedAt = &now
+		}
+	}
+	return nil
+}
+
+func (u *authUseCase) resetLoginAttempts(email string) {
+	u.loginMu.Lock()
+	delete(u.loginRecords, email)
+	u.loginMu.Unlock()
+}
+
+// hmacCode вычисляет HMAC-SHA256 кода с серверным секретом.
+// Используется для хранения OTP-кодов вместо bcrypt:
+// 6-значные коды защищены TTL + rate limit + account lockout, bcrypt тут избыточен.
+func (u *authUseCase) hmacCode(code string) string {
+	mac := hmac.New(sha256.New, u.otpSecret)
+	mac.Write([]byte(code))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (u *authUseCase) verifyHMAC(submitted, stored string) bool {
+	expected := u.hmacCode(submitted)
+	return hmac.Equal([]byte(expected), []byte(stored))
+}
+
 func (u *authUseCase) sendCode(ctx context.Context, user *entity.User) error {
 	code, err := generateCode()
 	if err != nil {
 		return fmt.Errorf("authUseCase.sendCode generate: %w", err)
 	}
 
-	codeHash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("authUseCase.sendCode hash: %w", err)
-	}
 	record := &entity.EmailVerificationCode{
 		ID:        uuid.New(),
 		UserID:    user.ID,
-		Code:      string(codeHash),
+		Code:      u.hmacCode(code),
 		ExpiresAt: time.Now().Add(3 * time.Minute),
 		CreatedAt: time.Now(),
 	}
@@ -258,7 +354,10 @@ func (u *authUseCase) sendCode(ctx context.Context, user *entity.User) error {
 	if u.emailSender != nil && u.emailSender.Enabled() {
 		// Ошибка отправки письма не отменяет регистрацию: код уже сохранён в БД,
 		// пользователь может запросить повтор через /auth/resend-code.
-		_ = u.emailSender.SendVerificationCode(user.Email, code)
+		if err := u.emailSender.SendVerificationCode(user.Email, code); err != nil {
+			slog.WarnContext(ctx, "failed to send verification email",
+				"err", err, "user_id", user.ID, "email", user.Email)
+		}
 	}
 
 	return nil
@@ -305,14 +404,10 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 		return fmt.Errorf("authUseCase.ForgotPassword generate: %w", err)
 	}
 
-	codeHash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("authUseCase.ForgotPassword hash: %w", err)
-	}
 	record := &entity.PasswordResetCode{
 		ID:        uuid.New(),
 		UserID:    user.ID,
-		Code:      string(codeHash),
+		Code:      u.hmacCode(code),
 		ExpiresAt: time.Now().Add(5 * time.Minute),
 		CreatedAt: time.Now(),
 	}
@@ -322,7 +417,8 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 
 	if u.emailSender != nil && u.emailSender.Enabled() {
 		if err := u.emailSender.SendPasswordResetCode(user.Email, code); err != nil {
-			return fmt.Errorf("authUseCase.ForgotPassword email: %w", err)
+			slog.WarnContext(ctx, "failed to send password reset email",
+				"err", err, "user_id", user.ID, "email", user.Email)
 		}
 	}
 
@@ -332,21 +428,16 @@ func (u *authUseCase) ForgotPassword(ctx context.Context, email string) error {
 func (u *authUseCase) ResendResetCode(ctx context.Context, email string) error {
 	user, err := u.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		// Не раскрываем факт существования email
 		return nil
 	}
 	code, err := generateCode()
 	if err != nil {
 		return fmt.Errorf("authUseCase.ResendResetCode generate: %w", err)
 	}
-	codeHash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("authUseCase.ResendResetCode hash: %w", err)
-	}
 	record := &entity.PasswordResetCode{
 		ID:        uuid.New(),
 		UserID:    user.ID,
-		Code:      string(codeHash),
+		Code:      u.hmacCode(code),
 		ExpiresAt: time.Now().Add(5 * time.Minute),
 		CreatedAt: time.Now(),
 	}
@@ -354,7 +445,10 @@ func (u *authUseCase) ResendResetCode(ctx context.Context, email string) error {
 		return fmt.Errorf("authUseCase.ResendResetCode save: %w", err)
 	}
 	if u.emailSender != nil && u.emailSender.Enabled() {
-		_ = u.emailSender.SendPasswordResetCode(user.Email, code)
+		if err := u.emailSender.SendPasswordResetCode(user.Email, code); err != nil {
+			slog.WarnContext(ctx, "failed to send resend reset email",
+				"err", err, "user_id", user.ID, "email", user.Email)
+		}
 	}
 	return nil
 }
@@ -377,11 +471,11 @@ func (u *authUseCase) ResetPassword(ctx context.Context, email, code, newPasswor
 		_ = u.resetRepo.DeleteByUserID(ctx, user.ID)
 		return entity.ErrResetCodeNotFound
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(record.Code), []byte(code)); err != nil {
+	if !u.verifyHMAC(code, record.Code) {
 		return entity.ErrResetCodeNotFound
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcryptCost)
 	if err != nil {
 		return err
 	}
@@ -391,7 +485,6 @@ func (u *authUseCase) ResetPassword(ctx context.Context, email, code, newPasswor
 	}
 
 	_ = u.resetRepo.DeleteByUserID(ctx, user.ID)
-	// Инвалидируем все активные сессии
 	_ = u.tokenRepo.DeleteAllByUserID(ctx, user.ID)
 
 	return nil
@@ -419,7 +512,6 @@ func (u *authUseCase) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 			return nil, err
 		}
 		user.GoogleID = &info.Sub
-		// Google подтвердил email — верифицируем аккаунт если ещё не верифицирован
 		if !user.EmailVerified {
 			_ = u.userRepo.SetEmailVerified(ctx, user.ID)
 			user.EmailVerified = true
@@ -431,26 +523,25 @@ func (u *authUseCase) LoginWithGoogle(ctx context.Context, idToken string) (*dom
 	}
 
 	// 3. Создаём нового пользователя через Google
-	// Phone не обязателен для OAuth-пользователей — используем уникальный placeholder
-	phone := "g:" + info.Sub
-	if len(phone) > 20 {
-		phone = phone[:20]
+	googlePhone := "g:" + info.Sub
+	if len(googlePhone) > 20 {
+		googlePhone = googlePhone[:20]
 	}
 	googleID := info.Sub
 	newUser := &entity.User{
 		ID:            uuid.New(),
 		Email:         info.Email,
-		Phone:         phone,
+		Phone:         googlePhone,
 		Name:          info.GivenName,
 		Surname:       info.FamilyName,
-		PasswordHash:  "", // нет пароля у OAuth-пользователей
+		PasswordHash:  "",
 		Role:          entity.RoleUser,
 		GoogleID:      &googleID,
 		AvatarURL:     info.Picture,
 		EmailVerified: true,
 		CreatedAt:     time.Now(),
 	}
-	newUser.QRCode = newUser.ID.String()
+	newUser.QRCode = generateQRToken()
 
 	created, err := u.userRepo.Create(ctx, newUser)
 	if err != nil {
@@ -467,6 +558,13 @@ func generateCode() (string, error) {
 	}
 	n := int(b[0])<<16 | int(b[1])<<8 | int(b[2])
 	return fmt.Sprintf("%06d", n%1_000_000), nil
+}
+
+// generateQRToken создаёт криптографически случайный токен для QR-кода пользователя.
+func generateQRToken() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func validateEmail(email string) error {

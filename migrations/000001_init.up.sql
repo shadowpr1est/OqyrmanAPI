@@ -278,6 +278,9 @@ CREATE INDEX idx_books_description_trgm ON books   USING GIN (description gin_tr
 CREATE INDEX idx_authors_name_trgm      ON authors USING GIN (name        gin_trgm_ops) WHERE deleted_at IS NULL;
 CREATE INDEX idx_genres_slug            ON genres  (slug) WHERE deleted_at IS NULL;
 
+-- tokens
+CREATE INDEX idx_tokens_user_id ON tokens(user_id);
+
 -- email verification & password reset
 CREATE INDEX idx_email_verification_codes_user_id ON email_verification_codes(user_id);
 CREATE INDEX idx_password_reset_codes_user_id     ON password_reset_codes(user_id);

@@ -156,6 +156,13 @@ definitions:
     required:
     - email
     type: object
+  auth.resendResetCodeRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
   auth.resetPasswordRequest:
     properties:
       code:
@@ -398,6 +405,17 @@ definitions:
         type: integer
       year:
         type: integer
+    type: object
+  common.ErrorResponse:
+    properties:
+      code:
+        type: string
+      fields:
+        additionalProperties:
+          type: string
+        type: object
+      message:
+        type: string
     type: object
   common.GenreRef:
     properties:
@@ -2218,9 +2236,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
       summary: Вход через Google
       tags:
       - auth
@@ -2245,15 +2261,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
         "403":
           description: Forbidden
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
       summary: Вход
       tags:
       - auth
@@ -2274,9 +2286,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Выход
@@ -2303,9 +2313,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
       summary: Обновить токен
       tags:
       - auth
@@ -2330,15 +2338,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
       summary: Регистрация
       tags:
       - auth
@@ -2365,16 +2369,35 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/common.ErrorResponse'
+      summary: Повторно отправить код верификации
+      tags:
+      - auth
+  /auth/resend-reset-code:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.resendResetCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
           schema:
             additionalProperties:
               type: string
             type: object
-      summary: Повторно отправить код
+      summary: Повторно отправить код сброса пароля
       tags:
       - auth
   /auth/reset-password:
@@ -2400,9 +2423,7 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
       summary: Сброс пароля
       tags:
       - auth
@@ -2427,15 +2448,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
         "409":
           description: Conflict
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/common.ErrorResponse'
       summary: Подтвердить email
       tags:
       - auth

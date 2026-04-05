@@ -78,3 +78,12 @@ func (r *tokenRepo) DeleteByID(ctx context.Context, id, userID uuid.UUID) error 
 	}
 	return nil
 }
+
+func (r *tokenRepo) DeleteExpired(ctx context.Context) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM tokens WHERE expires_at < now()`)
+	if err != nil {
+		return 0, fmt.Errorf("tokenRepo.DeleteExpired: %w", err)
+	}
+	n, _ := result.RowsAffected()
+	return n, nil
+}

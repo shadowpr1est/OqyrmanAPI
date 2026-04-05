@@ -155,11 +155,15 @@ func (h *Handler) Login(c *gin.Context) {
 
 	pair, err := h.uc.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, entity.ErrEmailNotVerified) {
+		switch {
+		case errors.Is(err, entity.ErrEmailNotVerified):
 			common.Err(c, http.StatusForbidden, common.CodeEmailNotVerified, "please verify your email before logging in")
-			return
+		case errors.Is(err, entity.ErrAccountLocked):
+			c.Header("Retry-After", "900")
+			common.Err(c, http.StatusTooManyRequests, common.CodeTooManyRequests, "account temporarily locked, try again in 15 minutes")
+		default:
+			common.Unauthorized(c, common.CodeInvalidCredentials, "invalid email or password")
 		}
-		common.Unauthorized(c, common.CodeInvalidCredentials, "invalid email or password")
 		return
 	}
 
@@ -211,7 +215,7 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 
 	pair, err := h.uc.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		if err.Error() == "refresh token expired" {
+		if errors.Is(err, entity.ErrTokenExpired) {
 			common.Unauthorized(c, common.CodeTokenExpired, "refresh token has expired")
 			return
 		}

@@ -138,6 +138,9 @@ func (m *mockTokenRepo) DeleteByID(ctx context.Context, id, userID uuid.UUID) er
 func (m *mockTokenRepo) DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error {
 	return m.Called(ctx, userID).Error(0)
 }
+func (m *mockTokenRepo) DeleteExpired(ctx context.Context) (int64, error) {
+	return 0, nil
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -158,7 +161,7 @@ func TestRegister_Success(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, verifRepo, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, verifRepo, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	createdUser := &entity.User{ID: uuid.New(), Email: "test@example.com"}
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
@@ -185,7 +188,7 @@ func TestRegister_EmailAlreadyExists(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	existing := &entity.User{ID: uuid.New(), Email: "test@example.com", EmailVerified: true}
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(existing, nil)
@@ -209,7 +212,7 @@ func TestRegister_PasswordTooShort(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
@@ -230,7 +233,7 @@ func TestRegister_PasswordNoUppercase(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
@@ -251,7 +254,7 @@ func TestRegister_PasswordNoDigit(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(nil, entity.ErrNotFound)
 
@@ -274,7 +277,7 @@ func TestLogin_Success(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	userID := uuid.New()
 	hashedPw := hashPassword(t, "Password1")
@@ -300,7 +303,7 @@ func TestLogin_UserNotFound(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	userRepo.On("GetByEmail", mock.Anything, "noone@example.com").Return(nil, errors.New("not found"))
 
@@ -317,7 +320,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	hashedPw := hashPassword(t, "CorrectPassword1")
 	userRepo.On("GetByEmail", mock.Anything, "test@example.com").Return(
@@ -340,7 +343,7 @@ func TestLogout_Success(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	tokenRepo.On("DeleteByRefreshToken", mock.Anything, "some-refresh-token").Return(nil)
 
@@ -359,7 +362,7 @@ func TestRefreshToken_Success(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	userID := uuid.New()
 	existingToken := &entity.Token{
@@ -391,7 +394,7 @@ func TestRefreshToken_Expired(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	expiredToken := &entity.Token{
 		ID:           uuid.New(),
@@ -415,7 +418,7 @@ func TestRefreshToken_InvalidToken(t *testing.T) {
 	if jwtErr != nil {
 		t.Fatal(jwtErr)
 	}
-	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", 30)
+	uc := auth.NewAuthUseCase(userRepo, tokenRepo, nil, nil, nil, jwtManager, "", "test-otp-secret", 30)
 
 	_ = userRepo // не используется в этом тесте
 
