@@ -98,6 +98,9 @@ services:
     expose:
       - "9000"
       - "9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web консоль  
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
