@@ -93,6 +93,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_BROWSER_REDIRECT_URL: https://api.oqyrman.app/minio-console
     volumes:
       - minio_data:/data
     expose:
