@@ -40,6 +40,8 @@ services:
       context: ../OqyrmanWEB
       dockerfile: Dockerfile
     container_name: oqyrman_frontend
+    env_file:
+      - ../OqyrmanWEB/.env
     expose:
       - "80"
     restart: unless-stopped
