@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
 
   app:
@@ -39,9 +37,11 @@ services:
 
   frontend:
     build:
-      context: ../Oqyrman-frontend
+      context: ../OqyrmanWEB
       dockerfile: Dockerfile
     container_name: oqyrman_frontend
+    env_file:
+      - ../OqyrmanWEB/.env
     expose:
       - "80"
     restart: unless-stopped
