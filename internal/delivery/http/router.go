@@ -239,6 +239,7 @@ func (r *Router) Init() *gin.Engine {
 			protected.POST("/wishlist", r.wishlist.Add)
 			protected.GET("/wishlist", r.wishlist.List)
 			protected.GET("/wishlist/:book_id/exists", r.wishlist.Exists)
+			protected.PATCH("/wishlist/:book_id/status", r.wishlist.UpdateStatus)
 			protected.DELETE("/wishlist/:book_id", r.wishlist.Remove)
 
 			// notes

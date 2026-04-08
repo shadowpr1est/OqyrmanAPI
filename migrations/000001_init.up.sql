@@ -159,8 +159,11 @@ CREATE TABLE wishlists (
     id       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id  UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     book_id  UUID        NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    status   TEXT        NOT NULL DEFAULT 'want_to_read',
     added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (user_id, book_id)
+    UNIQUE (user_id, book_id),
+    CONSTRAINT wishlists_status_check
+        CHECK (status IN ('want_to_read', 'reading', 'finished'))
 );
 
 -- ─── Reading notes ────────────────────────────────────────────────────────────
@@ -265,6 +268,9 @@ CREATE INDEX idx_reservations_due_date        ON reservations(due_date)
 -- reviews
 CREATE INDEX idx_reviews_book_id ON reviews(book_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_reviews_user_id ON reviews(user_id) WHERE deleted_at IS NULL;
+
+-- wishlists
+CREATE INDEX idx_wishlists_user_status ON wishlists(user_id, status);
 
 -- notifications
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
