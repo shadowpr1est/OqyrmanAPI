@@ -38,7 +38,7 @@ func (h *Handler) GetMe(c *gin.Context) {
 
 	user, err := h.uc.GetByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "user not found")
 		return
 	}
 
@@ -83,7 +83,7 @@ func (h *Handler) Update(c *gin.Context) {
 	result, err := h.uc.Update(c.Request.Context(), patch)
 	if err != nil {
 		if errors.Is(err, entity.ErrValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 			return
 		}
 		if errors.Is(err, entity.ErrEmailTaken) {
@@ -187,7 +187,8 @@ func (h *Handler) AdminUpdateUser(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "email already taken"})
 			return
 		}
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		slog.ErrorContext(c.Request.Context(), "admin update user error", "err", err, "path", c.FullPath())
+		common.InternalError(c)
 		return
 	}
 
@@ -228,7 +229,7 @@ func (h *Handler) GetQR(c *gin.Context) {
 	userID := middleware.GetUserID(c)
 	user, err := h.uc.GetByID(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "user not found")
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"qr_code": user.QRCode})
@@ -466,7 +467,7 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 	}
 	if err := h.uc.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
 		if errors.Is(err, entity.ErrValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())

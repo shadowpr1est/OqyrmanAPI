@@ -67,7 +67,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 	genre, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "genre not found")
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h *Handler) GetBySlug(c *gin.Context) {
 
 	genre, err := h.uc.GetBySlug(c.Request.Context(), slug)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "genre not found")
 		return
 	}
 
@@ -140,7 +140,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	existing, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "genre not found")
 		return
 	}
 

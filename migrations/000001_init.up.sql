@@ -220,6 +220,14 @@ CREATE TABLE password_reset_codes (
     UNIQUE (user_id)
 );
 
+-- ─── Login attempts (brute-force protection) ─────────────────────────────────
+CREATE TABLE login_attempts (
+    email           VARCHAR(255) PRIMARY KEY,
+    count           INT          NOT NULL DEFAULT 0,
+    locked_at       TIMESTAMPTZ,
+    last_attempt_at TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
 -- ─── Conversations ────────────────────────────────────────────────────────────
 CREATE TABLE conversations (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),

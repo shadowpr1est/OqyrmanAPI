@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/mail"
-	"sync"
 	"time"
 	"unicode"
 
@@ -39,26 +38,17 @@ type EmailSender interface {
 	SendPasswordResetCode(to, code string) error
 }
 
-type loginRecord struct {
-	count         int
-	lockedAt      *time.Time
-	lastAttemptAt time.Time
-}
-
 type authUseCase struct {
 	userRepo        repository.UserRepository
 	tokenRepo       repository.TokenRepository
 	verifRepo       repository.EmailVerificationCodeRepository
 	resetRepo       repository.PasswordResetCodeRepository
+	loginAttemptRepo repository.LoginAttemptRepository
 	emailSender     EmailSender
 	jwt             *jwt.Manager
 	googleClientID  string
 	otpSecret       []byte
 	refreshTokenTTL time.Duration
-
-	// защита от брутфорса: блокировка аккаунта после maxLoginAttempts неудачных попыток
-	loginMu      sync.Mutex
-	loginRecords map[string]*loginRecord
 }
 
 func NewAuthUseCase(
@@ -66,6 +56,7 @@ func NewAuthUseCase(
 	tokenRepo repository.TokenRepository,
 	verifRepo repository.EmailVerificationCodeRepository,
 	resetRepo repository.PasswordResetCodeRepository,
+	loginAttemptRepo repository.LoginAttemptRepository,
 	emailSender EmailSender,
 	jwt *jwt.Manager,
 	googleClientID string,
@@ -73,16 +64,16 @@ func NewAuthUseCase(
 	refreshTokenTTLDays int,
 ) domainUseCase.AuthUseCase {
 	return &authUseCase{
-		userRepo:        userRepo,
-		tokenRepo:       tokenRepo,
-		verifRepo:       verifRepo,
-		resetRepo:       resetRepo,
-		emailSender:     emailSender,
-		jwt:             jwt,
-		googleClientID:  googleClientID,
-		otpSecret:       []byte(otpSecret),
-		refreshTokenTTL: time.Duration(refreshTokenTTLDays) * 24 * time.Hour,
-		loginRecords:    make(map[string]*loginRecord),
+		userRepo:         userRepo,
+		tokenRepo:        tokenRepo,
+		verifRepo:        verifRepo,
+		resetRepo:        resetRepo,
+		loginAttemptRepo: loginAttemptRepo,
+		emailSender:      emailSender,
+		jwt:              jwt,
+		googleClientID:   googleClientID,
+		otpSecret:        []byte(otpSecret),
+		refreshTokenTTL:  time.Duration(refreshTokenTTLDays) * 24 * time.Hour,
 	}
 }
 

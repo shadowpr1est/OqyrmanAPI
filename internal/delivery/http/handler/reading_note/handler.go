@@ -146,7 +146,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	existing, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "note not found")
 		return
 	}
 	if existing.UserID != userID {
@@ -187,7 +187,7 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	existing, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "note not found")
 		return
 	}
 	if existing.UserID != userID {

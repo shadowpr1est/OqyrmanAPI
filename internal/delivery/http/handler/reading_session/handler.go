@@ -78,7 +78,7 @@ func (h *Handler) GetByBook(c *gin.Context) {
 
 	session, err := h.uc.GetByUserAndBookView(c.Request.Context(), userID, bookID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "reading session not found")
 		return
 	}
 
@@ -127,7 +127,7 @@ func (h *Handler) Delete(c *gin.Context) {
 
 	existing, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "reading session not found")
 		return
 	}
 	if existing.UserID != userID {

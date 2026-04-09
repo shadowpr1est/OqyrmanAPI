@@ -55,11 +55,11 @@ func (h *Handler) Create(c *gin.Context) {
 	result, err := h.uc.Create(c.Request.Context(), review)
 	if err != nil {
 		if errors.Is(err, entity.ErrForbidden) {
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			common.Forbidden(c)
 			return
 		}
 		if errors.Is(err, entity.ErrValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
@@ -92,7 +92,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 	review, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "review not found")
 		return
 	}
 	c.JSON(http.StatusOK, toReviewViewResponse(review))
@@ -193,7 +193,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	existing, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "review not found")
 		return
 	}
 

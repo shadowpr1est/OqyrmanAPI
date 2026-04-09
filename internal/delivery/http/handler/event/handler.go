@@ -107,7 +107,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 func (h *Handler) Create(c *gin.Context) {
 	var req createEventRequest
 	if err := c.ShouldBindWith(&req, binding.FormMultipart); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -177,7 +177,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	var req updateEventRequest
 	if err := c.ShouldBindWith(&req, binding.FormMultipart); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		common.ValidationErr(c, err)
 		return
 	}
 

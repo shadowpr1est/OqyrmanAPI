@@ -37,7 +37,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 	file, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "book file not found")
 		return
 	}
 
@@ -92,7 +92,7 @@ func (h *Handler) Upload(c *gin.Context) {
 			return
 		}
 		if errors.Is(err, entity.ErrValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 			return
 		}
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())

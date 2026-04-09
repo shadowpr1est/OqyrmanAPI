@@ -52,7 +52,7 @@ func (h *Handler) Register(c *gin.Context) {
 		case errors.Is(err, entity.ErrRegistrationPending):
 			common.Conflict(c, common.CodeRegistrationPending, "verification code is still active, please check your email or wait 3 minutes")
 		case errors.Is(err, entity.ErrValidation):
-			common.BadRequest(c, common.CodeValidationError, err.Error())
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 		default:
 			slog.ErrorContext(c.Request.Context(), "register error", "err", err, "path", c.FullPath())
 			common.InternalError(c)
@@ -286,7 +286,7 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		case errors.Is(err, entity.ErrResetCodeNotFound):
 			common.BadRequest(c, common.CodeInvalidCode, "invalid or expired reset code")
 		case errors.Is(err, entity.ErrValidation):
-			common.BadRequest(c, common.CodeValidationError, err.Error())
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 		default:
 			slog.ErrorContext(c.Request.Context(), "reset password error", "err", err, "path", c.FullPath())
 			common.InternalError(c)

@@ -197,7 +197,7 @@ func (h *Handler) SendMessage(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, entity.ErrValidation):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 			return
 		case errors.Is(err, entity.ErrConversationNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})

@@ -180,7 +180,7 @@ func (h *Handler) Update(c *gin.Context) {
 	result, err := h.uc.UpdateCopies(c.Request.Context(), id, req.TotalCopies, req.AvailableCopies)
 	if err != nil {
 		if errors.Is(err, entity.ErrValidation) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
 			return
 		}
 		if errors.Is(err, entity.ErrNotFound) {

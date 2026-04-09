@@ -44,7 +44,7 @@ func NewHandler(uc domainUseCase.BookUseCase) *Handler {
 func (h *Handler) Create(c *gin.Context) {
 	var req createBookRequest
 	if err := c.ShouldBindWith(&req, binding.FormMultipart); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		common.ValidationErr(c, err)
 		return
 	}
 
@@ -196,7 +196,7 @@ func (h *Handler) GetByID(c *gin.Context) {
 
 	book, err := h.uc.GetByIDView(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "book not found")
 		return
 	}
 
@@ -382,7 +382,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 	existing, err := h.uc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		common.NotFound(c, "book not found")
 		return
 	}
 
