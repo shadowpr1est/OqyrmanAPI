@@ -24,10 +24,11 @@ func NewNotificationUseCase(repo repository.NotificationRepository, hub Broadcas
 	return &notificationUseCase{repo: repo, hub: hub}
 }
 
-func (u *notificationUseCase) Create(ctx context.Context, userID uuid.UUID, title, body string) (*entity.Notification, error) {
+func (u *notificationUseCase) Create(ctx context.Context, userID uuid.UUID, nType entity.NotificationType, title, body string) (*entity.Notification, error) {
 	n := &entity.Notification{
 		ID:        uuid.New(),
 		UserID:    userID,
+		Type:      nType,
 		Title:     title,
 		Body:      body,
 		IsRead:    false,

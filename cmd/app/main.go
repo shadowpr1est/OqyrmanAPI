@@ -92,7 +92,6 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/internal/repository/postgres"
 	aiUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/ai"
 	authUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/auth"
-	"github.com/shadowpr1est/OqyrmanAPI/pkg/email"
 	authorUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/author"
 	bookUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book"
 	bookFileUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/book_file"
@@ -108,6 +107,7 @@ import (
 	statsUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/stats"
 	userUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/user"
 	wishlistUC "github.com/shadowpr1est/OqyrmanAPI/internal/usecase/wishlist"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/email"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/hub"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/jwt"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm"
@@ -237,8 +237,10 @@ func main() {
 	defer stop()
 
 	// background workers
-	overdueCanceller := worker.NewOverdueCanceller(reservationRepo, 24*time.Hour)
+	overdueCanceller := worker.NewOverdueCanceller(reservationRepo, notifRepo, notifHub, 24*time.Hour)
 	go overdueCanceller.Run(ctx)
+	deadlineReminder := worker.NewDeadlineReminder(reservationRepo, notifRepo, notifHub, 12*time.Hour, 48*time.Hour)
+	go deadlineReminder.Run(ctx)
 	tokenCleaner := worker.NewTokenCleaner(tokenRepo, 6*time.Hour)
 	go tokenCleaner.Run(ctx)
 	// router

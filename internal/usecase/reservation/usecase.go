@@ -34,10 +34,11 @@ func NewReservationUseCase(
 	}
 }
 
-func (u *reservationUseCase) notify(ctx context.Context, userID uuid.UUID, title, body string) {
+func (u *reservationUseCase) notify(ctx context.Context, userID uuid.UUID, nType entity.NotificationType, title, body string) {
 	n := &entity.Notification{
 		ID:        uuid.New(),
 		UserID:    userID,
+		Type:      nType,
 		Title:     title,
 		Body:      body,
 		CreatedAt: time.Now(),
@@ -60,7 +61,7 @@ func (u *reservationUseCase) Create(ctx context.Context, r *entity.Reservation) 
 	if err != nil {
 		return nil, err
 	}
-	u.notify(ctx, res.UserID, "Бронирование создано",
+	u.notify(ctx, res.UserID, entity.NotifReservationSuccess, "Бронирование создано",
 		"Ваше бронирование принято и ожидает подтверждения.")
 	return res, nil
 }
@@ -79,18 +80,18 @@ func (u *reservationUseCase) Cancel(ctx context.Context, id uuid.UUID, callerID 
 	if err := u.reservationRepo.CancelWithIncrement(ctx, id, callerID); err != nil {
 		return err
 	}
-	u.notify(ctx, callerID, "Бронирование отменено",
+	u.notify(ctx, callerID, entity.NotifReservationExpired, "Бронирование отменено",
 		"Ваше бронирование было отменено.")
 	return nil
 }
 
-func (u *reservationUseCase) Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error) {
-	res, err := u.reservationRepo.Extend(ctx, id, userID, newDueDate)
+func (u *reservationUseCase) Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error) {
+	res, err := u.reservationRepo.Extend(ctx, id, userID)
 	if err != nil {
 		return nil, err
 	}
-	u.notify(ctx, userID, "Срок бронирования продлён",
-		"Срок возврата книги продлён до "+newDueDate.Format("02.01.2006")+".")
+	u.notify(ctx, userID, entity.NotifReservationSuccess, "Срок бронирования продлён",
+		"Срок возврата книги продлён до "+res.DueDate.Format("02.01.2006")+".")
 	return res, nil
 }
 
@@ -108,7 +109,7 @@ func (u *reservationUseCase) StaffCancel(ctx context.Context, id uuid.UUID, libr
 	if err := u.reservationRepo.StaffCancel(ctx, id, libraryID); err != nil {
 		return err
 	}
-	u.notify(ctx, r.UserID, "Бронирование отменено библиотекой",
+	u.notify(ctx, r.UserID, entity.NotifReservationExpired, "Бронирование отменено библиотекой",
 		"Ваше бронирование было отменено сотрудником библиотеки.")
 	return nil
 }
@@ -121,7 +122,7 @@ func (u *reservationUseCase) StaffReturn(ctx context.Context, id uuid.UUID, libr
 	if err := u.reservationRepo.StaffReturn(ctx, id, libraryID); err != nil {
 		return err
 	}
-	u.notify(ctx, r.UserID, "Книга возвращена",
+	u.notify(ctx, r.UserID, entity.NotifGeneral, "Книга возвращена",
 		"Возврат книги зафиксирован. Спасибо!")
 	return nil
 }
@@ -140,17 +141,35 @@ func (u *reservationUseCase) AdminReturn(ctx context.Context, id uuid.UUID) erro
 	if err := u.reservationRepo.AdminReturn(ctx, id); err != nil {
 		return err
 	}
-	u.notify(ctx, r.UserID, "Книга возвращена",
+	u.notify(ctx, r.UserID, entity.NotifGeneral, "Книга возвращена",
 		"Возврат книги зафиксирован администратором.")
 	return nil
 }
 
 func (u *reservationUseCase) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error {
-	return u.reservationRepo.UpdateStatus(ctx, id, status)
+	if err := u.reservationRepo.UpdateStatus(ctx, id, status); err != nil {
+		return err
+	}
+	if status == entity.ReservationActive {
+		if r, err := u.reservationRepo.GetByID(ctx, id); err == nil {
+			u.notify(ctx, r.UserID, entity.NotifPickupSuccess, "Книга выдана",
+				"Книга выдана вам на 30 дней. Срок возврата: "+r.DueDate.Format("02.01.2006")+".")
+		}
+	}
+	return nil
 }
 
 func (u *reservationUseCase) StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error {
-	return u.reservationRepo.StaffUpdateStatus(ctx, id, libraryID, status)
+	if err := u.reservationRepo.StaffUpdateStatus(ctx, id, libraryID, status); err != nil {
+		return err
+	}
+	if status == entity.ReservationActive {
+		if r, err := u.reservationRepo.GetByID(ctx, id); err == nil {
+			u.notify(ctx, r.UserID, entity.NotifPickupSuccess, "Книга выдана",
+				"Книга выдана вам на 30 дней. Срок возврата: "+r.DueDate.Format("02.01.2006")+".")
+		}
+	}
+	return nil
 }
 
 func (u *reservationUseCase) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {

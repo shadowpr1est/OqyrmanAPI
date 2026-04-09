@@ -23,6 +23,7 @@ type Reservation struct {
 	ReservedAt    time.Time         `db:"reserved_at"`
 	DueDate       time.Time         `db:"due_date"`
 	ReturnedAt    *time.Time        `db:"returned_at"`
+	ExtendedCount int               `db:"extended_count"`
 }
 
 // ReservationView — read model for GET endpoints.
@@ -32,6 +33,7 @@ type ReservationView struct {
 	ReservedAt    time.Time         `db:"reserved_at"`
 	DueDate       time.Time         `db:"due_date"`
 	ReturnedAt    *time.Time        `db:"returned_at"`
+	ExtendedCount int               `db:"extended_count"`
 	UserID        uuid.UUID         `db:"user_id"`
 	UserName      string            `db:"user_name"`
 	UserSurname   string            `db:"user_surname"`

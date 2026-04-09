@@ -185,13 +185,11 @@ func (h *Handler) Cancel(c *gin.Context) {
 // @Summary     Продлить бронь
 // @Tags        reservations
 // @Security    BearerAuth
-// @Accept      json
 // @Produce     json
-// @Param       id    path string              true "ID брони"
-// @Param       input body extendReservationRequest true "Новая дата возврата"
+// @Param       id path string true "ID брони"
 // @Success     200 {object} reservationViewResponse
-// @Failure     400 {object} map[string]string
 // @Failure     404 {object} map[string]string
+// @Failure     409 {object} map[string]string
 // @Router      /reservations/{id}/extend [put]
 func (h *Handler) Extend(c *gin.Context) {
 	userID := middleware.GetUserID(c)
@@ -201,28 +199,7 @@ func (h *Handler) Extend(c *gin.Context) {
 		return
 	}
 
-	var req extendReservationRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		common.ValidationErr(c, err)
-		return
-	}
-
-	newDueDate, err := time.Parse("2006-01-02", req.DueDate)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid due_date format, use YYYY-MM-DD"})
-		return
-	}
-	extendToday := time.Now().Truncate(24 * time.Hour)
-	if newDueDate.Before(extendToday) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be in the past"})
-		return
-	}
-	if newDueDate.After(extendToday.AddDate(0, 0, 14)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "due_date cannot be more than 14 days from today"})
-		return
-	}
-
-	result, err := h.uc.Extend(c.Request.Context(), id, userID, newDueDate)
+	result, err := h.uc.Extend(c.Request.Context(), id, userID)
 	if err != nil {
 		handleReservationError(c, err)
 		return
@@ -493,6 +470,8 @@ func handleReservationError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "reservation not found"})
 	case errors.Is(err, entity.ErrInvalidStatusTransition):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, entity.ErrExtendLimitReached):
+		c.JSON(http.StatusConflict, gin.H{"error": "you have already used your one-time extension"})
 	default:
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		common.InternalError(c)
@@ -507,6 +486,7 @@ func toReservationViewResponse(v *entity.ReservationView, includeUser bool) rese
 		Status:        string(v.Status),
 		ReservedAt:    v.ReservedAt.Format(time.RFC3339),
 		DueDate:       v.DueDate.Format("2006-01-02"),
+		ExtendedCount: v.ExtendedCount,
 		LibraryBookID: v.LibraryBookID.String(),
 		Book: common.ReservationBookRef{
 			ID:       v.BookID.String(),

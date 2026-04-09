@@ -19,8 +19,8 @@ func NewNotificationRepo(db *sqlx.DB) *notificationRepo {
 
 func (r *notificationRepo) Create(ctx context.Context, n *entity.Notification) (*entity.Notification, error) {
 	query := `
-		INSERT INTO notifications (id, user_id, title, body, is_read, created_at)
-		VALUES (:id, :user_id, :title, :body, :is_read, :created_at)
+		INSERT INTO notifications (id, user_id, type, title, body, is_read, created_at)
+		VALUES (:id, :user_id, :type, :title, :body, :is_read, :created_at)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, n)
 	if err != nil {

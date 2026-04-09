@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -132,6 +132,7 @@ func (h *Handler) Delete(c *gin.Context) {
 func toNotificationResponse(n *entity.Notification) notificationResponse {
 	resp := notificationResponse{
 		ID:        n.ID.String(),
+		Type:      string(n.Type),
 		Title:     n.Title,
 		Body:      n.Body,
 		IsRead:    n.IsRead,

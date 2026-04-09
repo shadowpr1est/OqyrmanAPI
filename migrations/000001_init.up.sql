@@ -126,6 +126,7 @@ CREATE TABLE reservations (
     reserved_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
     due_date        TIMESTAMPTZ NOT NULL,
     returned_at     TIMESTAMPTZ,
+    extended_count  INT         NOT NULL DEFAULT 0,
     CONSTRAINT chk_reservation_status
         CHECK (status IN ('pending', 'active', 'completed', 'cancelled'))
 );
@@ -138,9 +139,9 @@ CREATE TABLE reviews (
     rating     INT         NOT NULL CHECK (rating >= 1 AND rating <= 5),
     body       TEXT        NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at TIMESTAMPTZ,
-    UNIQUE (user_id, book_id)
+    deleted_at TIMESTAMPTZ
 );
+CREATE UNIQUE INDEX uq_reviews_user_book_active ON reviews (user_id, book_id) WHERE deleted_at IS NULL;
 
 -- ─── Reading sessions ─────────────────────────────────────────────────────────
 CREATE TABLE reading_sessions (
@@ -180,6 +181,7 @@ CREATE TABLE reading_notes (
 CREATE TABLE notifications (
     id         UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type       VARCHAR(50)  NOT NULL DEFAULT 'general',
     title      VARCHAR(255) NOT NULL,
     body       TEXT         NOT NULL,
     is_read    BOOLEAN      NOT NULL DEFAULT false,

@@ -26,9 +26,10 @@ type ReservationRepository interface {
 	StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error
 	CancelWithIncrement(ctx context.Context, id uuid.UUID, callerID uuid.UUID) error
 
-	Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error)
+	Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
-	CancelOverdue(ctx context.Context) (int, error)
+	CancelOverdue(ctx context.Context) ([]entity.Reservation, error)
+	FindApproachingDeadline(ctx context.Context, within time.Duration) ([]entity.Reservation, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	// View methods — used by GET endpoints; return joined user/book/library data.

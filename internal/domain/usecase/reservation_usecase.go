@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
@@ -22,7 +21,7 @@ type ReservationUseCase interface {
 	StaffReturn(ctx context.Context, id uuid.UUID, libraryID uuid.UUID) error
 	StaffUpdateStatus(ctx context.Context, id uuid.UUID, libraryID uuid.UUID, status entity.ReservationStatus) error
 
-	Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error)
+	Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error)
 
 	// Admin — без ограничений
 	ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error)

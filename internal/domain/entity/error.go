@@ -57,4 +57,8 @@ var (
 	// пока есть активные или ожидающие резервации.
 	// Handler должен вернуть 409 Conflict.
 	ErrActiveReservationsExist = errors.New("active or pending reservations exist for this library book")
+
+	// ErrExtendLimitReached — пользователь уже использовал своё продление.
+	// Handler должен вернуть 409 Conflict.
+	ErrExtendLimitReached = errors.New("extension limit reached")
 )

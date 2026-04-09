@@ -67,8 +67,8 @@ func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.R
 	}
 
 	query := `
-		INSERT INTO reservations (id, user_id, library_book_id, status, reserved_at, due_date, returned_at)
-		VALUES (:id, :user_id, :library_book_id, :status, :reserved_at, :due_date, :returned_at)
+		INSERT INTO reservations (id, user_id, library_book_id, status, reserved_at, due_date, returned_at, extended_count)
+		VALUES (:id, :user_id, :library_book_id, :status, :reserved_at, :due_date, :returned_at, :extended_count)
 		RETURNING *`
 
 	rows, err := sqlx.NamedQueryContext(ctx, tx, query, res)
@@ -277,21 +277,50 @@ func (r *reservationRepo) ListAll(ctx context.Context, limit, offset int, status
 	return items, total, nil
 }
 
-func (r *reservationRepo) Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error) {
-	var res entity.Reservation
-	err := r.db.GetContext(ctx, &res, `
-		UPDATE reservations
-		SET due_date = $3
-		WHERE id = $1 AND user_id = $2 AND status = 'active'
-		RETURNING *`,
-		id, userID, newDueDate,
-	)
+func (r *reservationRepo) Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
+		return nil, fmt.Errorf("reservationRepo.Extend begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var res entity.Reservation
+	if err := tx.GetContext(ctx, &res,
+		`SELECT * FROM reservations WHERE id = $1 FOR UPDATE`, id,
+	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, entity.ErrReservationNotFound
 		}
-		return nil, fmt.Errorf("reservationRepo.Extend: %w", err)
+		return nil, fmt.Errorf("reservationRepo.Extend get: %w", err)
 	}
+
+	if res.UserID != userID {
+		return nil, fmt.Errorf("%w: reservation belongs to another user", entity.ErrForbidden)
+	}
+	if res.Status != entity.ReservationActive {
+		return nil, fmt.Errorf("%w: can only extend active reservations", entity.ErrInvalidStatusTransition)
+	}
+	if res.ExtendedCount >= 1 {
+		return nil, entity.ErrExtendLimitReached
+	}
+
+	// Продление на 7 дней от текущего дедлайна
+	newDueDate := res.DueDate.AddDate(0, 0, 7)
+
+	if err := tx.GetContext(ctx, &res, `
+		UPDATE reservations
+		SET due_date = $2, extended_count = extended_count + 1
+		WHERE id = $1
+		RETURNING *`,
+		id, newDueDate,
+	); err != nil {
+		return nil, fmt.Errorf("reservationRepo.Extend update: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("reservationRepo.Extend commit: %w", err)
+	}
+
 	return &res, nil
 }
 
@@ -318,10 +347,10 @@ func (r *reservationRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status
 	}
 }
 
-func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
+func (r *reservationRepo) CancelOverdue(ctx context.Context) ([]entity.Reservation, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("reservationRepo.CancelOverdue begin tx: %w", err)
+		return nil, fmt.Errorf("reservationRepo.CancelOverdue begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -332,10 +361,10 @@ func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
 		WHERE due_date < now() AND status IN ('active', 'pending')
 		FOR UPDATE`,
 	); err != nil {
-		return 0, fmt.Errorf("reservationRepo.CancelOverdue select: %w", err)
+		return nil, fmt.Errorf("reservationRepo.CancelOverdue select: %w", err)
 	}
 	if len(overdue) == 0 {
-		return 0, nil
+		return nil, nil
 	}
 
 	ids := make([]uuid.UUID, len(overdue))
@@ -348,7 +377,7 @@ func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
 		`UPDATE reservations SET status = 'cancelled' WHERE id = ANY($1)`,
 		pq.Array(ids),
 	); err != nil {
-		return 0, fmt.Errorf("reservationRepo.CancelOverdue batch update: %w", err)
+		return nil, fmt.Errorf("reservationRepo.CancelOverdue batch update: %w", err)
 	}
 
 	// Batch-restore available_copies: group by library_book_id, increment by count.
@@ -364,14 +393,29 @@ func (r *reservationRepo) CancelOverdue(ctx context.Context) (int, error) {
 		WHERE lb.id = sub.library_book_id`,
 		pq.Array(ids),
 	); err != nil {
-		return 0, fmt.Errorf("reservationRepo.CancelOverdue batch increment: %w", err)
+		return nil, fmt.Errorf("reservationRepo.CancelOverdue batch increment: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("reservationRepo.CancelOverdue commit: %w", err)
+		return nil, fmt.Errorf("reservationRepo.CancelOverdue commit: %w", err)
 	}
 
-	return len(overdue), nil
+	return overdue, nil
+}
+
+func (r *reservationRepo) FindApproachingDeadline(ctx context.Context, within time.Duration) ([]entity.Reservation, error) {
+	var items []entity.Reservation
+	if err := r.db.SelectContext(ctx, &items, `
+		SELECT * FROM reservations
+		WHERE status IN ('active', 'pending')
+		  AND due_date > now()
+		  AND due_date <= now() + $1::interval
+		ORDER BY due_date ASC`,
+		within.String(),
+	); err != nil {
+		return nil, fmt.Errorf("reservationRepo.FindApproachingDeadline: %w", err)
+	}
+	return items, nil
 }
 
 func (r *reservationRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -467,8 +511,10 @@ func (r *reservationRepo) activateReservation(ctx context.Context, id uuid.UUID,
 			entity.ErrInvalidStatusTransition, res.Status)
 	}
 
+	// При активации книга выдаётся на 30 дней
+	newDueDate := time.Now().AddDate(0, 0, 30)
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE reservations SET status = 'active' WHERE id = $1`, id,
+		`UPDATE reservations SET status = 'active', due_date = $2 WHERE id = $1`, id, newDueDate,
 	); err != nil {
 		return fmt.Errorf("reservationRepo.activateReservation update: %w", err)
 	}
@@ -479,7 +525,7 @@ func (r *reservationRepo) activateReservation(ctx context.Context, id uuid.UUID,
 // reservationViewQuery is the base SELECT for all ReservationView methods, ДЛЯ АДМИНОВ И СТАФФ, НЕ ДЛЯ ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ
 const reservationViewQuery = `
 	SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
-	       
+	       res.extended_count,
 	       res.user_id, u.name AS user_name, u.surname AS user_surname, u.email AS user_email,
 	       res.library_book_id, b.id AS book_id, b.title AS book_title,
 	       COALESCE(b.cover_url, '') AS book_cover_url,
