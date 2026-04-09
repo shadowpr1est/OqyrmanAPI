@@ -190,28 +190,27 @@ func (u *authUseCase) VerifyEmail(ctx context.Context, email, code string) (*dom
 
 func (u *authUseCase) Login(ctx context.Context, email, password string) (*domainUseCase.TokenPair, error) {
 	// Проверяем блокировку до обращения к БД — не раскрываем факт существования email
-	if err := u.checkAndRecordFailedLogin(email, false); err != nil {
-		return nil, err
+	if locked, _ := u.loginAttemptRepo.IsLocked(ctx, email, lockoutDuration); locked {
+		return nil, entity.ErrAccountLocked
 	}
 
 	user, err := u.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		_ = u.checkAndRecordFailedLogin(email, true)
+		_, _ = u.loginAttemptRepo.RecordFailedAttempt(ctx, email, maxLoginAttempts, lockoutDuration)
 		return nil, errors.New("invalid credentials")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		_ = u.checkAndRecordFailedLogin(email, true)
+		_, _ = u.loginAttemptRepo.RecordFailedAttempt(ctx, email, maxLoginAttempts, lockoutDuration)
 		return nil, errors.New("invalid credentials")
 	}
 
 	if !user.EmailVerified {
-		// Успешная аутентификация — сбрасываем счётчик неудач
-		u.resetLoginAttempts(email)
+		_ = u.loginAttemptRepo.Reset(ctx, email)
 		return nil, entity.ErrEmailNotVerified
 	}
 
-	u.resetLoginAttempts(email)
+	_ = u.loginAttemptRepo.Reset(ctx, email)
 	return u.issueTokenPair(ctx, user)
 }
 
@@ -255,60 +254,6 @@ func (u *authUseCase) checkReregistrationAllowed(ctx context.Context, userID uui
 		return entity.ErrRegistrationPending
 	}
 	return nil
-}
-
-// checkAndRecordFailedLogin проверяет блокировку (record=false) или фиксирует неудачную попытку (record=true).
-// Возвращает entity.ErrAccountLocked если аккаунт заблокирован.
-func (u *authUseCase) checkAndRecordFailedLogin(email string, record bool) error {
-	u.loginMu.Lock()
-	defer u.loginMu.Unlock()
-
-	rec, exists := u.loginRecords[email]
-	if !exists {
-		if record {
-			u.loginRecords[email] = &loginRecord{count: 1, lastAttemptAt: time.Now()}
-		}
-		return nil
-	}
-
-	// Блокировка истекла — сбрасываем
-	if rec.lockedAt != nil && time.Since(*rec.lockedAt) >= lockoutDuration {
-		delete(u.loginRecords, email)
-		if record {
-			u.loginRecords[email] = &loginRecord{count: 1, lastAttemptAt: time.Now()}
-		}
-		return nil
-	}
-
-	// Аккаунт заблокирован
-	if rec.lockedAt != nil {
-		return entity.ErrAccountLocked
-	}
-
-	// Запись устарела (давно не было попыток) — сбрасываем
-	if time.Since(rec.lastAttemptAt) > lockoutDuration {
-		delete(u.loginRecords, email)
-		if record {
-			u.loginRecords[email] = &loginRecord{count: 1, lastAttemptAt: time.Now()}
-		}
-		return nil
-	}
-
-	if record {
-		rec.count++
-		rec.lastAttemptAt = time.Now()
-		if rec.count >= maxLoginAttempts {
-			now := time.Now()
-			rec.lockedAt = &now
-		}
-	}
-	return nil
-}
-
-func (u *authUseCase) resetLoginAttempts(email string) {
-	u.loginMu.Lock()
-	delete(u.loginRecords, email)
-	u.loginMu.Unlock()
 }
 
 // hmacCode вычисляет HMAC-SHA256 кода с серверным секретом.

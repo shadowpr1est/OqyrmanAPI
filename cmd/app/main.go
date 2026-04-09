@@ -170,6 +170,7 @@ func main() {
 	notifRepo := postgres.NewNotificationRepo(db)
 	eventRepo := postgres.NewEventRepo(db)
 	convRepo := postgres.NewConversationRepo(db)
+	loginAttemptRepo := postgres.NewLoginAttemptRepo(db)
 
 	// email sender (Resend опционален — без него коды пишутся только в БД)
 	emailSender := email.NewSender(cfg.Email.ResendAPIKey, cfg.Email.From, cfg.Email.LogoURL)
@@ -178,7 +179,7 @@ func main() {
 	notifHub := hub.New()
 
 	// usecases
-	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, verifRepo, resetRepo, emailSender, jwtManager, cfg.Google.ClientID, cfg.JWT.SecretKey, cfg.JWT.RefreshTokenTTL)
+	authUseCase := authUC.NewAuthUseCase(userRepo, tokenRepo, verifRepo, resetRepo, loginAttemptRepo, emailSender, jwtManager, cfg.Google.ClientID, cfg.JWT.SecretKey, cfg.JWT.RefreshTokenTTL)
 	bookUseCase := bookUC.NewBookUseCase(bookRepo, minioStorage)
 	userUseCase := userUC.NewUserUseCase(userRepo, tokenRepo, minioStorage)
 	authorUseCase := authorUC.NewAuthorUseCase(authorRepo, minioStorage)
