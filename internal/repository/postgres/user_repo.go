@@ -301,3 +301,13 @@ func (r *userRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHas
 	}
 	return nil
 }
+
+func (r *userRepo) ListAllIDs(ctx context.Context) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	if err := r.db.SelectContext(ctx, &ids,
+		`SELECT id FROM users WHERE deleted_at IS NULL`,
+	); err != nil {
+		return nil, fmt.Errorf("userRepo.ListAllIDs: %w", err)
+	}
+	return ids, nil
+}

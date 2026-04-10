@@ -4,8 +4,8 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- ─── Users ────────────────────────────────────────────────────────────────────
 CREATE TABLE users (
     id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    email             VARCHAR(255) NOT NULL UNIQUE,
-    phone             VARCHAR(20)  NOT NULL UNIQUE,
+    email             VARCHAR(255) NOT NULL,
+    phone             VARCHAR(20)  NOT NULL DEFAULT '',
     password_hash     TEXT         NOT NULL,
     name              VARCHAR(100) NOT NULL DEFAULT '',
     surname           VARCHAR(100) NOT NULL DEFAULT '',
@@ -19,6 +19,8 @@ CREATE TABLE users (
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
     deleted_at        TIMESTAMPTZ
 );
+CREATE UNIQUE INDEX uq_users_email_active ON users (email) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_users_phone_active ON users (phone) WHERE phone <> '' AND deleted_at IS NULL;
 
 -- ─── Tokens ───────────────────────────────────────────────────────────────────
 CREATE TABLE tokens (
@@ -191,15 +193,16 @@ CREATE TABLE notifications (
 
 -- ─── Events ───────────────────────────────────────────────────────────────────
 CREATE TABLE events (
-    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    title       VARCHAR(255) NOT NULL,
-    description TEXT,
-    cover_url   VARCHAR(500),
-    location    VARCHAR(255),
-    starts_at   TIMESTAMPTZ  NOT NULL,
-    ends_at     TIMESTAMPTZ  NOT NULL,
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    deleted_at  TIMESTAMPTZ
+    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    title         VARCHAR(255) NOT NULL,
+    description   TEXT,
+    cover_url     VARCHAR(500),
+    location      VARCHAR(255),
+    starts_at     TIMESTAMPTZ  NOT NULL,
+    ends_at       TIMESTAMPTZ  NOT NULL,
+    reminder_sent BOOLEAN      NOT NULL DEFAULT false,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at    TIMESTAMPTZ
 );
 
 -- ─── Email verification codes ─────────────────────────────────────────────────

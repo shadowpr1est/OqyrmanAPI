@@ -244,6 +244,8 @@ func main() {
 	go deadlineReminder.Run(ctx)
 	tokenCleaner := worker.NewTokenCleaner(tokenRepo, 6*time.Hour)
 	go tokenCleaner.Run(ctx)
+	eventReminder := worker.NewEventReminder(eventRepo, userRepo, notifRepo, notifHub, 6*time.Hour, 24*time.Hour)
+	go eventReminder.Run(ctx)
 	// router
 	router := httpDelivery.NewRouter(
 		ctx,

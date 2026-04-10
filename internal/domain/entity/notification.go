@@ -15,6 +15,7 @@ const (
 	NotifReturnDeadline      NotificationType = "return_deadline"
 	NotifReservationExpired  NotificationType = "reservation_expired"
 	NotifReturnOverdue       NotificationType = "return_overdue"
+	NotifEventReminder       NotificationType = "event_reminder"
 	NotifGeneral             NotificationType = "general"
 )
 

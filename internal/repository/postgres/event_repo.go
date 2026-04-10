@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -116,6 +117,31 @@ func (r *eventRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	if n == 0 {
 		return entity.ErrNotFound
+	}
+	return nil
+}
+
+func (r *eventRepo) FindUpcoming(ctx context.Context, lookahead time.Duration) ([]*entity.Event, error) {
+	var items []*entity.Event
+	if err := r.db.SelectContext(ctx, &items, `
+		SELECT * FROM events
+		WHERE deleted_at IS NULL
+		  AND reminder_sent = false
+		  AND starts_at > now()
+		  AND starts_at <= now() + $1::interval
+		ORDER BY starts_at ASC`, lookahead.String(),
+	); err != nil {
+		return nil, fmt.Errorf("eventRepo.FindUpcoming: %w", err)
+	}
+	return items, nil
+}
+
+func (r *eventRepo) MarkReminderSent(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE events SET reminder_sent = true WHERE id = $1`, id,
+	)
+	if err != nil {
+		return fmt.Errorf("eventRepo.MarkReminderSent: %w", err)
 	}
 	return nil
 }
