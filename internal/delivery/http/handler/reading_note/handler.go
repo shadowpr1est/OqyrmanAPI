@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -44,10 +44,10 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	note := &entity.ReadingNote{
-		UserID:  userID,
-		BookID:  bookID,
-		Page:    req.Page,
-		Content: req.Content,
+		UserID:   userID,
+		BookID:   bookID,
+		Position: req.Position,
+		Content:  req.Content,
 	}
 
 	result, err := h.uc.Create(c.Request.Context(), note)
@@ -154,8 +154,8 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	if req.Page != nil {
-		existing.Page = *req.Page
+	if req.Position != nil {
+		existing.Position = *req.Position
 	}
 	if req.Content != nil {
 		existing.Content = *req.Content
@@ -208,9 +208,10 @@ func toNoteResponse(n *entity.ReadingNote) noteResponse {
 	return noteResponse{
 		ID:        n.ID.String(),
 		BookID:    n.BookID.String(),
-		Page:      n.Page,
+		Position:  n.Position,
 		Content:   n.Content,
 		CreatedAt: n.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt: n.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }
 
@@ -219,8 +220,9 @@ func toNoteViewResponse(v *entity.ReadingNoteView) noteViewResponse {
 		ID:        v.ID.String(),
 		BookID:    v.BookID.String(),
 		BookTitle: v.BookTitle,
-		Page:      v.Page,
+		Position:  v.Position,
 		Content:   v.Content,
 		CreatedAt: v.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt: v.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
 }

@@ -20,7 +20,9 @@ func NewReadingNoteUseCase(noteRepo repository.ReadingNoteRepository) domainUseC
 
 func (u *readingNoteUseCase) Create(ctx context.Context, note *entity.ReadingNote) (*entity.ReadingNote, error) {
 	note.ID = uuid.New()
-	note.CreatedAt = time.Now()
+	now := time.Now()
+	note.CreatedAt = now
+	note.UpdatedAt = now
 	return u.noteRepo.Create(ctx, note)
 }
 
@@ -33,6 +35,7 @@ func (u *readingNoteUseCase) ListByUserAndBook(ctx context.Context, userID, book
 }
 
 func (u *readingNoteUseCase) Update(ctx context.Context, note *entity.ReadingNote) (*entity.ReadingNote, error) {
+	note.UpdatedAt = time.Now()
 	return u.noteRepo.Update(ctx, note)
 }
 

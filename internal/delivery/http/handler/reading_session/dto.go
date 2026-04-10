@@ -1,15 +1,18 @@
 package reading_session
 
 type upsertReadingSessionRequest struct {
-	BookID      string `json:"book_id"      binding:"required"`
-	CurrentPage int    `json:"current_page" binding:"required"`
-	Status      string `json:"status"       binding:"required,oneof=reading finished dropped"`
+	BookID      string  `json:"book_id"       binding:"required"`
+	CurrentPage int     `json:"current_page"  binding:"min=0"`
+	TotalPages  *int    `json:"total_pages"   binding:"omitempty,min=1"`
+	CfiPosition *string `json:"cfi_position"`
+	Status      string  `json:"status"        binding:"required,oneof=reading finished dropped"`
 }
 
 type readingSessionResponse struct {
 	ID          string  `json:"id"`
 	BookID      string  `json:"book_id"`
 	CurrentPage int     `json:"current_page"`
+	CfiPosition *string `json:"cfi_position,omitempty"`
 	Status      string  `json:"status"`
 	UpdatedAt   string  `json:"updated_at"`
 	FinishedAt  *string `json:"finished_at,omitempty"`
@@ -26,6 +29,7 @@ type sessionBookRef struct {
 type readingSessionViewResponse struct {
 	ID          string         `json:"id"`
 	CurrentPage int            `json:"current_page"`
+	CfiPosition *string        `json:"cfi_position,omitempty"`
 	Status      string         `json:"status"`
 	UpdatedAt   string         `json:"updated_at"`
 	FinishedAt  *string        `json:"finished_at,omitempty"`

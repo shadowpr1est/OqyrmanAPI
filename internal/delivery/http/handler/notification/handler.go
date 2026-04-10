@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -169,10 +170,17 @@ func (h *Handler) Stream(c *gin.Context) {
 	c.Writer.Flush()
 
 	ctx := c.Request.Context()
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-heartbeat.C:
+			// SSE comment line — keeps connection alive through nginx
+			fmt.Fprint(c.Writer, ": heartbeat\n\n")
+			c.Writer.Flush()
 		case n, ok := <-ch:
 			if !ok {
 				return

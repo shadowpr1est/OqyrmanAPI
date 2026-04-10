@@ -2,6 +2,7 @@ package reading_session
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,22 +13,45 @@ import (
 
 type readingSessionUseCase struct {
 	sessionRepo repository.ReadingSessionRepository
+	bookRepo    repository.BookRepository
 }
 
-func NewReadingSessionUseCase(sessionRepo repository.ReadingSessionRepository) domainUseCase.ReadingSessionUseCase {
-	return &readingSessionUseCase{sessionRepo: sessionRepo}
+func NewReadingSessionUseCase(
+	sessionRepo repository.ReadingSessionRepository,
+	bookRepo repository.BookRepository,
+) domainUseCase.ReadingSessionUseCase {
+	return &readingSessionUseCase{sessionRepo: sessionRepo, bookRepo: bookRepo}
 }
 
-func (u *readingSessionUseCase) Upsert(ctx context.Context, session *entity.ReadingSession) (*entity.ReadingSession, error) {
+func (u *readingSessionUseCase) Upsert(ctx context.Context, session *entity.ReadingSession, totalPages *int) (*entity.ReadingSession, error) {
 	if session.ID == uuid.Nil {
 		session.ID = uuid.New()
 	}
 	session.UpdatedAt = time.Now()
-	if session.Status == entity.StatusFinished && session.FinishedAt == nil {
-		now := time.Now()
-		session.FinishedAt = &now
+
+	// Protect against false "finished" when total is unknown (totalPages not provided or 0).
+	if session.Status == entity.StatusFinished {
+		if totalPages == nil || *totalPages == 0 {
+			session.Status = entity.StatusReading
+		} else if session.FinishedAt == nil {
+			now := time.Now()
+			session.FinishedAt = &now
+		}
 	}
-	return u.sessionRepo.Upsert(ctx, session)
+
+	result, err := u.sessionRepo.Upsert(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the client reported total_pages and the book doesn't have it yet, update books.total_pages.
+	if totalPages != nil && *totalPages > 0 {
+		if err := u.bookRepo.UpdateTotalPages(ctx, session.BookID, *totalPages); err != nil {
+			slog.WarnContext(ctx, "failed to update total_pages from reader", "book_id", session.BookID, "err", err)
+		}
+	}
+
+	return result, nil
 }
 
 func (u *readingSessionUseCase) GetByID(ctx context.Context, id uuid.UUID) (*entity.ReadingSession, error) {

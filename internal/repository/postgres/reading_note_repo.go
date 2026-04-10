@@ -21,8 +21,8 @@ func NewReadingNoteRepo(db *sqlx.DB) *readingNoteRepo {
 
 func (r *readingNoteRepo) Create(ctx context.Context, note *entity.ReadingNote) (*entity.ReadingNote, error) {
 	query := `
-		INSERT INTO reading_notes (id, user_id, book_id, page, content, created_at)
-		VALUES (:id, :user_id, :book_id, :page, :content, :created_at)
+		INSERT INTO reading_notes (id, user_id, book_id, position, content, created_at, updated_at)
+		VALUES (:id, :user_id, :book_id, :position, :content, :created_at, :updated_at)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, note)
 	if err != nil {
@@ -56,7 +56,7 @@ func (r *readingNoteRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Re
 func (r *readingNoteRepo) ListByUserAndBook(ctx context.Context, userID, bookID uuid.UUID) ([]*entity.ReadingNote, error) {
 	var notes []*entity.ReadingNote
 	err := r.db.SelectContext(ctx, &notes,
-		`SELECT * FROM reading_notes WHERE user_id = $1 AND book_id = $2 ORDER BY page ASC`,
+		`SELECT * FROM reading_notes WHERE user_id = $1 AND book_id = $2 ORDER BY created_at ASC`,
 		userID, bookID,
 	)
 	if err != nil {
@@ -68,7 +68,7 @@ func (r *readingNoteRepo) ListByUserAndBook(ctx context.Context, userID, bookID 
 func (r *readingNoteRepo) Update(ctx context.Context, note *entity.ReadingNote) (*entity.ReadingNote, error) {
 	query := `
 		UPDATE reading_notes
-		SET page = :page, content = :content
+		SET position = :position, content = :content, updated_at = :updated_at
 		WHERE id = :id
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, note)
@@ -92,7 +92,7 @@ func (r *readingNoteRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entit
 	var v entity.ReadingNoteView
 	err := r.db.GetContext(ctx, &v, `
 		SELECT n.id, n.user_id, n.book_id, b.title AS book_title,
-		       n.page, n.content, n.created_at
+		       n.position, n.content, n.created_at, n.updated_at
 		FROM reading_notes n
 		JOIN books b ON b.id = n.book_id AND b.deleted_at IS NULL
 		WHERE n.id = $1`, id,
@@ -110,11 +110,11 @@ func (r *readingNoteRepo) ListByUserAndBookView(ctx context.Context, userID, boo
 	var items []*entity.ReadingNoteView
 	err := r.db.SelectContext(ctx, &items, `
 		SELECT n.id, n.user_id, n.book_id, b.title AS book_title,
-		       n.page, n.content, n.created_at
+		       n.position, n.content, n.created_at, n.updated_at
 		FROM reading_notes n
 		JOIN books b ON b.id = n.book_id AND b.deleted_at IS NULL
 		WHERE n.user_id = $1 AND n.book_id = $2
-		ORDER BY n.page ASC`,
+		ORDER BY n.created_at ASC`,
 		userID, bookID,
 	)
 	if err != nil {

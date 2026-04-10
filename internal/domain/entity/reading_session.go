@@ -19,6 +19,7 @@ type ReadingSession struct {
 	UserID      uuid.UUID     `db:"user_id"`
 	BookID      uuid.UUID     `db:"book_id"`
 	CurrentPage int           `db:"current_page"`
+	CfiPosition *string       `db:"cfi_position"`
 	Status      ReadingStatus `db:"status"`
 	UpdatedAt   time.Time     `db:"updated_at"`
 	FinishedAt  *time.Time    `db:"finished_at"`
@@ -35,6 +36,7 @@ type ReadingSessionView struct {
 	AuthorID       uuid.UUID     `db:"author_id"`
 	AuthorName     string        `db:"author_name"`
 	CurrentPage    int           `db:"current_page"`
+	CfiPosition    *string       `db:"cfi_position"`
 	Status         ReadingStatus `db:"status"`
 	UpdatedAt      time.Time     `db:"updated_at"`
 	FinishedAt     *time.Time    `db:"finished_at"`

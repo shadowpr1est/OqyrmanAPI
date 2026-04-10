@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -47,10 +47,11 @@ func (h *Handler) Upsert(c *gin.Context) {
 		UserID:      userID,
 		BookID:      bookID,
 		CurrentPage: req.CurrentPage,
+		CfiPosition: req.CfiPosition,
 		Status:      entity.ReadingStatus(req.Status),
 	}
 
-	result, err := h.uc.Upsert(c.Request.Context(), session)
+	result, err := h.uc.Upsert(c.Request.Context(), session, req.TotalPages)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		common.InternalError(c)
@@ -148,6 +149,7 @@ func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 		ID:          s.ID.String(),
 		BookID:      s.BookID.String(),
 		CurrentPage: s.CurrentPage,
+		CfiPosition: s.CfiPosition,
 		Status:      string(s.Status),
 		UpdatedAt:   s.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
@@ -162,6 +164,7 @@ func toReadingSessionViewResponse(v *entity.ReadingSessionView) readingSessionVi
 	resp := readingSessionViewResponse{
 		ID:          v.ID.String(),
 		CurrentPage: v.CurrentPage,
+		CfiPosition: v.CfiPosition,
 		Status:      string(v.Status),
 		UpdatedAt:   v.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		Book: sessionBookRef{
