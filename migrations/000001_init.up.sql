@@ -151,6 +151,7 @@ CREATE TABLE reading_sessions (
     user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     book_id      UUID        NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     current_page INT         NOT NULL DEFAULT 0,
+    cfi_position TEXT,
     status       VARCHAR(20) NOT NULL DEFAULT 'reading',
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     finished_at  TIMESTAMPTZ,
@@ -174,9 +175,10 @@ CREATE TABLE reading_notes (
     id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     book_id    UUID        NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-    page       INT         NOT NULL DEFAULT 0,
+    position   TEXT        NOT NULL DEFAULT '',
     content    TEXT        NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ─── Notifications ────────────────────────────────────────────────────────────
