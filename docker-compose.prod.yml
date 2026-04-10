@@ -126,6 +126,22 @@ services:
     networks:
       - oqyrman_net
 
+  imgproxy:
+    image: darthsim/imgproxy:latest
+    container_name: oqyrman_imgproxy
+    environment:
+      IMGPROXY_ALLOW_ORIGIN: "*"
+      IMGPROXY_MAX_SRC_RESOLUTION: 50
+      IMGPROXY_DOWNLOAD_TIMEOUT: 30
+      IMGPROXY_CONCURRENCY: 20
+      IMGPROXY_MAX_SRC_FILE_SIZE: 20971520
+      IMGPROXY_AUTO_ROTATE: "true"
+    expose:
+      - "8080"
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
   nginx:
     image: nginx:alpine
     container_name: oqyrman_nginx
@@ -138,7 +154,7 @@ services:
     depends_on:
       - app
       - frontend
-
+      - imgproxy
     restart: unless-stopped
     networks:
       - oqyrman_net
