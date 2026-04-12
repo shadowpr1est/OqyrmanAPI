@@ -21,7 +21,15 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd ${{ secrets.SERVER_PATH }}
+            COMPOSE_PROJECT_NAME=oqyrman
             git pull origin main
-            docker compose -f docker-compose.prod.yml build app
-            docker compose -f docker-compose.prod.yml up -d --no-recreate --no-deps app
+
+            # Ensure infra is available for migrations and app startup.
+            docker compose -p $COMPOSE_PROJECT_NAME -f docker-compose.prod.yml up -d --no-recreate postgres minio
+
+            # Run migrations on every deploy (idempotent with migrate tool).
+            docker compose -p $COMPOSE_PROJECT_NAME -f docker-compose.prod.yml run --rm migrate
+
+            docker compose -p $COMPOSE_PROJECT_NAME -f docker-compose.prod.yml build app
+            docker compose -p $COMPOSE_PROJECT_NAME -f docker-compose.prod.yml up -d --no-deps app
             docker image prune -f
