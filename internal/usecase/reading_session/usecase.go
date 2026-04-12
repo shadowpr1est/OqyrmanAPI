@@ -29,6 +29,11 @@ func (u *readingSessionUseCase) Upsert(ctx context.Context, session *entity.Read
 	}
 	session.UpdatedAt = time.Now()
 
+	// Store total_pages on the session itself
+	if totalPages != nil && *totalPages > 0 {
+		session.TotalPages = totalPages
+	}
+
 	// Protect against false "finished" when total is unknown (totalPages not provided or 0).
 	if session.Status == entity.StatusFinished {
 		if totalPages == nil || *totalPages == 0 {

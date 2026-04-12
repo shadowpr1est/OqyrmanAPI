@@ -161,9 +161,16 @@ func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 }
 
 func toReadingSessionViewResponse(v *entity.ReadingSessionView) readingSessionViewResponse {
+	// Prefer session's own total_pages, fallback to book's total_pages
+	tp := v.TotalPages
+	if tp == nil {
+		tp = v.BookTotalPages
+	}
+
 	resp := readingSessionViewResponse{
 		ID:          v.ID.String(),
 		CurrentPage: v.CurrentPage,
+		TotalPages:  tp,
 		CfiPosition: v.CfiPosition,
 		Status:      string(v.Status),
 		UpdatedAt:   v.UpdatedAt.Format("2006-01-02T15:04:05Z"),

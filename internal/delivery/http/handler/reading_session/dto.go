@@ -29,6 +29,7 @@ type sessionBookRef struct {
 type readingSessionViewResponse struct {
 	ID          string         `json:"id"`
 	CurrentPage int            `json:"current_page"`
+	TotalPages  *int           `json:"total_pages,omitempty"`
 	CfiPosition *string        `json:"cfi_position,omitempty"`
 	Status      string         `json:"status"`
 	UpdatedAt   string         `json:"updated_at"`

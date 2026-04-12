@@ -19,6 +19,7 @@ type ReadingSession struct {
 	UserID      uuid.UUID     `db:"user_id"`
 	BookID      uuid.UUID     `db:"book_id"`
 	CurrentPage int           `db:"current_page"`
+	TotalPages  *int          `db:"total_pages"`
 	CfiPosition *string       `db:"cfi_position"`
 	Status      ReadingStatus `db:"status"`
 	UpdatedAt   time.Time     `db:"updated_at"`
@@ -33,6 +34,7 @@ type ReadingSessionView struct {
 	BookTitle      string        `db:"book_title"`
 	BookCoverURL   string        `db:"book_cover_url"`
 	BookTotalPages *int          `db:"book_total_pages"`
+	TotalPages     *int          `db:"total_pages"`
 	AuthorID       uuid.UUID     `db:"author_id"`
 	AuthorName     string        `db:"author_name"`
 	CurrentPage    int           `db:"current_page"`

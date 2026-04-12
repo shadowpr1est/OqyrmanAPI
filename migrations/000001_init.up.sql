@@ -151,6 +151,7 @@ CREATE TABLE reading_sessions (
     user_id      UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     book_id      UUID        NOT NULL REFERENCES books(id) ON DELETE CASCADE,
     current_page INT         NOT NULL DEFAULT 0,
+    total_pages  INT,
     cfi_position TEXT,
     status       VARCHAR(20) NOT NULL DEFAULT 'reading',
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
