@@ -1,0 +1,19 @@
+# Monitoring deployment notes
+
+## Required external steps
+
+1. Add an A record for `monitoring.oqyrman.app` pointing to the server IP.
+2. Issue a TLS certificate for `monitoring.oqyrman.app` and place it under `/etc/letsencrypt/live/monitoring.oqyrman.app/`.
+3. Fill the monitoring secrets in `.env`:
+   - `MONITORING_BASIC_AUTH_USER`
+   - `MONITORING_BASIC_AUTH_PASSWORD`
+   - `GRAFANA_ADMIN_USER`
+   - `GRAFANA_ADMIN_PASSWORD`
+
+## After that
+
+Run the prod stack and reload Nginx. Grafana will be available at `https://monitoring.oqyrman.app` and Prometheus will stay internal to the Docker network.
+
+## Logs
+
+Container logs are collected by Promtail and stored in Loki with a 7-day retention window. In Grafana, use the Loki datasource to search logs by container or compose service.

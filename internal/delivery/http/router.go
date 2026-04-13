@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -120,10 +121,12 @@ func (r *Router) Init() *gin.Engine {
 	//   engine.SetTrustedProxies([]string{"10.0.0.1"})
 	_ = engine.SetTrustedProxies(nil)
 	engine.Use(gin.Recovery())
+	engine.Use(middleware.Metrics())
 	engine.Use(middleware.RequestLogger())
 	engine.Use(middleware.CORS(r.allowedOrigins))
 	engine.Use(middleware.InjectRequestMeta())
 	engine.MaxMultipartMemory = 20 << 20 // 20 MB
+	engine.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	engine.GET("/health", func(c *gin.Context) {
 		ctx := c.Request.Context()
 		if err := r.db.PingContext(ctx); err != nil {

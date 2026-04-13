@@ -20,6 +20,125 @@ services:
     networks:
       - oqyrman_net
 
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: oqyrman_postgres_exporter
+    mem_limit: 64m
+    environment:
+      DATA_SOURCE_NAME: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: oqyrman_node_exporter
+    mem_limit: 64m
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+)($$|/)
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: oqyrman_cadvisor
+    mem_limit: 128m
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: oqyrman_prometheus
+    mem_limit: 512m
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: oqyrman_grafana
+    mem_limit: 256m
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_DOMAIN: monitoring.oqyrman.app
+      GF_SERVER_ROOT_URL: https://monitoring.oqyrman.app
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    expose:
+      - "3000"
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
+  loki:
+    image: grafana/loki:latest
+    container_name: oqyrman_loki
+    mem_limit: 256m
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    expose:
+      - "3100"
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: oqyrman_promtail
+    mem_limit: 128m
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./monitoring/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - promtail_positions:/tmp
+    depends_on:
+      - loki
+    restart: unless-stopped
+    networks:
+      - oqyrman_net
+
 
   admin:
     build:
@@ -143,7 +262,9 @@ services:
       - oqyrman_net
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
     container_name: oqyrman_nginx
     ports:
       - "80:80"
@@ -151,10 +272,15 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      - nginx_auth:/etc/nginx/auth
+    environment:
+      MONITORING_BASIC_AUTH_USER: ${MONITORING_BASIC_AUTH_USER}
+      MONITORING_BASIC_AUTH_PASSWORD: ${MONITORING_BASIC_AUTH_PASSWORD}
     depends_on:
       - app
       - frontend
       - imgproxy
+      - grafana
     restart: unless-stopped
     networks:
       - oqyrman_net
@@ -162,6 +288,11 @@ services:
 volumes:
   postgres_data:
   minio_data:
+  grafana_data:
+  prometheus_data:
+  loki_data:
+  promtail_positions:
+  nginx_auth:
 
 networks:
   oqyrman_net:
