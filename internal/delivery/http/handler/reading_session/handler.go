@@ -46,12 +46,12 @@ func (h *Handler) Upsert(c *gin.Context) {
 	session := &entity.ReadingSession{
 		UserID:      userID,
 		BookID:      bookID,
-		CurrentPage: req.CurrentPage,
+		Progress:    req.Progress,
 		CfiPosition: req.CfiPosition,
 		Status:      entity.ReadingStatus(req.Status),
 	}
 
-	result, err := h.uc.Upsert(c.Request.Context(), session, req.TotalPages)
+	result, err := h.uc.Upsert(c.Request.Context(), session)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
 		common.InternalError(c)
@@ -148,7 +148,7 @@ func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 	resp := readingSessionResponse{
 		ID:          s.ID.String(),
 		BookID:      s.BookID.String(),
-		CurrentPage: s.CurrentPage,
+		Progress:    s.Progress,
 		CfiPosition: s.CfiPosition,
 		Status:      string(s.Status),
 		UpdatedAt:   s.UpdatedAt.Format("2006-01-02T15:04:05Z"),
@@ -161,16 +161,9 @@ func toReadingSessionResponse(s *entity.ReadingSession) readingSessionResponse {
 }
 
 func toReadingSessionViewResponse(v *entity.ReadingSessionView) readingSessionViewResponse {
-	// Prefer session's own total_pages, fallback to book's total_pages
-	tp := v.TotalPages
-	if tp == nil {
-		tp = v.BookTotalPages
-	}
-
 	resp := readingSessionViewResponse{
 		ID:          v.ID.String(),
-		CurrentPage: v.CurrentPage,
-		TotalPages:  tp,
+		Progress:    v.Progress,
 		CfiPosition: v.CfiPosition,
 		Status:      string(v.Status),
 		UpdatedAt:   v.UpdatedAt.Format("2006-01-02T15:04:05Z"),
@@ -178,7 +171,6 @@ func toReadingSessionViewResponse(v *entity.ReadingSessionView) readingSessionVi
 			ID:         v.BookID.String(),
 			Title:      v.BookTitle,
 			CoverURL:   v.BookCoverURL,
-			TotalPages: v.BookTotalPages,
 			AuthorName: v.AuthorName,
 		},
 	}

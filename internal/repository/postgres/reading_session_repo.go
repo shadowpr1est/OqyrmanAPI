@@ -21,12 +21,11 @@ func NewReadingSessionRepo(db *sqlx.DB) *readingSessionRepo {
 
 func (r *readingSessionRepo) Upsert(ctx context.Context, session *entity.ReadingSession) (*entity.ReadingSession, error) {
 	query := `
-		INSERT INTO reading_sessions (id, user_id, book_id, current_page, total_pages, cfi_position, status, updated_at, finished_at)
-		VALUES (:id, :user_id, :book_id, :current_page, :total_pages, :cfi_position, :status, :updated_at, :finished_at)
+		INSERT INTO reading_sessions (id, user_id, book_id, progress, cfi_position, status, updated_at, finished_at)
+		VALUES (:id, :user_id, :book_id, :progress, :cfi_position, :status, :updated_at, :finished_at)
 		ON CONFLICT (user_id, book_id)
 		DO UPDATE SET
-			current_page = :current_page,
-			total_pages  = COALESCE(:total_pages, reading_sessions.total_pages),
+			progress     = :progress,
 			cfi_position = :cfi_position,
 			status       = :status,
 			updated_at   = :updated_at,
@@ -92,10 +91,8 @@ func (r *readingSessionRepo) GetByUserAndBookView(ctx context.Context, userID, b
 	err := r.db.GetContext(ctx, &v, `
 		SELECT rs.id, rs.user_id, rs.book_id,
 		       b.title AS book_title, COALESCE(b.cover_url, '') AS book_cover_url,
-		       b.total_pages AS book_total_pages,
-		       rs.total_pages,
 		       b.author_id, a.name AS author_name,
-		       rs.current_page, rs.cfi_position, rs.status, rs.updated_at, rs.finished_at
+		       rs.progress, rs.cfi_position, rs.status, rs.updated_at, rs.finished_at
 		FROM reading_sessions rs
 		JOIN books   b ON b.id = rs.book_id    AND b.deleted_at IS NULL
 		JOIN authors a ON a.id = b.author_id   AND a.deleted_at IS NULL
@@ -116,10 +113,8 @@ func (r *readingSessionRepo) ListByUserView(ctx context.Context, userID uuid.UUI
 	err := r.db.SelectContext(ctx, &items, `
 		SELECT rs.id, rs.user_id, rs.book_id,
 		       b.title AS book_title, COALESCE(b.cover_url, '') AS book_cover_url,
-		       b.total_pages AS book_total_pages,
-		       rs.total_pages,
 		       b.author_id, a.name AS author_name,
-		       rs.current_page, rs.cfi_position, rs.status, rs.updated_at, rs.finished_at
+		       rs.progress, rs.cfi_position, rs.status, rs.updated_at, rs.finished_at
 		FROM reading_sessions rs
 		JOIN books   b ON b.id = rs.book_id    AND b.deleted_at IS NULL
 		JOIN authors a ON a.id = b.author_id   AND a.deleted_at IS NULL
