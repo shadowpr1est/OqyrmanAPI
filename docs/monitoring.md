@@ -19,3 +19,14 @@ Run the prod stack and reload Nginx. Grafana will be available at `https://monit
 ## Logs
 
 Container logs are collected by Promtail and stored in Loki with a 7-day retention window. In Grafana, use the Loki datasource to search logs by container or compose service.
+
+## Dashboards
+
+Two dashboards are provisioned automatically:
+
+1. `Oqyrman Overview` - server CPU/RAM/disk, API RPS/latency, and container logs.
+2. `Oqyrman Logs` - full log stream for all containers in the compose project.
+3. `Oqyrman Server` - host CPU, RAM, disk, and load.
+4. `Oqyrman API` - request rate, latency, in-flight requests, and 5xx rate.
+5. `Oqyrman Containers` - resource usage by container.
+6. `Oqyrman Database` - Postgres connections, size, and transaction activity.

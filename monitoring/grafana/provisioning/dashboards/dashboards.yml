@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Oqyrman
+    orgId: 1
+    folder: Oqyrman
+    type: file
+    disableDeletion: false
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards
