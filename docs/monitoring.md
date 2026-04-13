@@ -10,6 +10,8 @@
    - `GRAFANA_ADMIN_USER`
    - `GRAFANA_ADMIN_PASSWORD`
 
+If `MONITORING_BASIC_AUTH_PASSWORD` is empty, Nginx will generate a temporary password on startup and print it to container logs. Use it only as a short-term fallback and set a permanent password in `.env`.
+
 ## After that
 
 Run the prod stack and reload Nginx. Grafana will be available at `https://monitoring.oqyrman.app` and Prometheus will stay internal to the Docker network.
