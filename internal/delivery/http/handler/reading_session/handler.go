@@ -79,7 +79,8 @@ func (h *Handler) GetByBook(c *gin.Context) {
 
 	session, err := h.uc.GetByUserAndBookView(c.Request.Context(), userID, bookID)
 	if err != nil {
-		common.NotFound(c, "reading session not found")
+		// Return 200 with null instead of 404 to avoid browser console noise
+		c.JSON(http.StatusOK, nil)
 		return
 	}
 
