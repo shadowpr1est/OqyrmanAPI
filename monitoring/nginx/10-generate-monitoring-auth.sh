@@ -16,4 +16,4 @@ fi
 mkdir -p "$AUTH_DIR"
 rm -f "$AUTH_FILE"
 htpasswd -cbB "$AUTH_FILE" "$AUTH_USER" "$AUTH_PASSWORD" >/dev/null
-chmod 640 "$AUTH_FILE"
+chmod 644 "$AUTH_FILE"
