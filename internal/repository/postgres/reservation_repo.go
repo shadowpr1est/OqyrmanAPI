@@ -2,7 +2,9 @@ package postgres
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -19,6 +21,14 @@ type reservationRepo struct {
 
 func NewReservationRepo(db *sqlx.DB) *reservationRepo {
 	return &reservationRepo{db: db}
+}
+
+func generateQRToken() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generateQRToken: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.Reservation) (*entity.Reservation, error) {
@@ -66,9 +76,16 @@ func (r *reservationRepo) CreateWithDecrement(ctx context.Context, res *entity.R
 		return nil, fmt.Errorf("reservationRepo.CreateWithDecrement decrement: %w", err)
 	}
 
+	// Генерация уникального QR-токена для бронирования
+	qrToken, err := generateQRToken()
+	if err != nil {
+		return nil, fmt.Errorf("reservationRepo.CreateWithDecrement qr token: %w", err)
+	}
+	res.QRToken = qrToken
+
 	query := `
-		INSERT INTO reservations (id, user_id, library_book_id, status, reserved_at, due_date, returned_at, extended_count)
-		VALUES (:id, :user_id, :library_book_id, :status, :reserved_at, :due_date, :returned_at, :extended_count)
+		INSERT INTO reservations (id, user_id, library_book_id, status, reserved_at, due_date, returned_at, extended_count, qr_token)
+		VALUES (:id, :user_id, :library_book_id, :status, :reserved_at, :due_date, :returned_at, :extended_count, :qr_token)
 		RETURNING *`
 
 	rows, err := sqlx.NamedQueryContext(ctx, tx, query, res)
@@ -525,7 +542,7 @@ func (r *reservationRepo) activateReservation(ctx context.Context, id uuid.UUID,
 // reservationViewQuery is the base SELECT for all ReservationView methods, ДЛЯ АДМИНОВ И СТАФФ, НЕ ДЛЯ ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ
 const reservationViewQuery = `
 	SELECT res.id, res.status, res.reserved_at, res.due_date, res.returned_at,
-	       res.extended_count,
+	       res.extended_count, res.qr_token,
 	       res.user_id, u.name AS user_name, u.surname AS user_surname, u.email AS user_email,
 	       res.library_book_id, b.id AS book_id, b.title AS book_title,
 	       COALESCE(b.cover_url, '') AS book_cover_url,
@@ -604,6 +621,61 @@ func (r *reservationRepo) ListAllView(ctx context.Context, limit, offset int, st
 		return nil, 0, fmt.Errorf("reservationRepo.ListAllView: %w", err)
 	}
 	return items, total, nil
+}
+
+// ActivateByQRToken atomically looks up a reservation by its QR token,
+// verifies it belongs to the staff's library and is pending, then activates it.
+func (r *reservationRepo) ActivateByQRToken(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.Reservation, error) {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("reservationRepo.ActivateByQRToken begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var res entity.Reservation
+	if err := tx.GetContext(ctx, &res,
+		`SELECT * FROM reservations WHERE qr_token = $1 FOR UPDATE`, qrToken,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrReservationNotFound
+		}
+		return nil, fmt.Errorf("reservationRepo.ActivateByQRToken get: %w", err)
+	}
+
+	// Проверка принадлежности библиотеке
+	var belongs bool
+	if err := tx.GetContext(ctx, &belongs, `
+		SELECT EXISTS(
+			SELECT 1 FROM library_books lb
+			WHERE lb.id = $1 AND lb.library_id = $2
+		)`, res.LibraryBookID, libraryID,
+	); err != nil {
+		return nil, fmt.Errorf("reservationRepo.ActivateByQRToken check library: %w", err)
+	}
+	if !belongs {
+		return nil, fmt.Errorf("%w: reservation not found in this library", entity.ErrForbidden)
+	}
+
+	if res.Status != entity.ReservationPending {
+		return nil, fmt.Errorf("%w: from '%s' to 'active'",
+			entity.ErrInvalidStatusTransition, res.Status)
+	}
+
+	// Активация: статус active, срок 30 дней
+	newDueDate := time.Now().AddDate(0, 0, 30)
+	if err := tx.GetContext(ctx, &res, `
+		UPDATE reservations SET status = 'active', due_date = $2
+		WHERE id = $1
+		RETURNING *`, res.ID, newDueDate,
+	); err != nil {
+		return nil, fmt.Errorf("reservationRepo.ActivateByQRToken update: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("reservationRepo.ActivateByQRToken commit: %w", err)
+	}
+
+	return &res, nil
 }
 
 func containsStatus(allowed []entity.ReservationStatus, current entity.ReservationStatus) bool {

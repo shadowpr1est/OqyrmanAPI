@@ -214,6 +214,48 @@ func (h *Handler) Extend(c *gin.Context) {
 	c.JSON(http.StatusOK, toReservationViewResponse(view, false))
 }
 
+// @Summary     QR-токен брони
+// @Description Возвращает QR-токен для предъявления в библиотеке. Доступен только владельцу брони со статусом pending.
+// @Tags        reservations
+// @Security    BearerAuth
+// @Produce     json
+// @Param       id path string true "ID брони"
+// @Success     200 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Router      /reservations/{id}/qr [get]
+func (h *Handler) GetQR(c *gin.Context) {
+	callerID := middleware.GetUserID(c)
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	r, err := h.uc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, entity.ErrReservationNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "reservation not found"})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		common.InternalError(c)
+		return
+	}
+
+	if r.UserID != callerID {
+		common.Forbidden(c)
+		return
+	}
+
+	if r.Status != entity.ReservationPending {
+		c.JSON(http.StatusConflict, gin.H{"error": "QR code is only available for pending reservations"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"qr_token": r.QRToken})
+}
+
 // ─── Staff ────────────────────────────────────────────────────────────────────
 
 // @Summary     Брони библиотеки
@@ -257,6 +299,41 @@ func (h *Handler) ListByLibrary(c *gin.Context) {
 		"limit":  limit,
 		"offset": offset,
 	})
+}
+
+// @Summary     Сканировать QR-код брони
+// @Description Стафф сканирует QR пользователя — бронь активируется (pending → active), книга выдаётся на 30 дней.
+// @Tags        reservations
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       input body scanQRRequest true "QR-токен"
+// @Success     200 {object} reservationViewResponse
+// @Failure     400 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Failure     409 {object} map[string]string
+// @Router      /staff/reservations/scan [post]
+func (h *Handler) ScanQR(c *gin.Context) {
+	libraryID := middleware.GetLibraryID(c)
+	if libraryID == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no library assigned"})
+		return
+	}
+
+	var req scanQRRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ValidationErr(c, err)
+		return
+	}
+
+	view, err := h.uc.ScanQR(c.Request.Context(), req.QRToken, *libraryID)
+	if err != nil {
+		handleReservationError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, toReservationViewResponse(view, true))
 }
 
 // @Summary     Отменить бронь (staff)
@@ -502,6 +579,11 @@ func toReservationViewResponse(v *entity.ReservationView, includeUser bool) rese
 	if v.ReturnedAt != nil {
 		s := v.ReturnedAt.Format(time.RFC3339)
 		resp.ReturnedAt = &s
+	}
+
+	// QR-токен показываем только владельцу (не в staff/admin контексте)
+	if !includeUser && v.Status == entity.ReservationPending {
+		resp.QRToken = v.QRToken
 	}
 
 	if includeUser {

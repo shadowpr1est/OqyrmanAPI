@@ -59,8 +59,8 @@ func (m *mockReservationRepo) StaffUpdateStatus(ctx context.Context, id uuid.UUI
 func (m *mockReservationRepo) CancelWithIncrement(ctx context.Context, id uuid.UUID, callerID uuid.UUID) error {
 	return m.Called(ctx, id, callerID).Error(0)
 }
-func (m *mockReservationRepo) Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error) {
-	args := m.Called(ctx, id, userID, newDueDate)
+func (m *mockReservationRepo) Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error) {
+	args := m.Called(ctx, id, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -69,12 +69,29 @@ func (m *mockReservationRepo) Extend(ctx context.Context, id, userID uuid.UUID, 
 func (m *mockReservationRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error {
 	return m.Called(ctx, id, status).Error(0)
 }
-func (m *mockReservationRepo) CancelOverdue(ctx context.Context) (int, error) {
+func (m *mockReservationRepo) CancelOverdue(ctx context.Context) ([]entity.Reservation, error) {
 	args := m.Called(ctx)
-	return args.Int(0), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]entity.Reservation), args.Error(1)
+}
+func (m *mockReservationRepo) FindApproachingDeadline(ctx context.Context, within time.Duration) ([]entity.Reservation, error) {
+	args := m.Called(ctx, within)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]entity.Reservation), args.Error(1)
 }
 func (m *mockReservationRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
+}
+func (m *mockReservationRepo) ActivateByQRToken(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.Reservation, error) {
+	args := m.Called(ctx, qrToken, libraryID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.Reservation), args.Error(1)
 }
 func (m *mockReservationRepo) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
 	return nil, nil
@@ -211,10 +228,10 @@ func TestExtend_Success(t *testing.T) {
 	newDue := time.Now().Add(14 * 24 * time.Hour)
 	expected := &entity.Reservation{ID: id, UserID: userID, DueDate: newDue}
 
-	resRepo.On("Extend", mock.Anything, id, userID, newDue).Return(expected, nil)
+	resRepo.On("Extend", mock.Anything, id, userID).Return(expected, nil)
 	notifRepo.On("Create", mock.Anything, mock.AnythingOfType("*entity.Notification")).Return(nil, nil).Maybe()
 
-	result, err := uc.Extend(context.Background(), id, userID, newDue)
+	result, err := uc.Extend(context.Background(), id, userID)
 
 	assert.NoError(t, err)
 	assert.Equal(t, newDue, result.DueDate)

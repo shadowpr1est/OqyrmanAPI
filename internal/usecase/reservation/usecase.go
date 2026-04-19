@@ -127,6 +127,18 @@ func (u *reservationUseCase) StaffReturn(ctx context.Context, id uuid.UUID, libr
 	return nil
 }
 
+// --- QR Scan ---
+
+func (u *reservationUseCase) ScanQR(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.ReservationView, error) {
+	res, err := u.reservationRepo.ActivateByQRToken(ctx, qrToken, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	u.notify(ctx, res.UserID, entity.NotifPickupSuccess, "Книга выдана",
+		"Книга выдана вам на 30 дней. Срок возврата: "+res.DueDate.Format("02.01.2006")+".")
+	return u.reservationRepo.GetByIDView(ctx, res.ID)
+}
+
 // --- Admin ---
 
 func (u *reservationUseCase) ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error) {

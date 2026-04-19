@@ -28,6 +28,7 @@ type ReservationRepository interface {
 
 	Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.ReservationStatus) error
+	ActivateByQRToken(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.Reservation, error)
 	CancelOverdue(ctx context.Context) ([]entity.Reservation, error)
 	FindApproachingDeadline(ctx context.Context, within time.Duration) ([]entity.Reservation, error)
 	Delete(ctx context.Context, id uuid.UUID) error

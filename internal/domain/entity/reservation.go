@@ -24,6 +24,7 @@ type Reservation struct {
 	DueDate       time.Time         `db:"due_date"`
 	ReturnedAt    *time.Time        `db:"returned_at"`
 	ExtendedCount int               `db:"extended_count"`
+	QRToken       string            `db:"qr_token"`
 }
 
 // ReservationView — read model for GET endpoints.
@@ -34,6 +35,7 @@ type ReservationView struct {
 	DueDate       time.Time         `db:"due_date"`
 	ReturnedAt    *time.Time        `db:"returned_at"`
 	ExtendedCount int               `db:"extended_count"`
+	QRToken       string            `db:"qr_token"`
 	UserID        uuid.UUID         `db:"user_id"`
 	UserName      string            `db:"user_name"`
 	UserSurname   string            `db:"user_surname"`

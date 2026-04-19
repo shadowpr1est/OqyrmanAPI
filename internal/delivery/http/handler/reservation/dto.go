@@ -14,6 +14,10 @@ type updateStatusRequest struct {
 	Status string `json:"status" binding:"required"`
 }
 
+type scanQRRequest struct {
+	QRToken string `json:"qr_token" binding:"required"`
+}
+
 type extendReservationRequest struct {
 	DueDate string `json:"due_date" binding:"required"`
 }
@@ -25,6 +29,7 @@ type reservationViewResponse struct {
 	DueDate       string                    `json:"due_date"`
 	ReturnedAt    *string                   `json:"returned_at,omitempty"`
 	ExtendedCount int                       `json:"extended_count"`
+	QRToken       string                    `json:"qr_token,omitempty"`
 	LibraryBookID string                    `json:"library_book_id"`
 	Book          common.ReservationBookRef `json:"book"`
 	Library       common.LibraryRef         `json:"library"`

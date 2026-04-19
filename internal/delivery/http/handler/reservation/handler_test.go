@@ -42,8 +42,8 @@ func (m *mockReservationUseCase) ListByUser(ctx context.Context, userID uuid.UUI
 func (m *mockReservationUseCase) Cancel(ctx context.Context, id, callerID uuid.UUID) error {
 	return m.Called(ctx, id, callerID).Error(0)
 }
-func (m *mockReservationUseCase) Extend(ctx context.Context, id, userID uuid.UUID, newDueDate time.Time) (*entity.Reservation, error) {
-	args := m.Called(ctx, id, userID, newDueDate)
+func (m *mockReservationUseCase) Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error) {
+	args := m.Called(ctx, id, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -75,9 +75,12 @@ func (m *mockReservationUseCase) UpdateStatus(ctx context.Context, id uuid.UUID,
 func (m *mockReservationUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
-func (m *mockReservationUseCase) CancelOverdue(ctx context.Context) (int, error) {
-	args := m.Called(ctx)
-	return args.Int(0), args.Error(1)
+func (m *mockReservationUseCase) ScanQR(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.ReservationView, error) {
+	args := m.Called(ctx, qrToken, libraryID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.ReservationView), args.Error(1)
 }
 func (m *mockReservationUseCase) GetByIDView(ctx context.Context, id uuid.UUID) (*entity.ReservationView, error) {
 	args := m.Called(ctx, id)
