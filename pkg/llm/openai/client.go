@@ -22,9 +22,8 @@ func NewClient(apiKey string) *Client {
 	}
 }
 
-func (c *Client) Complete(ctx context.Context, system string, messages []llm.Message) (string, error) {
+func (c *Client) buildInput(system string, messages []llm.Message) responses.ResponseInputParam {
 	input := make(responses.ResponseInputParam, 0, len(messages)+1)
-
 	if system != "" {
 		input = append(input, responses.ResponseInputItemParamOfMessage(system, responses.EasyInputMessageRoleSystem))
 	}
@@ -35,6 +34,11 @@ func (c *Client) Complete(ctx context.Context, system string, messages []llm.Mes
 		}
 		input = append(input, responses.ResponseInputItemParamOfMessage(m.Content, role))
 	}
+	return input
+}
+
+func (c *Client) Complete(ctx context.Context, system string, messages []llm.Message) (string, error) {
+	input := c.buildInput(system, messages)
 
 	resp, err := c.inner.Responses.New(ctx, responses.ResponseNewParams{ //nolint:exhaustruct
 		Model: model,
@@ -49,4 +53,27 @@ func (c *Client) Complete(ctx context.Context, system string, messages []llm.Mes
 		return "", fmt.Errorf("openai.Complete: empty response")
 	}
 	return text, nil
+}
+
+func (c *Client) CompleteStream(ctx context.Context, system string, messages []llm.Message, cb llm.StreamCallback) error {
+	input := c.buildInput(system, messages)
+
+	stream := c.inner.Responses.NewStreaming(ctx, responses.ResponseNewParams{ //nolint:exhaustruct
+		Model: model,
+		Input: responses.ResponseNewParamsInputUnion{OfInputItemList: input},
+	})
+	defer stream.Close()
+
+	for stream.Next() {
+		event := stream.Current()
+		if event.Type == "response.output_text.delta" && event.Delta.OfString != "" {
+			if err := cb(event.Delta.OfString); err != nil {
+				return err
+			}
+		}
+	}
+	if err := stream.Err(); err != nil {
+		return fmt.Errorf("openai.CompleteStream: %w", err)
+	}
+	return nil
 }

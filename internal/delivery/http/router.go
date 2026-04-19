@@ -256,6 +256,7 @@ func (r *Router) Init() *gin.Engine {
 			protected.POST("/reservations", r.reservation.Create)
 			protected.GET("/reservations", r.reservation.ListByUser)
 			protected.GET("/reservations/:id", r.reservation.GetByID)
+			protected.GET("/reservations/:id/qr", r.reservation.GetQR)
 			protected.PATCH("/reservations/:id/cancel", r.reservation.Cancel)
 			protected.PUT("/reservations/:id/extend", r.reservation.Extend)
 
@@ -277,11 +278,13 @@ func (r *Router) Init() *gin.Engine {
 				aiGroup := protected.Group("/ai")
 				aiGroup.Use(middleware.RateLimitWithGroup(rl, "ai", 10))
 				{
+					aiGroup.GET("/prompts", r.ai.SuggestedPrompts)
 					aiGroup.POST("/recommend", r.ai.Recommend)
 					aiGroup.POST("/conversations", r.ai.CreateConversation)
 					aiGroup.GET("/conversations", r.ai.ListConversations)
 					aiGroup.GET("/conversations/:id", r.ai.GetConversation)
 					aiGroup.POST("/conversations/:id/messages", r.ai.SendMessage)
+					aiGroup.POST("/conversations/:id/messages/stream", r.ai.SendMessageStream)
 					aiGroup.DELETE("/conversations/:id", r.ai.DeleteConversation)
 				}
 			}
@@ -344,6 +347,7 @@ func (r *Router) Init() *gin.Engine {
 			staff.Use(middleware.StaffOnly())
 			{
 				staff.GET("/reservations", r.reservation.ListByLibrary)
+				staff.POST("/reservations/scan", r.reservation.ScanQR)
 				staff.PATCH("/reservations/:id/cancel", r.reservation.StaffCancel)
 				staff.PATCH("/reservations/:id/return", r.reservation.StaffReturn)
 				staff.PATCH("/reservations/:id/status", r.reservation.StaffUpdateStatus)

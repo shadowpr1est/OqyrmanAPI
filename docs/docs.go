@@ -1687,6 +1687,131 @@ const docTemplate = `{
                 }
             }
         },
+        "/ai/conversations/{id}/messages/stream": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Отправляет сообщение и стримит ответ AI через Server-Sent Events",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "summary": "Отправить сообщение (streaming)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID беседы",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Сообщение",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.sendMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/prompts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает персонализированные подсказки-промпты для чат-виджета",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "summary": "Подсказки для чата",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ai.suggestedPromptsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ai/recommend": {
             "post": {
                 "security": [
@@ -3582,9 +3707,6 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "consumes": [
-                    "application/json"
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -3599,15 +3721,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Новая дата возврата",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/reservation.extendReservationRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -3617,8 +3730,63 @@ const docTemplate = `{
                             "$ref": "#/definitions/reservation.reservationViewResponse"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/reservations/{id}/qr": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает QR-токен для предъявления в библиотеке. Доступен только владельцу брони со статусом pending.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reservations"
+                ],
+                "summary": "QR-токен брони",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID брони",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -3979,6 +4147,81 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/staff/reservations/scan": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Стафф сканирует QR пользователя — бронь активируется (pending → active), книга выдаётся на 30 дней.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reservations"
+                ],
+                "summary": "Сканировать QR-код брони",
+                "parameters": [
+                    {
+                        "description": "QR-токен",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reservation.scanQRRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reservation.reservationViewResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -4460,6 +4703,14 @@ const docTemplate = `{
                     "wishlist"
                 ],
                 "summary": "Мой вишлист",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Фильтр по статусу (want_to_read, reading, finished)",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4488,7 +4739,7 @@ const docTemplate = `{
                 "summary": "Добавить в вишлист",
                 "parameters": [
                     {
-                        "description": "ID книги",
+                        "description": "ID книги и статус",
                         "name": "input",
                         "in": "body",
                         "required": true,
@@ -4562,10 +4813,47 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": {
-                                "type": "boolean"
-                            }
+                            "additionalProperties": true
                         }
+                    }
+                }
+            }
+        },
+        "/wishlist/{book_id}/status": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "wishlist"
+                ],
+                "summary": "Обновить статус на полке",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID книги",
+                        "name": "book_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Новый статус",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wishlist.updateStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }
@@ -4676,6 +4964,17 @@ const docTemplate = `{
                 },
                 "user_message": {
                     "$ref": "#/definitions/ai.messageDTO"
+                }
+            }
+        },
+        "ai.suggestedPromptsResponse": {
+            "type": "object",
+            "properties": {
+                "prompts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -5586,7 +5885,7 @@ const docTemplate = `{
             "required": [
                 "book_id",
                 "content",
-                "page"
+                "position"
             ],
             "properties": {
                 "book_id": {
@@ -5595,8 +5894,8 @@ const docTemplate = `{
                 "content": {
                     "type": "string"
                 },
-                "page": {
-                    "type": "integer"
+                "position": {
+                    "type": "string"
                 }
             }
         },
@@ -5615,8 +5914,11 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "page": {
-                    "type": "integer"
+                "position": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -5638,8 +5940,11 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "page": {
-                    "type": "integer"
+                "position": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -5649,8 +5954,8 @@ const docTemplate = `{
                 "content": {
                     "type": "string"
                 },
-                "page": {
-                    "type": "integer"
+                "position": {
+                    "type": "string"
                 }
             }
         },
@@ -5694,6 +5999,9 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -5703,14 +6011,17 @@ const docTemplate = `{
                 "book_id": {
                     "type": "string"
                 },
-                "current_page": {
-                    "type": "integer"
+                "cfi_position": {
+                    "type": "string"
                 },
                 "finished_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
+                },
+                "progress": {
+                    "type": "integer"
                 },
                 "status": {
                     "type": "string"
@@ -5726,14 +6037,17 @@ const docTemplate = `{
                 "book": {
                     "$ref": "#/definitions/reading_session.sessionBookRef"
                 },
-                "current_page": {
-                    "type": "integer"
+                "cfi_position": {
+                    "type": "string"
                 },
                 "finished_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
+                },
+                "progress": {
+                    "type": "integer"
                 },
                 "status": {
                     "type": "string"
@@ -5757,9 +6071,6 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
-                },
-                "total_pages": {
-                    "type": "integer"
                 }
             }
         },
@@ -5767,15 +6078,19 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "book_id",
-                "current_page",
                 "status"
             ],
             "properties": {
                 "book_id": {
                     "type": "string"
                 },
-                "current_page": {
-                    "type": "integer"
+                "cfi_position": {
+                    "type": "string"
+                },
+                "progress": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
                 },
                 "status": {
                     "type": "string",
@@ -5802,17 +6117,6 @@ const docTemplate = `{
                 }
             }
         },
-        "reservation.extendReservationRequest": {
-            "type": "object",
-            "required": [
-                "due_date"
-            ],
-            "properties": {
-                "due_date": {
-                    "type": "string"
-                }
-            }
-        },
         "reservation.reservationViewResponse": {
             "type": "object",
             "properties": {
@@ -5822,6 +6126,9 @@ const docTemplate = `{
                 "due_date": {
                     "type": "string"
                 },
+                "extended_count": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -5829,6 +6136,9 @@ const docTemplate = `{
                     "$ref": "#/definitions/common.LibraryRef"
                 },
                 "library_book_id": {
+                    "type": "string"
+                },
+                "qr_token": {
                     "type": "string"
                 },
                 "reserved_at": {
@@ -5847,6 +6157,17 @@ const docTemplate = `{
                             "$ref": "#/definitions/common.UserRef"
                         }
                     ]
+                }
+            }
+        },
+        "reservation.scanQRRequest": {
+            "type": "object",
+            "required": [
+                "qr_token"
+            ],
+            "properties": {
+                "qr_token": {
+                    "type": "string"
                 }
             }
         },
@@ -6229,6 +6550,20 @@ const docTemplate = `{
             "properties": {
                 "book_id": {
                     "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "wishlist.updateStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string"
                 }
             }
         },
@@ -6242,6 +6577,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }

@@ -69,6 +69,13 @@ definitions:
       user_message:
         $ref: '#/definitions/ai.messageDTO'
     type: object
+  ai.suggestedPromptsResponse:
+    properties:
+      prompts:
+        items:
+          type: string
+        type: array
+    type: object
   auth.authUserResponse:
     properties:
       avatar_url:
@@ -670,12 +677,12 @@ definitions:
         type: string
       content:
         type: string
-      page:
-        type: integer
+      position:
+        type: string
     required:
     - book_id
     - content
-    - page
+    - position
     type: object
   notes.noteResponse:
     properties:
@@ -687,8 +694,10 @@ definitions:
         type: string
       id:
         type: string
-      page:
-        type: integer
+      position:
+        type: string
+      updated_at:
+        type: string
     type: object
   notes.noteViewResponse:
     properties:
@@ -702,15 +711,17 @@ definitions:
         type: string
       id:
         type: string
-      page:
-        type: integer
+      position:
+        type: string
+      updated_at:
+        type: string
     type: object
   notes.updateNoteRequest:
     properties:
       content:
         type: string
-      page:
-        type: integer
+      position:
+        type: string
     type: object
   notification.listNotificationsResponse:
     properties:
@@ -739,17 +750,21 @@ definitions:
         type: string
       title:
         type: string
+      type:
+        type: string
     type: object
   reading_session.readingSessionResponse:
     properties:
       book_id:
         type: string
-      current_page:
-        type: integer
+      cfi_position:
+        type: string
       finished_at:
         type: string
       id:
         type: string
+      progress:
+        type: integer
       status:
         type: string
       updated_at:
@@ -759,12 +774,14 @@ definitions:
     properties:
       book:
         $ref: '#/definitions/reading_session.sessionBookRef'
-      current_page:
-        type: integer
+      cfi_position:
+        type: string
       finished_at:
         type: string
       id:
         type: string
+      progress:
+        type: integer
       status:
         type: string
       updated_at:
@@ -780,14 +797,16 @@ definitions:
         type: string
       title:
         type: string
-      total_pages:
-        type: integer
     type: object
   reading_session.upsertReadingSessionRequest:
     properties:
       book_id:
         type: string
-      current_page:
+      cfi_position:
+        type: string
+      progress:
+        maximum: 100
+        minimum: 0
         type: integer
       status:
         enum:
@@ -797,7 +816,6 @@ definitions:
         type: string
     required:
     - book_id
-    - current_page
     - status
     type: object
   reservation.createReservationRequest:
@@ -810,24 +828,21 @@ definitions:
     - due_date
     - library_book_id
     type: object
-  reservation.extendReservationRequest:
-    properties:
-      due_date:
-        type: string
-    required:
-    - due_date
-    type: object
   reservation.reservationViewResponse:
     properties:
       book:
         $ref: '#/definitions/common.ReservationBookRef'
       due_date:
         type: string
+      extended_count:
+        type: integer
       id:
         type: string
       library:
         $ref: '#/definitions/common.LibraryRef'
       library_book_id:
+        type: string
+      qr_token:
         type: string
       reserved_at:
         type: string
@@ -840,6 +855,13 @@ definitions:
         - $ref: '#/definitions/common.UserRef'
         description: User присутствует только в staff/admin контексте — при просмотре
           чужих броней.
+    type: object
+  reservation.scanQRRequest:
+    properties:
+      qr_token:
+        type: string
+    required:
+    - qr_token
     type: object
   reservation.updateStatusRequest:
     properties:
@@ -1092,8 +1114,17 @@ definitions:
     properties:
       book_id:
         type: string
+      status:
+        type: string
     required:
     - book_id
+    type: object
+  wishlist.updateStatusRequest:
+    properties:
+      status:
+        type: string
+    required:
+    - status
     type: object
   wishlist.wishlistResponse:
     properties:
@@ -1102,6 +1133,8 @@ definitions:
       book_id:
         type: string
       id:
+        type: string
+      status:
         type: string
     type: object
 info:
@@ -2163,6 +2196,86 @@ paths:
       security:
       - BearerAuth: []
       summary: Отправить сообщение
+      tags:
+      - ai
+  /ai/conversations/{id}/messages/stream:
+    post:
+      consumes:
+      - application/json
+      description: Отправляет сообщение и стримит ответ AI через Server-Sent Events
+      parameters:
+      - description: ID беседы
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Сообщение
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/ai.sendMessageRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отправить сообщение (streaming)
+      tags:
+      - ai
+  /ai/prompts:
+    get:
+      description: Возвращает персонализированные подсказки-промпты для чат-виджета
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ai.suggestedPromptsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Подсказки для чата
       tags:
       - ai
   /ai/recommend:
@@ -3365,20 +3478,12 @@ paths:
       - reservations
   /reservations/{id}/extend:
     put:
-      consumes:
-      - application/json
       parameters:
       - description: ID брони
         in: path
         name: id
         required: true
         type: string
-      - description: Новая дата возврата
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/reservation.extendReservationRequest'
       produces:
       - application/json
       responses:
@@ -3386,8 +3491,44 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/reservation.reservationViewResponse'
-        "400":
-          description: Bad Request
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Продлить бронь
+      tags:
+      - reservations
+  /reservations/{id}/qr:
+    get:
+      description: Возвращает QR-токен для предъявления в библиотеке. Доступен только
+        владельцу брони со статусом pending.
+      parameters:
+      - description: ID брони
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
           schema:
             additionalProperties:
               type: string
@@ -3400,7 +3541,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Продлить бронь
+      summary: QR-токен брони
       tags:
       - reservations
   /reviews:
@@ -3702,6 +3843,55 @@ paths:
       summary: Обновить статус брони (staff)
       tags:
       - reservations
+  /staff/reservations/scan:
+    post:
+      consumes:
+      - application/json
+      description: Стафф сканирует QR пользователя — бронь активируется (pending →
+        active), книга выдаётся на 30 дней.
+      parameters:
+      - description: QR-токен
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reservation.scanQRRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reservation.reservationViewResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Сканировать QR-код брони
+      tags:
+      - reservations
   /users/me:
     delete:
       responses:
@@ -3903,6 +4093,11 @@ paths:
       - stats
   /wishlist:
     get:
+      parameters:
+      - description: Фильтр по статусу (want_to_read, reading, finished)
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -3920,7 +4115,7 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: ID книги
+      - description: ID книги и статус
         in: body
         name: input
         required: true
@@ -3968,12 +4163,35 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: boolean
+            additionalProperties: true
             type: object
       security:
       - BearerAuth: []
       summary: Проверить наличие в вишлисте
+      tags:
+      - wishlist
+  /wishlist/{book_id}/status:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID книги
+        in: path
+        name: book_id
+        required: true
+        type: string
+      - description: Новый статус
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/wishlist.updateStatusRequest'
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Обновить статус на полке
       tags:
       - wishlist
 securityDefinitions:

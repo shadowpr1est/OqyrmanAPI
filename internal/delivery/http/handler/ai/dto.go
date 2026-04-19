@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,4 +50,26 @@ type sendMessageRequest struct {
 type sendMessageResponse struct {
 	UserMessage messageDTO `json:"user_message"`
 	AIMessage   messageDTO `json:"ai_message"`
+}
+
+// ── Streaming SSE events ────���────────────────────────────────────────────────
+
+type streamChunkEvent struct {
+	Type    string `json:"type"`    // "chunk" | "error"
+	Content string `json:"content"`
+}
+
+type streamDoneEvent struct {
+	Type        string     `json:"type"` // "done"
+	UserMessage messageDTO `json:"user_message"`
+	AIMessage   messageDTO `json:"ai_message"`
+}
+
+type suggestedPromptsResponse struct {
+	Prompts []string `json:"prompts"`
+}
+
+func toJSON(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
 }

@@ -23,6 +23,20 @@ func NewHandler(uc domainUseCase.AIUseCase) *Handler {
 	return &Handler{uc: uc}
 }
 
+// @Summary     Подсказки для чата
+// @Description Возвращает персонализированные подсказки-промпты для чат-виджета
+// @Tags        ai
+// @Security    BearerAuth
+// @Produce     json
+// @Success     200 {object} suggestedPromptsResponse
+// @Failure     401 {object} map[string]string
+// @Router      /ai/prompts [get]
+func (h *Handler) SuggestedPrompts(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+	prompts := h.uc.SuggestedPrompts(c.Request.Context(), userID)
+	c.JSON(http.StatusOK, suggestedPromptsResponse{Prompts: prompts})
+}
+
 // @Summary     Персональные рекомендации книг
 // @Description Генерирует рекомендации на основе истории чтения и вишлиста пользователя
 // @Tags        ai
@@ -226,6 +240,96 @@ func (h *Handler) SendMessage(c *gin.Context) {
 			CreatedAt:      aiMsg.CreatedAt,
 		},
 	})
+}
+
+// @Summary     Отправить сообщение (streaming)
+// @Description Отправляет сообщение и стримит ответ AI через Server-Sent Events
+// @Tags        ai
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     text/event-stream
+// @Param       id    path string            true "ID беседы"
+// @Param       input body sendMessageRequest true "Сообщение"
+// @Success     200 {string} string "SSE stream"
+// @Failure     400 {object} map[string]string
+// @Failure     401 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/conversations/{id}/messages/stream [post]
+func (h *Handler) SendMessageStream(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid conversation id"})
+		return
+	}
+
+	var req sendMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ValidationErr(c, err)
+		return
+	}
+
+	if len([]rune(req.Message)) > maxMessageLen {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message must not exceed 2000 characters"})
+		return
+	}
+
+	// SSE headers
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming not supported"})
+		return
+	}
+
+	userMsg, aiMsg, err := h.uc.SendMessageStream(c.Request.Context(), id, userID, req.Message, func(chunk string) error {
+		// SSE формат: data: {"chunk":"..."}\n\n
+		c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "chunk", Content: chunk}) + "\n\n")
+		flusher.Flush()
+		return nil
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, entity.ErrValidation):
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "invalid input"}) + "\n\n")
+		case errors.Is(err, entity.ErrConversationNotFound):
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "conversation not found"}) + "\n\n")
+		case errors.Is(err, entity.ErrForbidden):
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "forbidden"}) + "\n\n")
+		default:
+			slog.ErrorContext(c.Request.Context(), "send message stream error", "err", err)
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "internal error"}) + "\n\n")
+		}
+		flusher.Flush()
+		return
+	}
+
+	// Финальное событие с полными данными сообщений
+	c.Writer.WriteString("data: " + toJSON(streamDoneEvent{
+		Type: "done",
+		UserMessage: messageDTO{
+			ID:             userMsg.ID,
+			ConversationID: userMsg.ConversationID,
+			Role:           userMsg.Role,
+			Content:        userMsg.Content,
+			CreatedAt:      userMsg.CreatedAt,
+		},
+		AIMessage: messageDTO{
+			ID:             aiMsg.ID,
+			ConversationID: aiMsg.ConversationID,
+			Role:           aiMsg.Role,
+			Content:        aiMsg.Content,
+			CreatedAt:      aiMsg.CreatedAt,
+		},
+	}) + "\n\n")
+	flusher.Flush()
 }
 
 // @Summary     Удалить беседу

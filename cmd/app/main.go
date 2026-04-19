@@ -57,6 +57,8 @@
 //
 // @tag.name          ai
 // @tag.description   AI-рекомендации и чат с книжным ассистентом
+
+//go:generate swag init -g cmd/app/main.go -o docs --dir ../../..
 package main
 
 import (
@@ -210,7 +212,7 @@ func main() {
 		slog.Info("AI: no API key set, AI endpoints disabled")
 	}
 	if llmClient != nil {
-		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, convRepo, llmClient)
+		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, convRepo, reviewRepo, genreRepo, authorRepo, eventRepo, llmClient)
 		aiHandler = aiH.NewHandler(aiUseCase)
 	}
 
