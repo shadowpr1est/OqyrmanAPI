@@ -21,4 +21,8 @@ type AIUseCase interface {
 	ListConversations(ctx context.Context, userID uuid.UUID) ([]*entity.Conversation, error)
 	GetConversation(ctx context.Context, id, userID uuid.UUID) (*entity.Conversation, []*entity.ChatMessage, error)
 	DeleteConversation(ctx context.Context, id, userID uuid.UUID) error
+
+	// Reader selection actions — one-shot streaming, no conversation persisted.
+	// action ∈ {"explain", "translate", "identify"}.
+	ExplainSelection(ctx context.Context, userID, bookID uuid.UUID, action, selection string, cb StreamCallback) error
 }

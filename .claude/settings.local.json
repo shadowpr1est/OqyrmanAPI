@@ -35,7 +35,12 @@
       "Bash(go version:*)",
       "Bash(go mod:*)",
       "Bash(perl -i -pe 's/\"email already taken\"/\"email_already_taken\"/' internal/delivery/http/handler/auth/handler_test.go)",
-      "Bash(perl -i -pe 's/\"invalid credentials\"/\"invalid_credentials\"/' internal/delivery/http/handler/auth/handler_test.go)"
+      "Bash(perl -i -pe 's/\"invalid credentials\"/\"invalid_credentials\"/' internal/delivery/http/handler/auth/handler_test.go)",
+      "Bash(npm install:*)",
+      "Bash(go env *)",
+      "Bash(npx tsc *)",
+      "Bash(C:/Users/sem1c/GolandProjects/OqyrmanWEB/node_modules/.bin/tsc --noEmit --project C:/Users/sem1c/GolandProjects/OqyrmanWEB/tsconfig.app.json)",
+      "Bash(npx vite *)"
     ]
   }
 }

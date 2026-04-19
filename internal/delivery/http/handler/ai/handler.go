@@ -332,6 +332,77 @@ func (h *Handler) SendMessageStream(c *gin.Context) {
 	flusher.Flush()
 }
 
+// @Summary     AI по выделенному фрагменту (streaming)
+// @Description Объясняет / переводит / идентифицирует выделенный фрагмент книги. Стрим SSE, беседа не создаётся.
+// @Tags        ai
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     text/event-stream
+// @Param       bookId path string                  true "ID книги"
+// @Param       input  body explainSelectionRequest true "Действие и выделенный текст"
+// @Success     200 {string} string "SSE stream"
+// @Failure     400 {object} map[string]string
+// @Failure     401 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/books/{bookId}/explain [post]
+func (h *Handler) ExplainSelection(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	bookID, err := uuid.Parse(c.Param("bookId"))
+	if err != nil {
+		common.BadRequest(c, common.CodeValidationError, "invalid book id")
+		return
+	}
+
+	var req explainSelectionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ValidationErr(c, err)
+		return
+	}
+
+	if len([]rune(req.Selection)) > maxMessageLen {
+		common.BadRequest(c, common.CodeValidationError, "selection must not exceed 2000 characters")
+		return
+	}
+
+	// SSE headers
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "streaming not supported"})
+		return
+	}
+
+	err = h.uc.ExplainSelection(c.Request.Context(), userID, bookID, req.Action, req.Selection, func(chunk string) error {
+		c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "chunk", Content: chunk}) + "\n\n")
+		flusher.Flush()
+		return nil
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, entity.ErrValidation):
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "invalid input"}) + "\n\n")
+		case errors.Is(err, entity.ErrNotFound):
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "book not found"}) + "\n\n")
+		default:
+			slog.ErrorContext(c.Request.Context(), "explain selection error", "err", err)
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "internal error"}) + "\n\n")
+		}
+		flusher.Flush()
+		return
+	}
+
+	// Done event — фронт слушает тот же тип, что и у обычного чата,
+	// но без user/ai message payload'ов (ничего не сохраняем).
+	c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "done"}) + "\n\n")
+	flusher.Flush()
+}
+
 // @Summary     Удалить беседу
 // @Description Удаляет беседу и все её сообщения
 // @Tags        ai

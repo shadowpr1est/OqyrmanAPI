@@ -286,6 +286,7 @@ func (r *Router) Init() *gin.Engine {
 					aiGroup.POST("/conversations/:id/messages", r.ai.SendMessage)
 					aiGroup.POST("/conversations/:id/messages/stream", r.ai.SendMessageStream)
 					aiGroup.DELETE("/conversations/:id", r.ai.DeleteConversation)
+					aiGroup.POST("/books/:bookId/explain", r.ai.ExplainSelection)
 				}
 			}
 

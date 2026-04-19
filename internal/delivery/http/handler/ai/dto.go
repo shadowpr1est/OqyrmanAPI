@@ -69,6 +69,13 @@ type suggestedPromptsResponse struct {
 	Prompts []string `json:"prompts"`
 }
 
+// ── Reader selection actions ────────────────────────────────────────────────
+
+type explainSelectionRequest struct {
+	Action    string `json:"action" binding:"required,oneof=explain translate identify"`
+	Selection string `json:"selection" binding:"required"`
+}
+
 func toJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)

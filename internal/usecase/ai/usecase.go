@@ -119,7 +119,7 @@ func (u *aiUseCase) Recommend(ctx context.Context, userIDStr string) (string, er
 		prompt.WriteString("История чтения пуста.\n")
 	}
 	if len(wishBooks) > 0 {
-		fmt.Fprintf(&prompt, "Виш��ист: %s.\n", strings.Join(wishBooks, ", "))
+		fmt.Fprintf(&prompt, "Вишлист: %s.\n", strings.Join(wishBooks, ", "))
 	} else {
 		prompt.WriteString("Вишлист пуст.\n")
 	}
@@ -138,7 +138,7 @@ func (u *aiUseCase) Recommend(ctx context.Context, userIDStr string) (string, er
 func (u *aiUseCase) SuggestedPrompts(ctx context.Context, userID uuid.UUID) []string {
 	prompts := []string{
 		"Порекомендуй книгу",
-		"Какие мероп��иятия скоро?",
+		"Какие мероприятия скоро?",
 	}
 
 	sessions, _ := u.sessionRepo.ListByUser(ctx, userID)
@@ -624,4 +624,95 @@ func truncate(s string, maxChars int) string {
 	}
 	runes := []rune(s)
 	return string(runes[:maxChars]) + "…"
+}
+
+// ── Reader selection actions ─────────────────────────────────────────────────
+
+const (
+	maxSelectionChars   = 2000
+	maxDescriptionChars = 400
+)
+
+var readerSelectionSystemPrompt = `Ты помогаешь читателю понять выделенный фрагмент книги. Отвечай на русском языке, кратко и по делу, без вводных фраз о себе и без рекламы платформы. Опирайся на контекст книги, если он дан.`
+
+func (u *aiUseCase) ExplainSelection(
+	ctx context.Context,
+	userID, bookID uuid.UUID,
+	action, selection string,
+	cb domainUseCase.StreamCallback,
+) error {
+	trimmed := strings.TrimSpace(selection)
+	if utf8.RuneCountInString(trimmed) < 2 {
+		return fmt.Errorf("%w: selection must not be empty", entity.ErrValidation)
+	}
+	if !isReaderAction(action) {
+		return fmt.Errorf("%w: unknown action %q", entity.ErrValidation, action)
+	}
+
+	book, err := u.bookRepo.GetByID(ctx, bookID)
+	if err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			return entity.ErrNotFound
+		}
+		return fmt.Errorf("aiUseCase.ExplainSelection get book: %w", err)
+	}
+
+	var authorName, genreName string
+	if author, err := u.authorRepo.GetByID(ctx, book.AuthorID); err == nil {
+		authorName = author.Name
+	}
+	if genre, err := u.genreRepo.GetByID(ctx, book.GenreID); err == nil {
+		genreName = genre.Name
+	}
+
+	prompt := buildSelectionPrompt(action, trimmed, book, authorName, genreName)
+
+	return u.llm.CompleteStream(ctx, readerSelectionSystemPrompt, []llm.Message{
+		{Role: "user", Content: prompt},
+	}, func(chunk string) error {
+		return cb(chunk)
+	})
+}
+
+func isReaderAction(a string) bool {
+	switch a {
+	case "explain", "translate", "identify":
+		return true
+	}
+	return false
+}
+
+func buildSelectionPrompt(action, selection string, book *entity.Book, author, genre string) string {
+	sel := truncate(selection, maxSelectionChars)
+
+	var ctxLines []string
+	ctxLines = append(ctxLines, fmt.Sprintf("Книга: «%s»", book.Title))
+	if author != "" {
+		ctxLines[len(ctxLines)-1] += fmt.Sprintf(" — %s", author)
+	}
+	if genre != "" {
+		ctxLines[len(ctxLines)-1] += fmt.Sprintf(" [%s]", genre)
+	}
+	if book.Year > 0 {
+		ctxLines[len(ctxLines)-1] += fmt.Sprintf(", %d г.", book.Year)
+	}
+	if book.Language != "" {
+		ctxLines = append(ctxLines, fmt.Sprintf("Язык книги: %s", book.Language))
+	}
+	if desc := strings.TrimSpace(book.Description); desc != "" {
+		ctxLines = append(ctxLines, fmt.Sprintf("Описание книги: %s", truncate(desc, maxDescriptionChars)))
+	}
+	bookCtx := strings.Join(ctxLines, "\n")
+
+	var task string
+	switch action {
+	case "explain":
+		task = "Объясни этот фрагмент простыми словами (2–4 коротких абзаца). Если в нём упоминаются сложные термины, концепции или отсылки — раскрой их в контексте этой книги."
+	case "translate":
+		task = "Переведи этот фрагмент на русский язык, сохранив смысл, тон и стиль. Если фрагмент уже на русском — переведи его на английский и начни ответ с пометки «(Перевод RU → EN):». Без лишних комментариев."
+	case "identify":
+		task = "В фрагменте упоминается конкретный человек, место, событие, явление или термин. Определи главный объект и дай краткую справку (3–6 предложений) на русском. Если объектов несколько — перечисли каждый коротко. Опирайся на контекст книги."
+	}
+
+	return fmt.Sprintf("%s\n\nВыделенный фрагмент:\n«%s»\n\nЗадача: %s", bookCtx, sel, task)
 }
