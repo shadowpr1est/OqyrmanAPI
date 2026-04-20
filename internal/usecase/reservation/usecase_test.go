@@ -246,7 +246,12 @@ func TestStaffUpdateStatus_Success(t *testing.T) {
 
 	id := uuid.New()
 	libraryID := uuid.New()
+	userID := uuid.New()
+	activated := &entity.Reservation{ID: id, UserID: userID, DueDate: time.Now().Add(30 * 24 * time.Hour)}
+
 	resRepo.On("StaffUpdateStatus", mock.Anything, id, libraryID, entity.ReservationActive).Return(nil)
+	resRepo.On("GetByID", mock.Anything, id).Return(activated, nil)
+	notifRepo.On("Create", mock.Anything, mock.AnythingOfType("*entity.Notification")).Return((*entity.Notification)(nil), nil).Maybe()
 
 	err := uc.StaffUpdateStatus(context.Background(), id, libraryID, entity.ReservationActive)
 
