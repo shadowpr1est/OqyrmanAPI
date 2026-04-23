@@ -286,7 +286,20 @@ func (r *Router) Init() *gin.Engine {
 					aiGroup.POST("/conversations/:id/messages", r.ai.SendMessage)
 					aiGroup.POST("/conversations/:id/messages/stream", r.ai.SendMessageStream)
 					aiGroup.DELETE("/conversations/:id", r.ai.DeleteConversation)
-					aiGroup.POST("/books/:bookId/explain", r.ai.ExplainSelection)
+					// Стрим LLM по выделенному фрагменту — самый дорогой вызов в группе.
+					// Дополнительно режем 20 req/min на пользователя (не на IP).
+					aiGroup.POST(
+						"/books/:bookId/explain",
+						middleware.RateLimitPerUser(rl, "ai-explain", 20),
+						r.ai.ExplainSelection,
+					)
+					// Перенос пары (фрагмент + ответ) в новую беседу для follow-up.
+					// LLM не дёргается, лимит мягче.
+					aiGroup.POST(
+						"/books/:bookId/seed-conversation",
+						middleware.RateLimitPerUser(rl, "ai-seed", 30),
+						r.ai.SeedConversationFromSelection,
+					)
 				}
 			}
 

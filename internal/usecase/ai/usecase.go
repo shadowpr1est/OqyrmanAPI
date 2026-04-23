@@ -638,7 +638,7 @@ var readerSelectionSystemPrompt = `Ты помогаешь читателю по
 func (u *aiUseCase) ExplainSelection(
 	ctx context.Context,
 	userID, bookID uuid.UUID,
-	action, selection string,
+	action, selection, surrounding, targetLang string,
 	cb domainUseCase.StreamCallback,
 ) error {
 	trimmed := strings.TrimSpace(selection)
@@ -647,6 +647,16 @@ func (u *aiUseCase) ExplainSelection(
 	}
 	if !isReaderAction(action) {
 		return fmt.Errorf("%w: unknown action %q", entity.ErrValidation, action)
+	}
+
+	// Authorization: каждый, кто использует AI по фрагменту, должен реально
+	// читать эту книгу — то есть иметь reading_session. Это отсекает попытки
+	// дёргать дорогой LLM-эндпойнт по произвольным book_id.
+	if _, err := u.sessionRepo.GetByUserAndBook(ctx, userID, bookID); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			return entity.ErrForbidden
+		}
+		return fmt.Errorf("aiUseCase.ExplainSelection check session: %w", err)
 	}
 
 	book, err := u.bookRepo.GetByID(ctx, bookID)
@@ -665,7 +675,7 @@ func (u *aiUseCase) ExplainSelection(
 		genreName = genre.Name
 	}
 
-	prompt := buildSelectionPrompt(action, trimmed, book, authorName, genreName)
+	prompt := buildSelectionPrompt(action, trimmed, surrounding, targetLang, book, authorName, genreName)
 
 	return u.llm.CompleteStream(ctx, readerSelectionSystemPrompt, []llm.Message{
 		{Role: "user", Content: prompt},
@@ -676,13 +686,15 @@ func (u *aiUseCase) ExplainSelection(
 
 func isReaderAction(a string) bool {
 	switch a {
-	case "explain", "translate", "identify":
+	case "ask", "translate":
 		return true
 	}
 	return false
 }
 
-func buildSelectionPrompt(action, selection string, book *entity.Book, author, genre string) string {
+const maxSurroundingChars = 1600
+
+func buildSelectionPrompt(action, selection, surrounding, targetLang string, book *entity.Book, author, genre string) string {
 	sel := truncate(selection, maxSelectionChars)
 
 	var ctxLines []string
@@ -706,13 +718,110 @@ func buildSelectionPrompt(action, selection string, book *entity.Book, author, g
 
 	var task string
 	switch action {
-	case "explain":
-		task = "Объясни этот фрагмент простыми словами (2–4 коротких абзаца). Если в нём упоминаются сложные термины, концепции или отсылки — раскрой их в контексте этой книги."
+	case "ask":
+		task = "Помоги читателю разобраться с выделенным фрагментом. Сам реши, что уместнее по сути:\n" +
+			"— если во фрагменте есть конкретный объект (человек, место, событие, термин, явление, произведение), про который читатель может не знать — дай краткую справку (3–5 предложений), при необходимости перечисли несколько объектов;\n" +
+			"— если фрагмент содержит сложную мысль, метафору, отсылку или незнакомую концепцию — объясни её простыми словами (2–3 коротких абзаца), опираясь на контекст книги.\n" +
+			"Не разъясняй очевидное, не пересказывай дословно. Без вводных фраз о себе."
 	case "translate":
-		task = "Переведи этот фрагмент на русский язык, сохранив смысл, тон и стиль. Если фрагмент уже на русском — переведи его на английский и начни ответ с пометки «(Перевод RU → EN):». Без лишних комментариев."
-	case "identify":
-		task = "В фрагменте упоминается конкретный человек, место, событие, явление или термин. Определи главный объект и дай краткую справку (3–6 предложений) на русском. Если объектов несколько — перечисли каждый коротко. Опирайся на контекст книги."
+		switch targetLang {
+		case "en":
+			task = "Translate this passage into English, preserving meaning, tone, and style. Begin your answer with «(Translation → EN):». No extra commentary."
+		case "kk":
+			task = "Осы үзіндіні қазақ тіліне аудар, мағынасын, тонын және стилін сақта. Жауабыңды «(Аударма → KK):» белгісінен бастаңыз. Қосымша түсініктемесіз."
+		default:
+			task = "Переведи этот фрагмент на русский язык, сохранив смысл, тон и стиль. Если фрагмент уже на русском — переведи его на английский и начни ответ с пометки «(Перевод RU → EN):». Без лишних комментариев."
+		}
 	}
 
-	return fmt.Sprintf("%s\n\nВыделенный фрагмент:\n«%s»\n\nЗадача: %s", bookCtx, sel, task)
+	parts := []string{bookCtx}
+	if surr := strings.TrimSpace(surrounding); surr != "" {
+		parts = append(parts, fmt.Sprintf("Окружающий текст (для контекста):\n«%s»", truncate(surr, maxSurroundingChars)))
+	}
+	parts = append(parts,
+		fmt.Sprintf("Выделенный фрагмент:\n«%s»", sel),
+		fmt.Sprintf("Задача: %s", task),
+	)
+	return strings.Join(parts, "\n\n")
+}
+
+// ── Seed conversation from a selection action ────────────────────────────────
+
+func (u *aiUseCase) SeedConversationFromSelection(
+	ctx context.Context,
+	userID, bookID uuid.UUID,
+	action, selection, answer string,
+) (*entity.Conversation, error) {
+	sel := strings.TrimSpace(selection)
+	ans := strings.TrimSpace(answer)
+	if utf8.RuneCountInString(sel) < 2 {
+		return nil, fmt.Errorf("%w: selection must not be empty", entity.ErrValidation)
+	}
+	if ans == "" {
+		return nil, fmt.Errorf("%w: answer must not be empty", entity.ErrValidation)
+	}
+	if !isReaderAction(action) {
+		return nil, fmt.Errorf("%w: unknown action %q", entity.ErrValidation, action)
+	}
+
+	// Та же проверка, что и в ExplainSelection — пользователь должен реально читать книгу.
+	if _, err := u.sessionRepo.GetByUserAndBook(ctx, userID, bookID); err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			return nil, entity.ErrForbidden
+		}
+		return nil, fmt.Errorf("aiUseCase.SeedConversationFromSelection check session: %w", err)
+	}
+
+	book, err := u.bookRepo.GetByID(ctx, bookID)
+	if err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("aiUseCase.SeedConversationFromSelection get book: %w", err)
+	}
+
+	now := time.Now()
+	conv := &entity.Conversation{
+		ID:        uuid.New(),
+		UserID:    userID,
+		Title:     truncate(fmt.Sprintf("📖 «%s» — фрагмент", book.Title), maxTitleLen),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if _, err := u.convRepo.Create(ctx, conv); err != nil {
+		return nil, fmt.Errorf("aiUseCase.SeedConversationFromSelection create conv: %w", err)
+	}
+
+	actionLabel := "разобраться с"
+	if action == "translate" {
+		actionLabel = "перевести"
+	}
+	userText := fmt.Sprintf(
+		"Из книги «%s» я выделил фрагмент и попросил тебя %s ним:\n\n«%s»",
+		book.Title, actionLabel, truncate(sel, maxSelectionChars),
+	)
+	userMsg := &entity.ChatMessage{
+		ID:             uuid.New(),
+		ConversationID: conv.ID,
+		Role:           "user",
+		Content:        userText,
+		CreatedAt:      now,
+	}
+	if _, err := u.convRepo.SaveMessage(ctx, userMsg); err != nil {
+		return nil, fmt.Errorf("aiUseCase.SeedConversationFromSelection save user msg: %w", err)
+	}
+
+	aiMsg := &entity.ChatMessage{
+		ID:             uuid.New(),
+		ConversationID: conv.ID,
+		Role:           "assistant",
+		Content:        ans,
+		CreatedAt:      now.Add(time.Millisecond),
+	}
+	if _, err := u.convRepo.SaveMessage(ctx, aiMsg); err != nil {
+		return nil, fmt.Errorf("aiUseCase.SeedConversationFromSelection save ai msg: %w", err)
+	}
+
+	_ = u.convRepo.Touch(ctx, conv.ID)
+	return conv, nil
 }

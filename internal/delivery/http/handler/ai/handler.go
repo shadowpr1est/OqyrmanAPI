@@ -333,7 +333,7 @@ func (h *Handler) SendMessageStream(c *gin.Context) {
 }
 
 // @Summary     AI по выделенному фрагменту (streaming)
-// @Description Объясняет / переводит / идентифицирует выделенный фрагмент книги. Стрим SSE, беседа не создаётся.
+// @Description Отвечает по выделенному фрагменту книги (action=ask) или переводит (action=translate). Стрим SSE, беседа не создаётся.
 // @Tags        ai
 // @Security    BearerAuth
 // @Accept      json
@@ -365,6 +365,9 @@ func (h *Handler) ExplainSelection(c *gin.Context) {
 		common.BadRequest(c, common.CodeValidationError, "selection must not exceed 2000 characters")
 		return
 	}
+	if len([]rune(req.Context)) > 4000 {
+		req.Context = string([]rune(req.Context)[:4000])
+	}
 
 	// SSE headers
 	c.Header("Content-Type", "text/event-stream")
@@ -378,7 +381,7 @@ func (h *Handler) ExplainSelection(c *gin.Context) {
 		return
 	}
 
-	err = h.uc.ExplainSelection(c.Request.Context(), userID, bookID, req.Action, req.Selection, func(chunk string) error {
+	err = h.uc.ExplainSelection(c.Request.Context(), userID, bookID, req.Action, req.Selection, req.Context, req.TargetLang, func(chunk string) error {
 		c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "chunk", Content: chunk}) + "\n\n")
 		flusher.Flush()
 		return nil
@@ -387,6 +390,8 @@ func (h *Handler) ExplainSelection(c *gin.Context) {
 		switch {
 		case errors.Is(err, entity.ErrValidation):
 			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "invalid input"}) + "\n\n")
+		case errors.Is(err, entity.ErrForbidden):
+			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "Откройте книгу в читалке, чтобы пользоваться ИИ по фрагменту"}) + "\n\n")
 		case errors.Is(err, entity.ErrNotFound):
 			c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "error", Content: "book not found"}) + "\n\n")
 		default:
@@ -401,6 +406,63 @@ func (h *Handler) ExplainSelection(c *gin.Context) {
 	// но без user/ai message payload'ов (ничего не сохраняем).
 	c.Writer.WriteString("data: " + toJSON(streamChunkEvent{Type: "done"}) + "\n\n")
 	flusher.Flush()
+}
+
+// @Summary     Перенести фрагмент в беседу
+// @Description Создаёт новую беседу с уже подгруженной парой (запрос по фрагменту, ответ ИИ), чтобы пользователь мог задать follow-up.
+// @Tags        ai
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       bookId path string                    true "ID книги"
+// @Param       input  body seedConversationRequest   true "Действие, выделенный текст, ответ ИИ"
+// @Success     201 {object} seedConversationResponse
+// @Failure     400 {object} map[string]string
+// @Failure     401 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/books/{bookId}/seed-conversation [post]
+func (h *Handler) SeedConversationFromSelection(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	bookID, err := uuid.Parse(c.Param("bookId"))
+	if err != nil {
+		common.BadRequest(c, common.CodeValidationError, "invalid book id")
+		return
+	}
+
+	var req seedConversationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ValidationErr(c, err)
+		return
+	}
+	if len([]rune(req.Selection)) > maxMessageLen {
+		common.BadRequest(c, common.CodeValidationError, "selection must not exceed 2000 characters")
+		return
+	}
+	if len([]rune(req.Answer)) > 8000 {
+		common.BadRequest(c, common.CodeValidationError, "answer too large")
+		return
+	}
+
+	conv, err := h.uc.SeedConversationFromSelection(c.Request.Context(), userID, bookID, req.Action, req.Selection, req.Answer)
+	if err != nil {
+		switch {
+		case errors.Is(err, entity.ErrValidation):
+			common.BadRequest(c, common.CodeValidationError, "invalid input")
+		case errors.Is(err, entity.ErrForbidden):
+			common.Forbidden(c)
+		case errors.Is(err, entity.ErrNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
+		default:
+			slog.ErrorContext(c.Request.Context(), "seed conversation error", "err", err)
+			common.InternalError(c)
+		}
+		return
+	}
+
+	c.JSON(http.StatusCreated, seedConversationResponse{ID: conv.ID, Title: conv.Title})
 }
 
 // @Summary     Удалить беседу

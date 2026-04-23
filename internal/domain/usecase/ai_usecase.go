@@ -23,6 +23,13 @@ type AIUseCase interface {
 	DeleteConversation(ctx context.Context, id, userID uuid.UUID) error
 
 	// Reader selection actions — one-shot streaming, no conversation persisted.
-	// action ∈ {"explain", "translate", "identify"}.
-	ExplainSelection(ctx context.Context, userID, bookID uuid.UUID, action, selection string, cb StreamCallback) error
+	// action ∈ {"ask", "translate"}. `surrounding` — соседний текст для контекста (опционально).
+	// targetLang — целевой язык для translate (ru|en|kk), пусто = ru.
+	ExplainSelection(ctx context.Context, userID, bookID uuid.UUID, action, selection, surrounding, targetLang string, cb StreamCallback) error
+
+	// SeedConversationFromSelection создаёт новую беседу с уже подгруженной парой
+	// (запрос пользователя по фрагменту, ответ ИИ). LLM не вызывается — ответ
+	// пришёл из ExplainSelection. Возвращает беседу с готовым контекстом, чтобы
+	// пользователь мог сразу задать follow-up.
+	SeedConversationFromSelection(ctx context.Context, userID, bookID uuid.UUID, action, selection, answer string) (*entity.Conversation, error)
 }

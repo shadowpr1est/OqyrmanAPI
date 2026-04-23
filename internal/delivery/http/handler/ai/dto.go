@@ -72,8 +72,23 @@ type suggestedPromptsResponse struct {
 // ── Reader selection actions ────────────────────────────────────────────────
 
 type explainSelectionRequest struct {
-	Action    string `json:"action" binding:"required,oneof=explain translate identify"`
+	Action    string `json:"action" binding:"required,oneof=ask translate"`
 	Selection string `json:"selection" binding:"required"`
+	Context   string `json:"context"`
+	// TargetLang используется только для action=translate. Допустимо ru|en|kk.
+	// Пусто = ru (по умолчанию).
+	TargetLang string `json:"target_lang" binding:"omitempty,oneof=ru en kk"`
+}
+
+type seedConversationRequest struct {
+	Action    string `json:"action" binding:"required,oneof=ask translate"`
+	Selection string `json:"selection" binding:"required"`
+	Answer    string `json:"answer" binding:"required"`
+}
+
+type seedConversationResponse struct {
+	ID    uuid.UUID `json:"id"`
+	Title string    `json:"title"`
 }
 
 func toJSON(v any) string {

@@ -83,3 +83,28 @@ func RateLimitWithGroup(rl *RateLimiter, group string, limit int) gin.HandlerFun
 		c.Next()
 	}
 }
+
+// RateLimitPerUser ограничивает по userID из JWT (а не по IP). Используется
+// для дорогих эндпойнтов вроде LLM-стриминга, где один пользователь по NAT'у
+// не должен расходовать общий бюджет с соседями, и наоборот — один юзер с
+// нескольких IP должен укладываться в свою квоту.
+func RateLimitPerUser(rl *RateLimiter, group string, limit int) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uid, exists := c.Get(UserIDKey)
+		if !exists {
+			c.Next()
+			return
+		}
+		key := fmt.Sprintf("u:%v:%s", uid, group)
+		if !rl.allow(key, limit) {
+			retryAfter := int(rl.window.Seconds())
+			c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"code":    "too_many_requests",
+				"message": "too many requests, please try again later",
+			})
+			return
+		}
+		c.Next()
+	}
+}
