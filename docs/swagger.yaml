@@ -37,6 +37,30 @@ definitions:
       updated_at:
         type: string
     type: object
+  ai.explainSelectionRequest:
+    properties:
+      action:
+        enum:
+        - ask
+        - translate
+        type: string
+      context:
+        type: string
+      selection:
+        type: string
+      target_lang:
+        description: |-
+          TargetLang используется только для action=translate. Допустимо ru|en|kk.
+          Пусто = ru (по умолчанию).
+        enum:
+        - ru
+        - en
+        - kk
+        type: string
+    required:
+    - action
+    - selection
+    type: object
   ai.messageDTO:
     properties:
       content:
@@ -53,6 +77,29 @@ definitions:
   ai.recommendResponse:
     properties:
       recommendations:
+        type: string
+    type: object
+  ai.seedConversationRequest:
+    properties:
+      action:
+        enum:
+        - ask
+        - translate
+        type: string
+      answer:
+        type: string
+      selection:
+        type: string
+    required:
+    - action
+    - answer
+    - selection
+    type: object
+  ai.seedConversationResponse:
+    properties:
+      id:
+        type: string
+      title:
         type: string
     type: object
   ai.sendMessageRequest:
@@ -1997,6 +2044,120 @@ paths:
       summary: Создать сотрудника (admin)
       tags:
       - users
+  /ai/books/{bookId}/explain:
+    post:
+      consumes:
+      - application/json
+      description: Отвечает по выделенному фрагменту книги (action=ask) или переводит
+        (action=translate). Стрим SSE, беседа не создаётся.
+      parameters:
+      - description: ID книги
+        in: path
+        name: bookId
+        required: true
+        type: string
+      - description: Действие и выделенный текст
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/ai.explainSelectionRequest'
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: AI по выделенному фрагменту (streaming)
+      tags:
+      - ai
+  /ai/books/{bookId}/seed-conversation:
+    post:
+      consumes:
+      - application/json
+      description: Создаёт новую беседу с уже подгруженной парой (запрос по фрагменту,
+        ответ ИИ), чтобы пользователь мог задать follow-up.
+      parameters:
+      - description: ID книги
+        in: path
+        name: bookId
+        required: true
+        type: string
+      - description: Действие, выделенный текст, ответ ИИ
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/ai.seedConversationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/ai.seedConversationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Перенести фрагмент в беседу
+      tags:
+      - ai
   /ai/conversations:
     get:
       description: Возвращает все беседы текущего пользователя

@@ -1367,6 +1367,179 @@
                 }
             }
         },
+        "/ai/books/{bookId}/explain": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Отвечает по выделенному фрагменту книги (action=ask) или переводит (action=translate). Стрим SSE, беседа не создаётся.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "summary": "AI по выделенному фрагменту (streaming)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID книги",
+                        "name": "bookId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Действие и выделенный текст",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.explainSelectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SSE stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/ai/books/{bookId}/seed-conversation": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Создаёт новую беседу с уже подгруженной парой (запрос по фрагменту, ответ ИИ), чтобы пользователь мог задать follow-up.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ai"
+                ],
+                "summary": "Перенести фрагмент в беседу",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID книги",
+                        "name": "bookId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Действие, выделенный текст, ответ ИИ",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ai.seedConversationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/ai.seedConversationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/ai/conversations": {
             "get": {
                 "security": [
@@ -4910,6 +5083,37 @@
                 }
             }
         },
+        "ai.explainSelectionRequest": {
+            "type": "object",
+            "required": [
+                "action",
+                "selection"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "ask",
+                        "translate"
+                    ]
+                },
+                "context": {
+                    "type": "string"
+                },
+                "selection": {
+                    "type": "string"
+                },
+                "target_lang": {
+                    "description": "TargetLang используется только для action=translate. Допустимо ru|en|kk.\nПусто = ru (по умолчанию).",
+                    "type": "string",
+                    "enum": [
+                        "ru",
+                        "en",
+                        "kk"
+                    ]
+                }
+            }
+        },
         "ai.messageDTO": {
             "type": "object",
             "properties": {
@@ -4934,6 +5138,40 @@
             "type": "object",
             "properties": {
                 "recommendations": {
+                    "type": "string"
+                }
+            }
+        },
+        "ai.seedConversationRequest": {
+            "type": "object",
+            "required": [
+                "action",
+                "answer",
+                "selection"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "ask",
+                        "translate"
+                    ]
+                },
+                "answer": {
+                    "type": "string"
+                },
+                "selection": {
+                    "type": "string"
+                }
+            }
+        },
+        "ai.seedConversationResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 }
             }
