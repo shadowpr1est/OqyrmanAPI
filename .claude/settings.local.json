@@ -43,7 +43,10 @@
       "Bash(npx vite *)",
       "Bash(echo \"exit=$?\")",
       "Bash(npx eslint *)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(bun x *)",
+      "PowerShell(Set-Location C:\\\\Users\\\\sem1c\\\\GolandProjects\\\\OqyrmanWEB; node ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.app.json; \"EXIT=$LASTEXITCODE\")",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }
