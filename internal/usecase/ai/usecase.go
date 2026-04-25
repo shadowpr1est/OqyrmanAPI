@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -18,7 +19,7 @@ import (
 
 const (
 	maxBooksInPrompt   = 10
-	maxCatalogBooks    = 20   // книги каталога в промпте для RAG
+	maxCatalogBooks    = 6    // книги каталога в промпте для RAG
 	maxHistoryMessages = 20   // последние 20 сообщений идут в контекст LLM
 	maxTitleLen        = 60   // обрезаем заголовок беседы по первому сообщению
 )
@@ -379,70 +380,128 @@ func (u *aiUseCase) DeleteConversation(ctx context.Context, id, userID uuid.UUID
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-// bookInfo собирает информацию о книге с жанром и автором.
+// bookInfo собирает информацию о книге с жанром и автором (параллельно).
 func (u *aiUseCase) bookInfo(ctx context.Context, book *entity.Book) string {
+	var authorName, genreName string
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if a, err := u.authorRepo.GetByID(ctx, book.AuthorID); err == nil {
+			mu.Lock(); authorName = a.Name; mu.Unlock()
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if g, err := u.genreRepo.GetByID(ctx, book.GenreID); err == nil {
+			mu.Lock(); genreName = g.Name; mu.Unlock()
+		}
+	}()
+	wg.Wait()
+
 	info := fmt.Sprintf("«%s»", book.Title)
-	if author, err := u.authorRepo.GetByID(ctx, book.AuthorID); err == nil {
-		info += fmt.Sprintf(" (%s)", author.Name)
+	if authorName != "" {
+		info += fmt.Sprintf(" (%s)", authorName)
 	}
-	if genre, err := u.genreRepo.GetByID(ctx, book.GenreID); err == nil {
-		info += fmt.Sprintf(" [%s]", genre.Name)
+	if genreName != "" {
+		info += fmt.Sprintf(" [%s]", genreName)
 	}
 	return info
 }
 
 // buildSystemPrompt добавляет в базовый промпт контекст пользователя.
+// Все DB-запросы выполняются параллельно для минимальной задержки.
 func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) string {
+	// 1. Параллельно получаем три списка активности пользователя.
+	var (
+		sessions []*entity.ReadingSession
+		wishlist []*entity.Wishlist
+		reviews  []*entity.Review
+		wg       sync.WaitGroup
+	)
+	wg.Add(3)
+	go func() { defer wg.Done(); sessions, _ = u.sessionRepo.ListByUser(ctx, userID) }()
+	go func() { defer wg.Done(); wishlist, _ = u.wishlistRepo.ListByUser(ctx, userID) }()
+	go func() { defer wg.Done(); reviews, _ = u.reviewRepo.ListByUser(ctx, userID) }()
+	wg.Wait()
+
+	if len(sessions) > maxBooksInPrompt { sessions = sessions[:maxBooksInPrompt] }
+	if len(wishlist) > maxBooksInPrompt { wishlist = wishlist[:maxBooksInPrompt] }
+	if len(reviews) > maxBooksInPrompt { reviews = reviews[:maxBooksInPrompt] }
+
+	// 2. Параллельно загружаем книги по всем трём спискам.
+	type sessionEntry struct {
+		info     string
+		status   entity.ReadingStatus
+		progress int
+	}
+	type reviewEntry struct {
+		title  string
+		rating int
+		body   string
+	}
+
+	sessionEntries := make([]sessionEntry, len(sessions))
+	wishInfos := make([]string, len(wishlist))
+	reviewEntries := make([]reviewEntry, len(reviews))
+
+	wg.Add(len(sessions) + len(wishlist) + len(reviews))
+	for i, s := range sessions {
+		i, s := i, s
+		go func() {
+			defer wg.Done()
+			book, err := u.bookRepo.GetByID(ctx, s.BookID)
+			if err != nil { return }
+			sessionEntries[i] = sessionEntry{info: u.bookInfo(ctx, book), status: s.Status, progress: s.Progress}
+		}()
+	}
+	for i, w := range wishlist {
+		i, w := i, w
+		go func() {
+			defer wg.Done()
+			book, err := u.bookRepo.GetByID(ctx, w.BookID)
+			if err != nil { return }
+			wishInfos[i] = u.bookInfo(ctx, book)
+		}()
+	}
+	for i, r := range reviews {
+		i, r := i, r
+		go func() {
+			defer wg.Done()
+			book, err := u.bookRepo.GetByID(ctx, r.BookID)
+			if err != nil { return }
+			body := r.Body
+			if len([]rune(body)) > 100 {
+				body = string([]rune(body)[:100]) + "…"
+			}
+			reviewEntries[i] = reviewEntry{title: book.Title, rating: r.Rating, body: body}
+		}()
+	}
+	wg.Wait()
+
+	// 3. Собираем промпт.
 	var sb strings.Builder
 	sb.WriteString(baseSystemPrompt)
 
-	sessions, _ := u.sessionRepo.ListByUser(ctx, userID)
-	wishlist, _ := u.wishlistRepo.ListByUser(ctx, userID)
-	reviews, _ := u.reviewRepo.ListByUser(ctx, userID)
-
 	var reading, completed, wishTitles, reviewLines []string
-
-	for i, s := range sessions {
-		if i >= maxBooksInPrompt {
-			break
-		}
-		book, err := u.bookRepo.GetByID(ctx, s.BookID)
-		if err != nil {
-			continue
-		}
-		info := u.bookInfo(ctx, book)
-		switch s.Status {
+	for _, e := range sessionEntries {
+		if e.info == "" { continue }
+		switch e.status {
 		case entity.StatusReading:
-			reading = append(reading, fmt.Sprintf("%s — прогресс %d%%", info, s.Progress))
+			reading = append(reading, fmt.Sprintf("%s — прогресс %d%%", e.info, e.progress))
 		case entity.StatusFinished:
-			completed = append(completed, info)
+			completed = append(completed, e.info)
 		}
 	}
-
-	for i, w := range wishlist {
-		if i >= maxBooksInPrompt {
-			break
-		}
-		if book, err := u.bookRepo.GetByID(ctx, w.BookID); err == nil {
-			wishTitles = append(wishTitles, u.bookInfo(ctx, book))
-		}
+	for _, info := range wishInfos {
+		if info != "" { wishTitles = append(wishTitles, info) }
 	}
-
-	for i, r := range reviews {
-		if i >= maxBooksInPrompt {
-			break
-		}
-		if book, err := u.bookRepo.GetByID(ctx, r.BookID); err == nil {
-			line := fmt.Sprintf("«%s» — %d/5", book.Title, r.Rating)
-			if r.Body != "" {
-				body := r.Body
-				if len([]rune(body)) > 100 {
-					body = string([]rune(body)[:100]) + "…"
-				}
-				line += fmt.Sprintf(": %s", body)
-			}
-			reviewLines = append(reviewLines, line)
-		}
+	for _, e := range reviewEntries {
+		if e.title == "" { continue }
+		line := fmt.Sprintf("«%s» — %d/5", e.title, e.rating)
+		if e.body != "" { line += fmt.Sprintf(": %s", e.body) }
+		reviewLines = append(reviewLines, line)
 	}
 
 	if len(reading) > 0 || len(completed) > 0 || len(wishTitles) > 0 || len(reviewLines) > 0 {
@@ -461,39 +520,44 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 		}
 	}
 
-	// RAG: добавляем каталог книг платформы
 	u.appendCatalog(ctx, &sb, userID)
-
 	return sb.String()
 }
 
-// appendCatalog добавляет в промпт популярные и рекомендованные книги с платформы.
+// appendCatalog добавляет в промпт рекомендованные и популярные книги платформы.
+// Оба запроса выполняются параллельно, описания не включаются (экономия токенов).
 func (u *aiUseCase) appendCatalog(ctx context.Context, sb *strings.Builder, userID uuid.UUID) {
-	sb.WriteString("\n\nКаталог книг на платформе Oqyrman (рекомендуй в первую очередь из этого списка):")
+	var (
+		recommended []*entity.BookView
+		popular     []*entity.BookView
+		wg          sync.WaitGroup
+		mu          sync.Mutex
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		r, _ := u.bookRepo.ListRecommendedView(ctx, userID, maxCatalogBooks/2)
+		mu.Lock(); recommended = r; mu.Unlock()
+	}()
+	go func() {
+		defer wg.Done()
+		p, _, _ := u.bookRepo.ListPopularView(ctx, maxCatalogBooks/2, 0)
+		mu.Lock(); popular = p; mu.Unlock()
+	}()
+	wg.Wait()
 
-	// Персональные рекомендации
-	recommended, _ := u.bookRepo.ListRecommendedView(ctx, userID, maxCatalogBooks/2)
+	sb.WriteString("\n\nКаталог Oqyrman (рекомендуй в первую очередь):")
 	if len(recommended) > 0 {
-		sb.WriteString("\n\nРекомендованные для пользователя:")
+		sb.WriteString("\nРекомендованные:")
 		for _, b := range recommended {
-			fmt.Fprintf(sb, "\n- «%s» — %s [%s], %d г., рейтинг %.1f",
+			fmt.Fprintf(sb, "\n- «%s» — %s [%s], %d г., %.1f★",
 				b.Title, b.AuthorName, b.GenreName, b.Year, b.AvgRating)
-			if b.Description != "" {
-				desc := b.Description
-				if len([]rune(desc)) > 120 {
-					desc = string([]rune(desc)[:120]) + "…"
-				}
-				fmt.Fprintf(sb, " — %s", desc)
-			}
 		}
 	}
-
-	// Популярные книги
-	popular, _, _ := u.bookRepo.ListPopularView(ctx, maxCatalogBooks/2, 0)
 	if len(popular) > 0 {
-		sb.WriteString("\n\nПопулярные на платформе:")
+		sb.WriteString("\nПопулярные:")
 		for _, b := range popular {
-			fmt.Fprintf(sb, "\n- «%s» — %s [%s], %d г., рейтинг %.1f",
+			fmt.Fprintf(sb, "\n- «%s» — %s [%s], %d г., %.1f★",
 				b.Title, b.AuthorName, b.GenreName, b.Year, b.AvgRating)
 		}
 	}

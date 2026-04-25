@@ -10,7 +10,7 @@ import (
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/llm"
 )
 
-const model = "gpt-5-nano-2025-08-07"
+const model = "gpt-4o-mini"
 
 type Client struct {
 	inner goOpenAI.Client
