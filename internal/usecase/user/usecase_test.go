@@ -78,6 +78,9 @@ func (m *mockUserRepo) GetByPhone(ctx context.Context, phone string) (*entity.Us
 func (m *mockUserRepo) HardDelete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
+func (m *mockUserRepo) GetByQRCode(ctx context.Context, qrCode string) (*entity.User, error) {
+	return nil, entity.ErrNotFound
+}
 
 // ─── AdminUpdateUser ──────────────────────────────────────────────────────────
 

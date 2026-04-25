@@ -302,6 +302,20 @@ func (r *userRepo) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHas
 	return nil
 }
 
+func (r *userRepo) GetByQRCode(ctx context.Context, qrCode string) (*entity.User, error) {
+	var user entity.User
+	err := r.db.GetContext(ctx, &user,
+		`SELECT * FROM users WHERE qr_code = $1 AND deleted_at IS NULL`, qrCode,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("userRepo.GetByQRCode: %w", err)
+	}
+	return &user, nil
+}
+
 func (r *userRepo) ListAllIDs(ctx context.Context) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
 	if err := r.db.SelectContext(ctx, &ids,

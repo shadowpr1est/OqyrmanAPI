@@ -4534,6 +4534,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/staff/users/qr-lookup": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Принимает личный QR-код пользователя и возвращает его данные + список pending-броней в этой библиотеке.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reservations"
+                ],
+                "summary": "Найти пользователя по QR читательского билета (staff)",
+                "parameters": [
+                    {
+                        "description": "QR-код пользователя",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/reservation.lookupUserByQRRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/reservation.lookupUserByQRResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/users/me": {
             "get": {
                 "security": [
@@ -6351,6 +6417,54 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "library_book_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "reservation.lookupUserByQRRequest": {
+            "type": "object",
+            "required": [
+                "qr_code"
+            ],
+            "properties": {
+                "qr_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "reservation.lookupUserByQRResponse": {
+            "type": "object",
+            "properties": {
+                "reservations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/reservation.reservationViewResponse"
+                    }
+                },
+                "user": {
+                    "$ref": "#/definitions/reservation.lookupUserInfo"
+                }
+            }
+        },
+        "reservation.lookupUserInfo": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "surname": {
                     "type": "string"
                 }
             }

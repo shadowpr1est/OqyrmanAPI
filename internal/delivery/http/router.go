@@ -365,6 +365,7 @@ func (r *Router) Init() *gin.Engine {
 				staff.PATCH("/reservations/:id/cancel", r.reservation.StaffCancel)
 				staff.PATCH("/reservations/:id/return", r.reservation.StaffReturn)
 				staff.PATCH("/reservations/:id/status", r.reservation.StaffUpdateStatus)
+				staff.POST("/users/qr-lookup", r.reservation.LookupUserByQR)
 				staff.GET("/books/search", r.libraryBook.SearchInLibrary)
 				staff.GET("/library/stats", r.stats.GetLibraryStats)
 			}

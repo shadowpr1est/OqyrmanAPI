@@ -336,6 +336,56 @@ func (h *Handler) ScanQR(c *gin.Context) {
 	c.JSON(http.StatusOK, toReservationViewResponse(view, true))
 }
 
+// @Summary     Найти пользователя по QR читательского билета (staff)
+// @Description Принимает личный QR-код пользователя и возвращает его данные + список pending-броней в этой библиотеке.
+// @Tags        reservations
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       input body lookupUserByQRRequest true "QR-код пользователя"
+// @Success     200 {object} lookupUserByQRResponse
+// @Failure     400 {object} map[string]string
+// @Failure     403 {object} map[string]string
+// @Failure     404 {object} map[string]string
+// @Router      /staff/users/qr-lookup [post]
+func (h *Handler) LookupUserByQR(c *gin.Context) {
+	libraryID := middleware.GetLibraryID(c)
+	if libraryID == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "no library assigned"})
+		return
+	}
+
+	var req lookupUserByQRRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ValidationErr(c, err)
+		return
+	}
+
+	user, reservations, err := h.uc.LookupUserByQR(c.Request.Context(), req.QRCode, *libraryID)
+	if err != nil {
+		if errors.Is(err, entity.ErrNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		common.InternalError(c)
+		return
+	}
+
+	resp := lookupUserByQRResponse{
+		User: lookupUserInfo{
+			ID:        user.ID.String(),
+			Name:      user.Name,
+			Surname:   user.Surname,
+			Email:     user.Email,
+			Phone:     user.Phone,
+			AvatarURL: user.AvatarURL,
+		},
+		Reservations: toReservationViewResponses(reservations, true),
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 // @Summary     Отменить бронь (staff)
 // @Tags        reservations
 // @Security    BearerAuth

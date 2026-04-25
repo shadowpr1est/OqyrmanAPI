@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/repository"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/usecase/reservation"
 	"github.com/stretchr/testify/assert"
@@ -105,6 +106,13 @@ func (m *mockReservationRepo) ListByLibraryView(ctx context.Context, libraryID u
 func (m *mockReservationRepo) ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error) {
 	return nil, 0, nil
 }
+func (m *mockReservationRepo) ListPendingByUserAndLibraryView(ctx context.Context, userID, libraryID uuid.UUID) ([]*entity.ReservationView, error) {
+	args := m.Called(ctx, userID, libraryID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*entity.ReservationView), args.Error(1)
+}
 
 type mockNotifRepo struct{ mock.Mock }
 
@@ -128,8 +136,52 @@ func (m *mockNotifRepo) Delete(ctx context.Context, id, userID uuid.UUID) error 
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+type mockUserRepoForReservation struct{}
+
+func (m *mockUserRepoForReservation) Create(ctx context.Context, u *entity.User) (*entity.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepoForReservation) GetByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
+	return nil, entity.ErrNotFound
+}
+func (m *mockUserRepoForReservation) GetByEmail(ctx context.Context, email string) (*entity.User, error) {
+	return nil, entity.ErrNotFound
+}
+func (m *mockUserRepoForReservation) Update(ctx context.Context, u *entity.User) (*entity.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepoForReservation) Delete(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockUserRepoForReservation) AdminUpdate(ctx context.Context, id uuid.UUID, role *entity.Role, libraryID *uuid.UUID, name, surname, email, phone *string) (*entity.UserView, error) {
+	return nil, nil
+}
+func (m *mockUserRepoForReservation) UpdateAvatarURL(ctx context.Context, id uuid.UUID, avatarURL string) error {
+	return nil
+}
+func (m *mockUserRepoForReservation) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+func (m *mockUserRepoForReservation) GetByGoogleID(ctx context.Context, googleID string) (*entity.User, error) {
+	return nil, entity.ErrNotFound
+}
+func (m *mockUserRepoForReservation) SetGoogleID(ctx context.Context, id uuid.UUID, googleID string) error {
+	return nil
+}
+func (m *mockUserRepoForReservation) ListAllView(ctx context.Context, limit, offset int) ([]*entity.UserView, int, error) {
+	return nil, 0, nil
+}
+func (m *mockUserRepoForReservation) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	return nil
+}
+func (m *mockUserRepoForReservation) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
+	return nil, entity.ErrNotFound
+}
+func (m *mockUserRepoForReservation) HardDelete(ctx context.Context, id uuid.UUID) error { return nil }
+func (m *mockUserRepoForReservation) GetByQRCode(ctx context.Context, qrCode string) (*entity.User, error) {
+	return nil, entity.ErrNotFound
+}
+
 func newUC(resRepo *mockReservationRepo, notifRepo *mockNotifRepo) domainUseCase.ReservationUseCase {
-	return reservation.NewReservationUseCase(resRepo, notifRepo, nil)
+	return reservation.NewReservationUseCase(resRepo, &mockUserRepoForReservation{}, notifRepo, nil)
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────────
@@ -214,6 +266,93 @@ func TestCancel_Forbidden(t *testing.T) {
 	err := uc.Cancel(context.Background(), id, callerID)
 
 	assert.ErrorIs(t, err, entity.ErrForbidden)
+}
+
+// ─── LookupUserByQR ───────────────────────────────────────────────────────────
+
+// mockUserRepoQR wraps the static stub but makes GetByQRCode configurable via testify/mock.
+type mockUserRepoQR struct {
+	mockUserRepoForReservation
+	mock.Mock
+}
+
+func (m *mockUserRepoQR) GetByQRCode(ctx context.Context, qrCode string) (*entity.User, error) {
+	args := m.Called(ctx, qrCode)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*entity.User), args.Error(1)
+}
+
+func newUCWithUserRepo(resRepo *mockReservationRepo, userRepo repository.UserRepository, notifRepo *mockNotifRepo) domainUseCase.ReservationUseCase {
+	return reservation.NewReservationUseCase(resRepo, userRepo, notifRepo, nil)
+}
+
+func TestLookupUserByQR_Success(t *testing.T) {
+	resRepo := new(mockReservationRepo)
+	userRepo := new(mockUserRepoQR)
+	notifRepo := new(mockNotifRepo)
+	uc := newUCWithUserRepo(resRepo, userRepo, notifRepo)
+
+	libraryID := uuid.New()
+	user := &entity.User{
+		ID:      uuid.New(),
+		Name:    "Алишер",
+		Surname: "Аргинбеков",
+		Email:   "test@example.com",
+	}
+	reservations := []*entity.ReservationView{
+		{ID: uuid.New(), BookTitle: "Война и мир", Status: entity.ReservationPending},
+	}
+
+	userRepo.On("GetByQRCode", mock.Anything, "test-qr-code").Return(user, nil)
+	resRepo.On("ListPendingByUserAndLibraryView", mock.Anything, user.ID, libraryID).Return(reservations, nil)
+
+	gotUser, gotReservations, err := uc.LookupUserByQR(context.Background(), "test-qr-code", libraryID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, user, gotUser)
+	assert.Len(t, gotReservations, 1)
+	assert.Equal(t, "Война и мир", gotReservations[0].BookTitle)
+	userRepo.AssertExpectations(t)
+	resRepo.AssertExpectations(t)
+}
+
+func TestLookupUserByQR_UserNotFound(t *testing.T) {
+	resRepo := new(mockReservationRepo)
+	userRepo := new(mockUserRepoQR)
+	notifRepo := new(mockNotifRepo)
+	uc := newUCWithUserRepo(resRepo, userRepo, notifRepo)
+
+	userRepo.On("GetByQRCode", mock.Anything, "unknown-qr").Return(nil, entity.ErrNotFound)
+
+	gotUser, gotReservations, err := uc.LookupUserByQR(context.Background(), "unknown-qr", uuid.New())
+
+	assert.ErrorIs(t, err, entity.ErrNotFound)
+	assert.Nil(t, gotUser)
+	assert.Nil(t, gotReservations)
+	userRepo.AssertExpectations(t)
+}
+
+func TestLookupUserByQR_NoReservations(t *testing.T) {
+	resRepo := new(mockReservationRepo)
+	userRepo := new(mockUserRepoQR)
+	notifRepo := new(mockNotifRepo)
+	uc := newUCWithUserRepo(resRepo, userRepo, notifRepo)
+
+	libraryID := uuid.New()
+	user := &entity.User{ID: uuid.New(), Name: "Test", Surname: "User"}
+
+	userRepo.On("GetByQRCode", mock.Anything, "valid-qr").Return(user, nil)
+	resRepo.On("ListPendingByUserAndLibraryView", mock.Anything, user.ID, libraryID).Return([]*entity.ReservationView{}, nil)
+
+	gotUser, gotReservations, err := uc.LookupUserByQR(context.Background(), "valid-qr", libraryID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, user, gotUser)
+	assert.Empty(t, gotReservations)
+	userRepo.AssertExpectations(t)
+	resRepo.AssertExpectations(t)
 }
 
 // ─── Extend ───────────────────────────────────────────────────────────────────

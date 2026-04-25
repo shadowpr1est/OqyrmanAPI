@@ -101,6 +101,9 @@ func (m *mockReservationUseCase) ListAllView(ctx context.Context, limit, offset 
 	args := m.Called(ctx, limit, offset, status)
 	return args.Get(0).([]*entity.ReservationView), args.Int(1), args.Error(2)
 }
+func (m *mockReservationUseCase) LookupUserByQR(ctx context.Context, qrCode string, libraryID uuid.UUID) (*entity.User, []*entity.ReservationView, error) {
+	return nil, nil, nil
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

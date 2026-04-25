@@ -18,6 +18,24 @@ type scanQRRequest struct {
 	QRToken string `json:"qr_token" binding:"required"`
 }
 
+type lookupUserByQRRequest struct {
+	QRCode string `json:"qr_code" binding:"required"`
+}
+
+type lookupUserByQRResponse struct {
+	User         lookupUserInfo         `json:"user"`
+	Reservations []reservationViewResponse `json:"reservations"`
+}
+
+type lookupUserInfo struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Surname   string `json:"surname"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	AvatarURL string `json:"avatar_url,omitempty"`
+}
+
 type extendReservationRequest struct {
 	DueDate string `json:"due_date" binding:"required"`
 }

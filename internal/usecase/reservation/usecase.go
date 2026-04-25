@@ -18,17 +18,20 @@ type Broadcaster interface {
 
 type reservationUseCase struct {
 	reservationRepo repository.ReservationRepository
+	userRepo        repository.UserRepository
 	notifRepo       repository.NotificationRepository
 	hub             Broadcaster // optional — nil disables SSE push
 }
 
 func NewReservationUseCase(
 	repo repository.ReservationRepository,
+	userRepo repository.UserRepository,
 	notifRepo repository.NotificationRepository,
 	hub Broadcaster,
 ) domainUseCase.ReservationUseCase {
 	return &reservationUseCase{
 		reservationRepo: repo,
+		userRepo:        userRepo,
 		notifRepo:       notifRepo,
 		hub:             hub,
 	}
@@ -128,6 +131,18 @@ func (u *reservationUseCase) StaffReturn(ctx context.Context, id uuid.UUID, libr
 }
 
 // --- QR Scan ---
+
+func (u *reservationUseCase) LookupUserByQR(ctx context.Context, qrCode string, libraryID uuid.UUID) (*entity.User, []*entity.ReservationView, error) {
+	user, err := u.userRepo.GetByQRCode(ctx, qrCode)
+	if err != nil {
+		return nil, nil, err
+	}
+	reservations, err := u.reservationRepo.ListPendingByUserAndLibraryView(ctx, user.ID, libraryID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return user, reservations, nil
+}
 
 func (u *reservationUseCase) ScanQR(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.ReservationView, error) {
 	res, err := u.reservationRepo.ActivateByQRToken(ctx, qrToken, libraryID)

@@ -875,6 +875,37 @@ definitions:
     - due_date
     - library_book_id
     type: object
+  reservation.lookupUserByQRRequest:
+    properties:
+      qr_code:
+        type: string
+    required:
+    - qr_code
+    type: object
+  reservation.lookupUserByQRResponse:
+    properties:
+      reservations:
+        items:
+          $ref: '#/definitions/reservation.reservationViewResponse'
+        type: array
+      user:
+        $ref: '#/definitions/reservation.lookupUserInfo'
+    type: object
+  reservation.lookupUserInfo:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      surname:
+        type: string
+    type: object
   reservation.reservationViewResponse:
     properties:
       book:
@@ -4051,6 +4082,49 @@ paths:
       security:
       - BearerAuth: []
       summary: Сканировать QR-код брони
+      tags:
+      - reservations
+  /staff/users/qr-lookup:
+    post:
+      consumes:
+      - application/json
+      description: Принимает личный QR-код пользователя и возвращает его данные +
+        список pending-броней в этой библиотеке.
+      parameters:
+      - description: QR-код пользователя
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/reservation.lookupUserByQRRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/reservation.lookupUserByQRResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Найти пользователя по QR читательского билета (staff)
       tags:
       - reservations
   /users/me:

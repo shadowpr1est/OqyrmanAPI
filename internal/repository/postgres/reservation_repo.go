@@ -678,6 +678,18 @@ func (r *reservationRepo) ActivateByQRToken(ctx context.Context, qrToken string,
 	return &res, nil
 }
 
+func (r *reservationRepo) ListPendingByUserAndLibraryView(ctx context.Context, userID, libraryID uuid.UUID) ([]*entity.ReservationView, error) {
+	var items []*entity.ReservationView
+	if err := r.db.SelectContext(ctx, &items,
+		reservationViewQuery+` WHERE res.user_id = $1 AND lb.library_id = $2 AND res.status = 'pending'
+		ORDER BY res.reserved_at DESC`,
+		userID, libraryID,
+	); err != nil {
+		return nil, fmt.Errorf("reservationRepo.ListPendingByUserAndLibraryView: %w", err)
+	}
+	return items, nil
+}
+
 func containsStatus(allowed []entity.ReservationStatus, current entity.ReservationStatus) bool {
 	for _, s := range allowed {
 		if s == current {

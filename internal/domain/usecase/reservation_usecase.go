@@ -23,8 +23,10 @@ type ReservationUseCase interface {
 
 	Extend(ctx context.Context, id, userID uuid.UUID) (*entity.Reservation, error)
 
-	// QR scan — staff activates reservation by scanning user's QR
+	// QR scan — staff activates reservation by scanning reservation QR token
 	ScanQR(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.ReservationView, error)
+	// LookupUserByQR — staff scans user's personal QR (reader's card) to see their pending reservations at this library
+	LookupUserByQR(ctx context.Context, qrCode string, libraryID uuid.UUID) (*entity.User, []*entity.ReservationView, error)
 
 	// Admin — без ограничений
 	ListAll(ctx context.Context, limit, offset int, status *string) ([]*entity.Reservation, int, error)

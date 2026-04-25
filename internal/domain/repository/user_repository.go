@@ -27,4 +27,6 @@ type UserRepository interface {
 	GetByPhone(ctx context.Context, phone string) (*entity.User, error)
 	// HardDelete permanently removes a user row (used to release unique constraints on re-registration).
 	HardDelete(ctx context.Context, id uuid.UUID) error
+	// GetByQRCode looks up a user by their personal QR code (reader's card).
+	GetByQRCode(ctx context.Context, qrCode string) (*entity.User, error)
 }
