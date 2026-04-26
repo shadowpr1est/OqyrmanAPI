@@ -280,6 +280,7 @@ func (r *Router) Init() *gin.Engine {
 				{
 					aiGroup.GET("/prompts", r.ai.SuggestedPrompts)
 					aiGroup.POST("/recommend", r.ai.Recommend)
+					aiGroup.GET("/recommend-books", r.ai.RecommendBooks)
 					aiGroup.POST("/conversations", r.ai.CreateConversation)
 					aiGroup.GET("/conversations", r.ai.ListConversations)
 					aiGroup.GET("/conversations/:id", r.ai.GetConversation)

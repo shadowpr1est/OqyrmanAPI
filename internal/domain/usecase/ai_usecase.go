@@ -12,6 +12,7 @@ type StreamCallback func(chunk string) error
 
 type AIUseCase interface {
 	Recommend(ctx context.Context, userID string) (string, error)
+	RecommendBooks(ctx context.Context, userID uuid.UUID) ([]*entity.BookView, error)
 	SuggestedPrompts(ctx context.Context, userID uuid.UUID) []string
 
 	// Conversation-based chat

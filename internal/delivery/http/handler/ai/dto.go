@@ -5,10 +5,30 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 )
 
 type recommendResponse struct {
 	Recommendations string `json:"recommendations"`
+}
+
+type recommendBooksResponse struct {
+	Items []bookRecommendItem `json:"items"`
+}
+
+type bookRecommendItem struct {
+	ID          string              `json:"id"`
+	Title       string              `json:"title"`
+	ISBN        string              `json:"isbn"`
+	CoverURL    string              `json:"cover_url,omitempty"`
+	Description string              `json:"description"`
+	Language    string              `json:"language"`
+	Year        int                 `json:"year,omitempty"`
+	AvgRating   float64             `json:"avg_rating"`
+	TotalPages  *int                `json:"total_pages,omitempty"`
+	File        *common.BookFileRef `json:"file,omitempty"`
+	Author      common.AuthorRef    `json:"author"`
+	Genre       common.GenreRef     `json:"genre"`
 }
 
 // ── Conversations ─────────────────────────────────────────────────────────────

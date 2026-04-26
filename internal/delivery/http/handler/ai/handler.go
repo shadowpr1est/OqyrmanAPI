@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/middleware"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
@@ -57,6 +57,69 @@ func (h *Handler) Recommend(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, recommendResponse{Recommendations: result})
+}
+
+// @Summary     ИИ-рекомендации книг (карточки)
+// @Description Возвращает до 6 книг, подобранных ИИ на основе истории чтения, вишлиста и оценок пользователя.
+// @Description Если у пользователя нет истории — возвращает пустой массив items.
+// @Tags        ai
+// @Security    BearerAuth
+// @Produce     json
+// @Success     200 {object} recommendBooksResponse
+// @Failure     401 {object} map[string]string
+// @Failure     500 {object} map[string]string
+// @Router      /ai/recommend-books [get]
+func (h *Handler) RecommendBooks(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	books, err := h.uc.RecommendBooks(c.Request.Context(), userID)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "recommend books error", "err", err)
+		common.InternalError(c)
+		return
+	}
+
+	items := make([]bookRecommendItem, 0, len(books))
+	for _, b := range books {
+		items = append(items, toBookRecommendItem(b))
+	}
+	c.JSON(http.StatusOK, recommendBooksResponse{Items: items})
+}
+
+func toBookRecommendItem(v *entity.BookView) bookRecommendItem {
+	item := bookRecommendItem{
+		ID:          v.ID.String(),
+		Title:       v.Title,
+		ISBN:        v.ISBN,
+		CoverURL:    v.CoverURL,
+		Description: v.Description,
+		Language:    v.Language,
+		Year:        v.Year,
+		AvgRating:   v.AvgRating,
+		TotalPages:  v.TotalPages,
+		Author: common.AuthorRef{
+			ID:        v.AuthorID.String(),
+			Name:      v.AuthorName,
+			Bio:       v.AuthorBio,
+			BirthDate: v.AuthorBirthDate,
+			DeathDate: v.AuthorDeathDate,
+			PhotoURL:  v.AuthorPhotoURL,
+		},
+		Genre: common.GenreRef{
+			ID:   v.GenreID.String(),
+			Name: v.GenreName,
+			Slug: v.GenreSlug,
+		},
+	}
+	if v.BookFileID != nil {
+		item.File = &common.BookFileRef{
+			ID:      *v.BookFileID,
+			BookID:  *v.BookFileBookID,
+			Format:  *v.BookFileFormat,
+			FileURL: *v.BookFileUrl,
+		}
+	}
+	return item
 }
 
 // @Summary     Создать беседу

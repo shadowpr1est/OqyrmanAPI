@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -132,6 +133,178 @@ func (u *aiUseCase) Recommend(ctx context.Context, userIDStr string) (string, er
 	return u.llm.Complete(ctx, baseSystemPrompt, []llm.Message{
 		{Role: "user", Content: prompt.String()},
 	})
+}
+
+// ── RecommendBooks ────────────────────────────────────────────────────────────
+
+func (u *aiUseCase) RecommendBooks(ctx context.Context, userID uuid.UUID) ([]*entity.BookView, error) {
+	// 1. Параллельно получаем историю пользователя
+	var (
+		sessions []*entity.ReadingSession
+		wishlist []*entity.Wishlist
+		reviews  []*entity.Review
+		wg       sync.WaitGroup
+	)
+	wg.Add(3)
+	go func() { defer wg.Done(); sessions, _ = u.sessionRepo.ListByUser(ctx, userID) }()
+	go func() { defer wg.Done(); wishlist, _ = u.wishlistRepo.ListByUser(ctx, userID) }()
+	go func() { defer wg.Done(); reviews, _ = u.reviewRepo.ListByUser(ctx, userID) }()
+	wg.Wait()
+
+	// Нет истории — нечего рекомендовать
+	if len(sessions) == 0 && len(wishlist) == 0 && len(reviews) == 0 {
+		return []*entity.BookView{}, nil
+	}
+
+	// 2. Загружаем каталог
+	allBooks, _, err := u.bookRepo.ListView(ctx, 200, 0)
+	if err != nil {
+		return nil, fmt.Errorf("RecommendBooks list books: %w", err)
+	}
+	if len(allBooks) == 0 {
+		return []*entity.BookView{}, nil
+	}
+
+	// 3. Индексируем каталог и собираем книги пользователя (для исключения)
+	catalogByID := make(map[uuid.UUID]*entity.BookView, len(allBooks))
+	for _, b := range allBooks {
+		catalogByID[b.ID] = b
+	}
+	userBookIDs := make(map[uuid.UUID]bool)
+	for _, s := range sessions { userBookIDs[s.BookID] = true }
+	for _, w := range wishlist { userBookIDs[w.BookID] = true }
+	for _, r := range reviews { userBookIDs[r.BookID] = true }
+
+	// 4. Определяем топ-жанры пользователя и фильтруем каталог
+	genreCount := make(map[uuid.UUID]int)
+	for _, s := range sessions {
+		if b, ok := catalogByID[s.BookID]; ok {
+			genreCount[b.GenreID]++
+		}
+	}
+	for _, w := range wishlist {
+		if b, ok := catalogByID[w.BookID]; ok {
+			genreCount[b.GenreID]++
+		}
+	}
+
+	filtered := make([]*entity.BookView, 0, 60)
+	for _, b := range allBooks {
+		if genreCount[b.GenreID] > 0 {
+			filtered = append(filtered, b)
+		}
+	}
+	if len(filtered) < 12 {
+		// Недостаточно книг по жанрам — берём первые 50 из полного каталога
+		if len(allBooks) > 50 {
+			filtered = allBooks[:50]
+		} else {
+			filtered = allBooks
+		}
+	}
+
+	// 5. Компактный каталог для промпта (только отфильтрованные книги)
+	type catalogItem struct {
+		ID     string  `json:"id"`
+		Title  string  `json:"title"`
+		Author string  `json:"author"`
+		Genre  string  `json:"genre"`
+		Year   int     `json:"year"`
+		Rating float64 `json:"rating"`
+	}
+	items := make([]catalogItem, 0, len(filtered))
+	for _, b := range filtered {
+		items = append(items, catalogItem{
+			ID:     b.ID.String(),
+			Title:  b.Title,
+			Author: b.AuthorName,
+			Genre:  b.GenreName,
+			Year:   b.Year,
+			Rating: b.AvgRating,
+		})
+	}
+	catalogJSON, err := json.Marshal(items)
+	if err != nil {
+		return nil, fmt.Errorf("RecommendBooks marshal catalog: %w", err)
+	}
+
+	// 6. История пользователя в виде строк
+	var historyLines []string
+	const historyLimit = 10
+	for i, s := range sessions {
+		if i >= historyLimit { break }
+		if b, ok := catalogByID[s.BookID]; ok {
+			status := "читает"
+			if s.Status == entity.StatusFinished { status = "прочитал" }
+			historyLines = append(historyLines, fmt.Sprintf("«%s» — %s, прогресс %d%%", b.Title, status, s.Progress))
+		}
+	}
+	for i, w := range wishlist {
+		if i >= historyLimit { break }
+		if b, ok := catalogByID[w.BookID]; ok {
+			historyLines = append(historyLines, fmt.Sprintf("«%s» — в вишлисте", b.Title))
+		}
+	}
+	for i, r := range reviews {
+		if i >= historyLimit { break }
+		if b, ok := catalogByID[r.BookID]; ok {
+			historyLines = append(historyLines, fmt.Sprintf("«%s» — оценка %d/5", b.Title, r.Rating))
+		}
+	}
+
+	// 7. Формируем промпт
+	systemPrompt := "Ты — книжный рекомендательный движок. Отвечай ТОЛЬКО валидным JSON-массивом UUID строк, без пояснений, markdown и лишнего текста."
+
+	var userPrompt strings.Builder
+	userPrompt.WriteString("Каталог библиотеки (JSON):\n")
+	userPrompt.Write(catalogJSON)
+	userPrompt.WriteString("\n\nИстория пользователя:\n")
+	if len(historyLines) > 0 {
+		userPrompt.WriteString(strings.Join(historyLines, "\n"))
+	} else {
+		userPrompt.WriteString("(пустая)")
+	}
+	userPrompt.WriteString("\n\nВыбери ровно 6 книг из каталога для этого пользователя. ")
+	userPrompt.WriteString("НЕ включай книги из истории пользователя. ")
+	userPrompt.WriteString("Учитывай жанр, автора и рейтинг. ")
+	userPrompt.WriteString(`Верни ТОЛЬКО JSON-массив из 6 UUID книг из каталога. Пример: ["uuid1","uuid2","uuid3","uuid4","uuid5","uuid6"]`)
+
+	// 8. Вызываем LLM
+	resp, err := u.llm.Complete(ctx, systemPrompt, []llm.Message{
+		{Role: "user", Content: userPrompt.String()},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("RecommendBooks llm: %w", err)
+	}
+
+	// 9. Парсим JSON-массив из ответа (ИИ может обернуть в markdown)
+	var ids []string
+	start := strings.Index(resp, "[")
+	end := strings.LastIndex(resp, "]")
+	if start >= 0 && end > start {
+		_ = json.Unmarshal([]byte(resp[start:end+1]), &ids)
+	}
+
+	// 10. Валидируем ID и собираем результат
+	result := make([]*entity.BookView, 0, 6)
+	seen := make(map[uuid.UUID]bool)
+	for _, idStr := range ids {
+		id, parseErr := uuid.Parse(strings.TrimSpace(idStr))
+		if parseErr != nil { continue }
+		if seen[id] { continue }
+		seen[id] = true
+		if bv, ok := catalogByID[id]; ok && !userBookIDs[id] {
+			result = append(result, bv)
+		}
+		if len(result) >= 6 { break }
+	}
+
+	// 11. Fallback: если ИИ не вернул валидных ID — берём рекомендованные из БД
+	if len(result) == 0 {
+		return u.bookRepo.ListRecommendedView(ctx, userID, 6)
+	}
+
+	return result, nil
 }
 
 // ── Suggested Prompts ────────────────────────────────────────────────────────
