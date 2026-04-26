@@ -276,7 +276,7 @@ func (r *Router) Init() *gin.Engine {
 			// AI — rate limit 10 req/min на IP
 			if r.ai != nil {
 				aiGroup := protected.Group("/ai")
-				aiGroup.Use(middleware.RateLimitWithGroup(rl, "ai", 10))
+				aiGroup.Use(middleware.RateLimitWithGroup(rl, "ai", 30))
 				{
 					aiGroup.GET("/prompts", r.ai.SuggestedPrompts)
 					aiGroup.POST("/recommend", r.ai.Recommend)
@@ -291,14 +291,14 @@ func (r *Router) Init() *gin.Engine {
 					// Дополнительно режем 20 req/min на пользователя (не на IP).
 					aiGroup.POST(
 						"/books/:bookId/explain",
-						middleware.RateLimitPerUser(rl, "ai-explain", 20),
+						middleware.RateLimitPerUser(rl, "ai-explain", 50),
 						r.ai.ExplainSelection,
 					)
 					// Перенос пары (фрагмент + ответ) в новую беседу для follow-up.
 					// LLM не дёргается, лимит мягче.
 					aiGroup.POST(
 						"/books/:bookId/seed-conversation",
-						middleware.RateLimitPerUser(rl, "ai-seed", 30),
+						middleware.RateLimitPerUser(rl, "ai-seed", 60),
 						r.ai.SeedConversationFromSelection,
 					)
 				}

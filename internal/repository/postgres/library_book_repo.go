@@ -214,6 +214,22 @@ func (r *libraryBookRepo) ListByBookView(ctx context.Context, bookID uuid.UUID) 
 	return items, nil
 }
 
+func (r *libraryBookRepo) BookIDsInLibraries(ctx context.Context) (map[uuid.UUID]bool, error) {
+	var ids []uuid.UUID
+	if err := r.db.SelectContext(ctx, &ids, `
+		SELECT DISTINCT lb.book_id
+		FROM library_books lb
+		JOIN books b ON b.id = lb.book_id AND b.deleted_at IS NULL`,
+	); err != nil {
+		return nil, fmt.Errorf("libraryBookRepo.BookIDsInLibraries: %w", err)
+	}
+	m := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		m[id] = true
+	}
+	return m, nil
+}
+
 func (r *libraryBookRepo) SearchInLibrary(ctx context.Context, libraryID uuid.UUID, q string, genreID *uuid.UUID, onlyAvailable bool, limit, offset int) ([]*entity.LibraryBookSearchResult, int, error) {
 	var genreParam interface{} = nil
 	if genreID != nil {

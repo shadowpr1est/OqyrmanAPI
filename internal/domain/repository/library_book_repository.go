@@ -22,4 +22,8 @@ type LibraryBookRepository interface {
 	GetByIDView(ctx context.Context, id uuid.UUID) (*entity.LibraryBookView, error)
 	ListByLibraryView(ctx context.Context, libraryID uuid.UUID) ([]*entity.LibraryBookView, error)
 	ListByBookView(ctx context.Context, bookID uuid.UUID) ([]*entity.LibraryBookView, error)
+
+	// BookIDsInLibraries returns a set of book IDs that exist in at least one library.
+	// Used by the AI usecase to mark offline-available books in the catalog prompt.
+	BookIDsInLibraries(ctx context.Context) (map[uuid.UUID]bool, error)
 }

@@ -212,7 +212,7 @@ func main() {
 		slog.Info("AI: no API key set, AI endpoints disabled")
 	}
 	if llmClient != nil {
-		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, convRepo, reviewRepo, genreRepo, authorRepo, eventRepo, llmClient)
+		aiUseCase := aiUC.NewAIUseCase(sessionRepo, wishlistRepo, bookRepo, convRepo, reviewRepo, genreRepo, authorRepo, eventRepo, libraryBookRepo, llmClient)
 		aiHandler = aiH.NewHandler(aiUseCase)
 	}
 

@@ -20,35 +20,52 @@ import (
 
 const (
 	maxBooksInPrompt   = 10
-	maxCatalogBooks    = 6    // книги каталога в промпте для RAG
-	maxHistoryMessages = 20   // последние 20 сообщений идут в контекст LLM
-	maxTitleLen        = 60   // обрезаем заголовок беседы по первому сообщению
+	maxCatalogBooks    = 30 // книги каталога в промпте для RAG (15 рекомендованных + 15 популярных)
+	maxHistoryMessages = 20 // последние 20 сообщений идут в контекст LLM
+	maxTitleLen        = 60 // обрезаем заголовок беседы по первому сообщению
 )
 
 var baseSystemPrompt = `Ты — книжный ассистент платформы Oqyrman. Отвечай на русском языке.
 Помогаешь пользователю с выбором книг, обсуждаешь литературу и отвечаешь на вопросы о чтении.
 Будь дружелюбным, лаконичным и полезным.
-Когда рекомендуешь книги — отдавай предпочтение книгам из каталога платформы (если они подходят).
-Если книги нет в каталоге, можешь рекомендовать и внешнюю, но отмечай это.
+
+ПРАВИЛО РЕКОМЕНДАЦИЙ: Рекомендуй ТОЛЬКО книги из каталога платформы Oqyrman, которые указаны в твоём контексте ниже.
+Если пользователь просит книгу по теме — сначала используй [ACTION:search_books:запрос] чтобы найти её в каталоге, затем рекомендуй из результатов поиска.
+Никогда не рекомендуй книги, которых нет в каталоге платформы. Если подходящей книги нет — честно скажи об этом.
+
+ВАЖНО: Ты отвечаешь ТОЛЬКО на вопросы, связанные с книгами, чтением, литературой и функциями платформы Oqyrman (мероприятия, вишлист, история чтения и т.д.).
+Если пользователь задаёт вопрос на любую другую тему — вежливо откажись и напомни, что ты книжный ассистент. Не давай советов по медицине, юриспруденции, финансам, программированию, политике и другим темам, не связанным с книгами и платформой.
 
 Ты можешь выполнять действия на платформе. Для этого вставь тег действия В КОНЦЕ своего ответа (после текста для пользователя):
-- [ACTION:search_books:запрос] — поиск книг в каталоге
+- [ACTION:search_books:запрос] — поиск книг в каталоге (используй когда пользователь просит рекомендацию по теме или жанру)
 - [ACTION:add_wishlist:ID_книги] — добавить книгу в вишлист пользователя
 - [ACTION:list_events] — показать ближайшие мероприятия
-Используй действия только когда пользователь явно просит. Одно действие на сообщение.`
+Одно действие на сообщение.`
 
 var actionRe = regexp.MustCompile(`\[ACTION:(\w+)(?::([^\]]*))?\]`)
 
+// catalogCache holds a pre-built catalog snippet for the system prompt.
+// Rebuilt at most once per cacheTTL to avoid re-querying on every message.
+type catalogCache struct {
+	mu        sync.Mutex
+	snippet   string
+	builtAt   time.Time
+}
+
+const catalogCacheTTL = 5 * time.Minute
+
 type aiUseCase struct {
-	sessionRepo  repository.ReadingSessionRepository
-	wishlistRepo repository.WishlistRepository
-	bookRepo     repository.BookRepository
-	convRepo     repository.ConversationRepository
-	reviewRepo   repository.ReviewRepository
-	genreRepo    repository.GenreRepository
-	authorRepo   repository.AuthorRepository
-	eventRepo    repository.EventRepository
-	llm          llm.LLMClient
+	sessionRepo     repository.ReadingSessionRepository
+	wishlistRepo    repository.WishlistRepository
+	bookRepo        repository.BookRepository
+	convRepo        repository.ConversationRepository
+	reviewRepo      repository.ReviewRepository
+	genreRepo       repository.GenreRepository
+	authorRepo      repository.AuthorRepository
+	eventRepo       repository.EventRepository
+	libraryBookRepo repository.LibraryBookRepository
+	llm             llm.LLMClient
+	catalog         catalogCache
 }
 
 func NewAIUseCase(
@@ -60,18 +77,20 @@ func NewAIUseCase(
 	genreRepo repository.GenreRepository,
 	authorRepo repository.AuthorRepository,
 	eventRepo repository.EventRepository,
+	libraryBookRepo repository.LibraryBookRepository,
 	llm llm.LLMClient,
 ) domainUseCase.AIUseCase {
 	return &aiUseCase{
-		sessionRepo:  sessionRepo,
-		wishlistRepo: wishlistRepo,
-		bookRepo:     bookRepo,
-		convRepo:     convRepo,
-		reviewRepo:   reviewRepo,
-		genreRepo:    genreRepo,
-		authorRepo:   authorRepo,
-		eventRepo:    eventRepo,
-		llm:          llm,
+		sessionRepo:     sessionRepo,
+		wishlistRepo:    wishlistRepo,
+		bookRepo:        bookRepo,
+		convRepo:        convRepo,
+		reviewRepo:      reviewRepo,
+		genreRepo:       genreRepo,
+		authorRepo:      authorRepo,
+		eventRepo:       eventRepo,
+		libraryBookRepo: libraryBookRepo,
+		llm:             llm,
 	}
 }
 
@@ -171,9 +190,15 @@ func (u *aiUseCase) RecommendBooks(ctx context.Context, userID uuid.UUID) ([]*en
 		catalogByID[b.ID] = b
 	}
 	userBookIDs := make(map[uuid.UUID]bool)
-	for _, s := range sessions { userBookIDs[s.BookID] = true }
-	for _, w := range wishlist { userBookIDs[w.BookID] = true }
-	for _, r := range reviews { userBookIDs[r.BookID] = true }
+	for _, s := range sessions {
+		userBookIDs[s.BookID] = true
+	}
+	for _, w := range wishlist {
+		userBookIDs[w.BookID] = true
+	}
+	for _, r := range reviews {
+		userBookIDs[r.BookID] = true
+	}
 
 	// 4. Определяем топ-жанры пользователя и фильтруем каталог
 	genreCount := make(map[uuid.UUID]int)
@@ -204,23 +229,29 @@ func (u *aiUseCase) RecommendBooks(ctx context.Context, userID uuid.UUID) ([]*en
 	}
 
 	// 5. Компактный каталог для промпта (только отфильтрованные книги)
+	offlineIDs, _ := u.libraryBookRepo.BookIDsInLibraries(ctx)
+
 	type catalogItem struct {
-		ID     string  `json:"id"`
-		Title  string  `json:"title"`
-		Author string  `json:"author"`
-		Genre  string  `json:"genre"`
-		Year   int     `json:"year"`
-		Rating float64 `json:"rating"`
+		ID              string  `json:"id"`
+		Title           string  `json:"title"`
+		Author          string  `json:"author"`
+		Genre           string  `json:"genre"`
+		Year            int     `json:"year"`
+		Rating          float64 `json:"rating"`
+		AvailableOnline bool    `json:"available_online"`
+		AvailableOffline bool   `json:"available_offline"`
 	}
 	items := make([]catalogItem, 0, len(filtered))
 	for _, b := range filtered {
 		items = append(items, catalogItem{
-			ID:     b.ID.String(),
-			Title:  b.Title,
-			Author: b.AuthorName,
-			Genre:  b.GenreName,
-			Year:   b.Year,
-			Rating: b.AvgRating,
+			ID:               b.ID.String(),
+			Title:            b.Title,
+			Author:           b.AuthorName,
+			Genre:            b.GenreName,
+			Year:             b.Year,
+			Rating:           b.AvgRating,
+			AvailableOnline:  b.BookFileID != nil,
+			AvailableOffline: offlineIDs != nil && offlineIDs[b.ID],
 		})
 	}
 	catalogJSON, err := json.Marshal(items)
@@ -232,21 +263,29 @@ func (u *aiUseCase) RecommendBooks(ctx context.Context, userID uuid.UUID) ([]*en
 	var historyLines []string
 	const historyLimit = 10
 	for i, s := range sessions {
-		if i >= historyLimit { break }
+		if i >= historyLimit {
+			break
+		}
 		if b, ok := catalogByID[s.BookID]; ok {
 			status := "читает"
-			if s.Status == entity.StatusFinished { status = "прочитал" }
+			if s.Status == entity.StatusFinished {
+				status = "прочитал"
+			}
 			historyLines = append(historyLines, fmt.Sprintf("«%s» — %s, прогресс %d%%", b.Title, status, s.Progress))
 		}
 	}
 	for i, w := range wishlist {
-		if i >= historyLimit { break }
+		if i >= historyLimit {
+			break
+		}
 		if b, ok := catalogByID[w.BookID]; ok {
 			historyLines = append(historyLines, fmt.Sprintf("«%s» — в вишлисте", b.Title))
 		}
 	}
 	for i, r := range reviews {
-		if i >= historyLimit { break }
+		if i >= historyLimit {
+			break
+		}
 		if b, ok := catalogByID[r.BookID]; ok {
 			historyLines = append(historyLines, fmt.Sprintf("«%s» — оценка %d/5", b.Title, r.Rating))
 		}
@@ -290,13 +329,19 @@ func (u *aiUseCase) RecommendBooks(ctx context.Context, userID uuid.UUID) ([]*en
 	seen := make(map[uuid.UUID]bool)
 	for _, idStr := range ids {
 		id, parseErr := uuid.Parse(strings.TrimSpace(idStr))
-		if parseErr != nil { continue }
-		if seen[id] { continue }
+		if parseErr != nil {
+			continue
+		}
+		if seen[id] {
+			continue
+		}
 		seen[id] = true
 		if bv, ok := catalogByID[id]; ok && !userBookIDs[id] {
 			result = append(result, bv)
 		}
-		if len(result) >= 6 { break }
+		if len(result) >= 6 {
+			break
+		}
 	}
 
 	// 11. Fallback: если ИИ не вернул валидных ID — берём рекомендованные из БД
@@ -309,10 +354,20 @@ func (u *aiUseCase) RecommendBooks(ctx context.Context, userID uuid.UUID) ([]*en
 
 // ── Suggested Prompts ────────────────────────────────────────────────────────
 
-func (u *aiUseCase) SuggestedPrompts(ctx context.Context, userID uuid.UUID) []string {
-	prompts := []string{
-		"Порекомендуй книгу",
-		"Какие мероприятия скоро?",
+func (u *aiUseCase) SuggestedPrompts(ctx context.Context, userID uuid.UUID, lang string) []string {
+	isKK := lang == "kk"
+
+	var prompts []string
+	if isKK {
+		prompts = []string{
+			"Кітап ұсыныңыз",
+			"Жақын арада қандай іс-шаралар бар?",
+		}
+	} else {
+		prompts = []string{
+			"Порекомендуй книгу",
+			"Какие мероприятия скоро?",
+		}
 	}
 
 	sessions, _ := u.sessionRepo.ListByUser(ctx, userID)
@@ -321,24 +376,41 @@ func (u *aiUseCase) SuggestedPrompts(ctx context.Context, userID uuid.UUID) []st
 		if s.Status == entity.StatusReading {
 			hasReading = true
 			if book, err := u.bookRepo.GetByID(ctx, s.BookID); err == nil {
-				prompts = append(prompts, fmt.Sprintf("Расскажи про «%s»", book.Title))
+				if isKK {
+					prompts = append(prompts, fmt.Sprintf("«%s» туралы айтып бер", book.Title))
+				} else {
+					prompts = append(prompts, fmt.Sprintf("Расскажи про «%s»", book.Title))
+				}
 			}
 			break
 		}
 	}
 
 	if hasReading {
-		prompts = append(prompts, "Что дочитать в первую очередь?")
+		if isKK {
+			prompts = append(prompts, "Алдымен нені оқып бітіру керек?")
+		} else {
+			prompts = append(prompts, "Что дочитать в первую очередь?")
+		}
 	}
 
 	wishlist, _ := u.wishlistRepo.ListByUser(ctx, userID)
 	if len(wishlist) > 0 {
-		prompts = append(prompts, "Что из вишлиста стоит прочитать?")
+		if isKK {
+			prompts = append(prompts, "Тілектер тізімінен нені оқыған жөн?")
+		} else {
+			prompts = append(prompts, "Что из вишлиста стоит прочитать?")
+		}
 	}
 
 	if len(sessions) == 0 && len(wishlist) == 0 {
-		prompts = append(prompts, "С чего начать читать?")
-		prompts = append(prompts, "Посоветуй книги для начинающего читателя")
+		if isKK {
+			prompts = append(prompts, "Неден бастап оқысам?")
+			prompts = append(prompts, "Жаңадан бастаған оқырманға кітаптар ұсыныңыз")
+		} else {
+			prompts = append(prompts, "С чего начать читать?")
+			prompts = append(prompts, "Посоветуй книги для начинающего читателя")
+		}
 	}
 
 	return prompts
@@ -562,13 +634,17 @@ func (u *aiUseCase) bookInfo(ctx context.Context, book *entity.Book) string {
 	go func() {
 		defer wg.Done()
 		if a, err := u.authorRepo.GetByID(ctx, book.AuthorID); err == nil {
-			mu.Lock(); authorName = a.Name; mu.Unlock()
+			mu.Lock()
+			authorName = a.Name
+			mu.Unlock()
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		if g, err := u.genreRepo.GetByID(ctx, book.GenreID); err == nil {
-			mu.Lock(); genreName = g.Name; mu.Unlock()
+			mu.Lock()
+			genreName = g.Name
+			mu.Unlock()
 		}
 	}()
 	wg.Wait()
@@ -599,9 +675,15 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 	go func() { defer wg.Done(); reviews, _ = u.reviewRepo.ListByUser(ctx, userID) }()
 	wg.Wait()
 
-	if len(sessions) > maxBooksInPrompt { sessions = sessions[:maxBooksInPrompt] }
-	if len(wishlist) > maxBooksInPrompt { wishlist = wishlist[:maxBooksInPrompt] }
-	if len(reviews) > maxBooksInPrompt { reviews = reviews[:maxBooksInPrompt] }
+	if len(sessions) > maxBooksInPrompt {
+		sessions = sessions[:maxBooksInPrompt]
+	}
+	if len(wishlist) > maxBooksInPrompt {
+		wishlist = wishlist[:maxBooksInPrompt]
+	}
+	if len(reviews) > maxBooksInPrompt {
+		reviews = reviews[:maxBooksInPrompt]
+	}
 
 	// 2. Параллельно загружаем книги по всем трём спискам.
 	type sessionEntry struct {
@@ -625,7 +707,9 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 		go func() {
 			defer wg.Done()
 			book, err := u.bookRepo.GetByID(ctx, s.BookID)
-			if err != nil { return }
+			if err != nil {
+				return
+			}
 			sessionEntries[i] = sessionEntry{info: u.bookInfo(ctx, book), status: s.Status, progress: s.Progress}
 		}()
 	}
@@ -634,7 +718,9 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 		go func() {
 			defer wg.Done()
 			book, err := u.bookRepo.GetByID(ctx, w.BookID)
-			if err != nil { return }
+			if err != nil {
+				return
+			}
 			wishInfos[i] = u.bookInfo(ctx, book)
 		}()
 	}
@@ -643,7 +729,9 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 		go func() {
 			defer wg.Done()
 			book, err := u.bookRepo.GetByID(ctx, r.BookID)
-			if err != nil { return }
+			if err != nil {
+				return
+			}
 			body := r.Body
 			if len([]rune(body)) > 100 {
 				body = string([]rune(body)[:100]) + "…"
@@ -659,7 +747,9 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 
 	var reading, completed, wishTitles, reviewLines []string
 	for _, e := range sessionEntries {
-		if e.info == "" { continue }
+		if e.info == "" {
+			continue
+		}
 		switch e.status {
 		case entity.StatusReading:
 			reading = append(reading, fmt.Sprintf("%s — прогресс %d%%", e.info, e.progress))
@@ -668,12 +758,18 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 		}
 	}
 	for _, info := range wishInfos {
-		if info != "" { wishTitles = append(wishTitles, info) }
+		if info != "" {
+			wishTitles = append(wishTitles, info)
+		}
 	}
 	for _, e := range reviewEntries {
-		if e.title == "" { continue }
+		if e.title == "" {
+			continue
+		}
 		line := fmt.Sprintf("«%s» — %d/5", e.title, e.rating)
-		if e.body != "" { line += fmt.Sprintf(": %s", e.body) }
+		if e.body != "" {
+			line += fmt.Sprintf(": %s", e.body)
+		}
 		reviewLines = append(reviewLines, line)
 	}
 
@@ -697,42 +793,79 @@ func (u *aiUseCase) buildSystemPrompt(ctx context.Context, userID uuid.UUID) str
 	return sb.String()
 }
 
-// appendCatalog добавляет в промпт рекомендованные и популярные книги платформы.
-// Оба запроса выполняются параллельно, описания не включаются (экономия токенов).
-func (u *aiUseCase) appendCatalog(ctx context.Context, sb *strings.Builder, userID uuid.UUID) {
+// appendCatalog добавляет в промпт снимок каталога платформы.
+// Снимок кешируется в памяти на catalogCacheTTL — при обычном чате каталог
+// не меняется часто, поэтому повторные запросы в DB не нужны.
+func (u *aiUseCase) appendCatalog(ctx context.Context, sb *strings.Builder, _ uuid.UUID) {
+	snippet := u.catalogSnippet(ctx)
+	sb.WriteString(snippet)
+}
+
+// catalogSnippet возвращает готовую строку каталога из кеша или перестраивает её.
+func (u *aiUseCase) catalogSnippet(ctx context.Context) string {
+	u.catalog.mu.Lock()
+	if u.catalog.snippet != "" && time.Since(u.catalog.builtAt) < catalogCacheTTL {
+		snippet := u.catalog.snippet
+		u.catalog.mu.Unlock()
+		return snippet
+	}
+	u.catalog.mu.Unlock()
+
+	// Кеш пустой или устарел — строим заново.
 	var (
-		recommended []*entity.BookView
-		popular     []*entity.BookView
-		wg          sync.WaitGroup
-		mu          sync.Mutex
+		popular        []*entity.BookView
+		offlineBookIDs map[uuid.UUID]bool
+		wg             sync.WaitGroup
+		mu             sync.Mutex
 	)
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		r, _ := u.bookRepo.ListRecommendedView(ctx, userID, maxCatalogBooks/2)
-		mu.Lock(); recommended = r; mu.Unlock()
+		p, _, _ := u.bookRepo.ListPopularView(ctx, maxCatalogBooks, 0)
+		mu.Lock()
+		popular = p
+		mu.Unlock()
 	}()
 	go func() {
 		defer wg.Done()
-		p, _, _ := u.bookRepo.ListPopularView(ctx, maxCatalogBooks/2, 0)
-		mu.Lock(); popular = p; mu.Unlock()
+		ids, _ := u.libraryBookRepo.BookIDsInLibraries(ctx)
+		mu.Lock()
+		offlineBookIDs = ids
+		mu.Unlock()
 	}()
 	wg.Wait()
 
-	sb.WriteString("\n\nКаталог Oqyrman (рекомендуй в первую очередь):")
-	if len(recommended) > 0 {
-		sb.WriteString("\nРекомендованные:")
-		for _, b := range recommended {
-			fmt.Fprintf(sb, "\n- «%s» — %s [%s], %d г., %.1f★",
-				b.Title, b.AuthorName, b.GenreName, b.Year, b.AvgRating)
-		}
+	var snap strings.Builder
+	snap.WriteString("\n\nКаталог Oqyrman (рекомендуй ТОЛЬКО книги отсюда):")
+	snap.WriteString("\nДоступность: [онлайн] = читать в приложении, [оффлайн] = только в библиотеке, [онлайн+оффлайн] = оба варианта.")
+	for _, b := range popular {
+		fmt.Fprintf(&snap, "\n- «%s» — %s [%s], %d г., %.1f★ %s",
+			b.Title, b.AuthorName, b.GenreName, b.Year, b.AvgRating,
+			bookAvailability(b, offlineBookIDs))
 	}
-	if len(popular) > 0 {
-		sb.WriteString("\nПопулярные:")
-		for _, b := range popular {
-			fmt.Fprintf(sb, "\n- «%s» — %s [%s], %d г., %.1f★",
-				b.Title, b.AuthorName, b.GenreName, b.Year, b.AvgRating)
-		}
+	snippet := snap.String()
+
+	u.catalog.mu.Lock()
+	u.catalog.snippet = snippet
+	u.catalog.builtAt = time.Now()
+	u.catalog.mu.Unlock()
+
+	return snippet
+}
+
+// bookAvailability returns the availability marker for a book.
+func bookAvailability(b *entity.BookView, offlineIDs map[uuid.UUID]bool) string {
+	online := b.BookFileID != nil
+	offline := offlineIDs != nil && offlineIDs[b.ID]
+	switch {
+	case online && offline:
+		return "[онлайн + оффлайн]"
+	case online:
+		return "[онлайн]"
+	case offline:
+		return "[оффлайн]"
+	default:
+		return ""
 	}
 }
 
@@ -803,9 +936,9 @@ func (u *aiUseCase) actionSearchBooks(ctx context.Context, query string) actionR
 	for _, b := range books {
 		info := u.bookInfo(ctx, b)
 		if b.AvgRating > 0 {
-			fmt.Fprintf(&sb, "\n  • %s — рейтинг %.1f", info, b.AvgRating)
+			fmt.Fprintf(&sb, "\n  • [%s] %s — рейтинг %.1f", b.ID, info, b.AvgRating)
 		} else {
-			fmt.Fprintf(&sb, "\n  • %s", info)
+			fmt.Fprintf(&sb, "\n  • [%s] %s", b.ID, info)
 		}
 	}
 	return actionResult{Action: "search_books", Data: sb.String()}
@@ -870,7 +1003,8 @@ const (
 	maxDescriptionChars = 400
 )
 
-var readerSelectionSystemPrompt = `Ты помогаешь читателю понять выделенный фрагмент книги. Отвечай на русском языке, кратко и по делу, без вводных фраз о себе и без рекламы платформы. Опирайся на контекст книги, если он дан.`
+var readerSelectionSystemPrompt = `Ты помогаешь читателю понять выделенный фрагмент книги. Отвечай на русском языке, кратко и по делу, без вводных фраз о себе и без рекламы платформы. Опирайся на контекст книги, если он дан.
+Отвечай ТОЛЬКО по теме конкретного фрагмента или книги. Если запрос не связан с книгой или чтением — откажись.`
 
 func (u *aiUseCase) ExplainSelection(
 	ctx context.Context,

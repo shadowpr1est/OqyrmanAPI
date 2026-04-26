@@ -33,7 +33,8 @@ func NewHandler(uc domainUseCase.AIUseCase) *Handler {
 // @Router      /ai/prompts [get]
 func (h *Handler) SuggestedPrompts(c *gin.Context) {
 	userID := middleware.GetUserID(c)
-	prompts := h.uc.SuggestedPrompts(c.Request.Context(), userID)
+	lang := resolveLang(c.GetHeader("Accept-Language"))
+	prompts := h.uc.SuggestedPrompts(c.Request.Context(), userID, lang)
 	c.JSON(http.StatusOK, suggestedPromptsResponse{Prompts: prompts})
 }
 
