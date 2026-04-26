@@ -61,4 +61,8 @@ var (
 	// ErrExtendLimitReached — пользователь уже использовал своё продление.
 	// Handler должен вернуть 409 Conflict.
 	ErrExtendLimitReached = errors.New("extension limit reached")
+
+	// ErrPhoneRequired — бронирование невозможно без указанного номера телефона.
+	// Handler должен вернуть 422 Unprocessable Entity.
+	ErrPhoneRequired = errors.New("phone number is required to make a reservation")
 )

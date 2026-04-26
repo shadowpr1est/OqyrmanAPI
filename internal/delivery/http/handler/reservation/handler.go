@@ -68,6 +68,10 @@ func (h *Handler) Create(c *gin.Context) {
 		DueDate:       dueDate,
 	})
 	if err != nil {
+		if errors.Is(err, entity.ErrPhoneRequired) {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
+			return
+		}
 		if errors.Is(err, entity.ErrNoAvailableCopies) {
 			c.JSON(http.StatusConflict, gin.H{"error": "no available copies"})
 			return

@@ -57,6 +57,14 @@ func (u *reservationUseCase) notify(ctx context.Context, userID uuid.UUID, nType
 }
 
 func (u *reservationUseCase) Create(ctx context.Context, r *entity.Reservation) (*entity.Reservation, error) {
+	user, err := u.userRepo.GetByID(ctx, r.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if user.Phone == "" {
+		return nil, entity.ErrPhoneRequired
+	}
+
 	r.ID = uuid.New()
 	r.Status = entity.ReservationPending
 	r.ReservedAt = time.Now()
