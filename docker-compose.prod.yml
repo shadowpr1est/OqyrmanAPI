@@ -273,10 +273,6 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
-      - nginx_auth:/etc/nginx/auth
-    environment:
-      MONITORING_BASIC_AUTH_USER: ${MONITORING_BASIC_AUTH_USER}
-      MONITORING_BASIC_AUTH_PASSWORD: ${MONITORING_BASIC_AUTH_PASSWORD}
     depends_on:
       - app
       - frontend
@@ -293,7 +289,6 @@ volumes:
   prometheus_data:
   loki_data:
   promtail_positions:
-  nginx_auth:
 
 networks:
   oqyrman_net:

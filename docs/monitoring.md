@@ -5,12 +5,10 @@
 1. Add an A record for `monitoring.oqyrman.app` pointing to the server IP.
 2. Issue a TLS certificate for `monitoring.oqyrman.app` and place it under `/etc/letsencrypt/live/monitoring.oqyrman.app/`.
 3. Fill the monitoring secrets in `.env`:
-   - `MONITORING_BASIC_AUTH_USER`
-   - `MONITORING_BASIC_AUTH_PASSWORD`
    - `GRAFANA_ADMIN_USER`
    - `GRAFANA_ADMIN_PASSWORD`
 
-If `MONITORING_BASIC_AUTH_PASSWORD` is empty, Nginx will generate a temporary password on startup and print it to container logs. Use it only as a short-term fallback and set a permanent password in `.env`.
+Grafana uses its own login page at `https://monitoring.oqyrman.app/login`.
 
 ## After that
 
