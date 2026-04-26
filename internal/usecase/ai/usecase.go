@@ -25,7 +25,7 @@ const (
 	maxTitleLen        = 60 // обрезаем заголовок беседы по первому сообщению
 )
 
-var baseSystemPrompt = `Ты — книжный ассистент платформы Oqyrman. Отвечай на русском языке.
+var baseSystemPrompt = `Ты — книжный ассистент платформы Oqyrman. Отвечай на том языке, на котором пишет пользователь — на русском или казахском. Если пользователь пишет на казахском — отвечай только на казахском. Если на русском — только на русском.
 Помогаешь пользователю с выбором книг, обсуждаешь литературу и отвечаешь на вопросы о чтении.
 Будь дружелюбным, лаконичным и полезным.
 
@@ -487,7 +487,11 @@ func (u *aiUseCase) SendMessage(ctx context.Context, convID, userID uuid.UUID, m
 	}
 
 	// Обрабатываем действия из ответа
-	reply, _ = u.processActions(ctx, reply, userID)
+	lang := "ru"
+	if isKazakh(message) {
+		lang = "kk"
+	}
+	reply, _ = u.processActions(ctx, reply, userID, lang)
 
 	// Сохраняем ответ ИИ
 	aiMsg := &entity.ChatMessage{
@@ -559,7 +563,11 @@ func (u *aiUseCase) SendMessageStream(ctx context.Context, convID, userID uuid.U
 	}
 
 	// Обрабатываем действия из полного ответа
-	finalContent, results := u.processActions(ctx, fullReply.String(), userID)
+	msgLang := "ru"
+	if isKazakh(message) {
+		msgLang = "kk"
+	}
+	finalContent, results := u.processActions(ctx, fullReply.String(), userID, msgLang)
 
 	// Если были действия — отправляем результат как дополнительный chunk
 	if len(results) > 0 {
@@ -875,10 +883,21 @@ type actionResult struct {
 	Data   string
 }
 
+// isKazakh returns true if the string contains Kazakh-specific letters.
+func isKazakh(s string) bool {
+	for _, r := range s {
+		switch r {
+		case 'Ә', 'ә', 'Ғ', 'ғ', 'Қ', 'қ', 'Ң', 'ң', 'Ө', 'ө', 'Ұ', 'ұ', 'Ү', 'ү', 'Һ', 'һ', 'І', 'і':
+			return true
+		}
+	}
+	return false
+}
+
 // processActions ищет теги [ACTION:...] в ответе AI, выполняет действия и возвращает:
 // - очищенный текст (без тегов)
 // - результаты действий (для вставки в ответ)
-func (u *aiUseCase) processActions(ctx context.Context, reply string, userID uuid.UUID) (string, []actionResult) {
+func (u *aiUseCase) processActions(ctx context.Context, reply string, userID uuid.UUID, lang string) (string, []actionResult) {
 	matches := actionRe.FindAllStringSubmatch(reply, 1) // макс 1 действие
 	if len(matches) == 0 {
 		return reply, nil
@@ -895,11 +914,11 @@ func (u *aiUseCase) processActions(ctx context.Context, reply string, userID uui
 		var res actionResult
 		switch action {
 		case "search_books":
-			res = u.actionSearchBooks(ctx, arg)
+			res = u.actionSearchBooks(ctx, arg, lang)
 		case "add_wishlist":
-			res = u.actionAddWishlist(ctx, userID, arg)
+			res = u.actionAddWishlist(ctx, userID, arg, lang)
 		case "list_events":
-			res = u.actionListEvents(ctx)
+			res = u.actionListEvents(ctx, lang)
 		default:
 			continue
 		}
@@ -920,19 +939,29 @@ func (u *aiUseCase) processActions(ctx context.Context, reply string, userID uui
 	return cleaned, results
 }
 
-func (u *aiUseCase) actionSearchBooks(ctx context.Context, query string) actionResult {
+func (u *aiUseCase) actionSearchBooks(ctx context.Context, query, lang string) actionResult {
 	query = strings.TrimSpace(query)
 	if query == "" {
+		if lang == "kk" {
+			return actionResult{Action: "search_books", Data: "🔍 Іздеу сұранысы көрсетілмеген."}
+		}
 		return actionResult{Action: "search_books", Data: "🔍 Не указан поисковый запрос."}
 	}
 
 	books, _, err := u.bookRepo.Search(ctx, query, 5, 0)
 	if err != nil || len(books) == 0 {
+		if lang == "kk" {
+			return actionResult{Action: "search_books", Data: fmt.Sprintf("🔍 «%s» сұранысы бойынша кітаптар табылмады.", query)}
+		}
 		return actionResult{Action: "search_books", Data: fmt.Sprintf("🔍 По запросу «%s» книг не найдено.", query)}
 	}
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "🔍 Результаты поиска «%s»:", query)
+	if lang == "kk" {
+		fmt.Fprintf(&sb, "🔍 «%s» іздеу нәтижелері:", query)
+	} else {
+		fmt.Fprintf(&sb, "🔍 Результаты поиска «%s»:", query)
+	}
 	for _, b := range books {
 		info := u.bookInfo(ctx, b)
 		if b.AvgRating > 0 {
@@ -944,44 +973,73 @@ func (u *aiUseCase) actionSearchBooks(ctx context.Context, query string) actionR
 	return actionResult{Action: "search_books", Data: sb.String()}
 }
 
-func (u *aiUseCase) actionAddWishlist(ctx context.Context, userID uuid.UUID, bookIDStr string) actionResult {
+func (u *aiUseCase) actionAddWishlist(ctx context.Context, userID uuid.UUID, bookIDStr, lang string) actionResult {
 	bookID, err := uuid.Parse(strings.TrimSpace(bookIDStr))
 	if err != nil {
+		if lang == "kk" {
+			return actionResult{Action: "add_wishlist", Data: "Кітапты қосу мүмкін болмады — ID қате."}
+		}
 		return actionResult{Action: "add_wishlist", Data: "Не удалось добавить — неверный ID книги."}
 	}
 
 	exists, _ := u.wishlistRepo.ExistsByUserAndBook(ctx, userID, bookID)
 	if exists {
+		if lang == "kk" {
+			return actionResult{Action: "add_wishlist", Data: "📚 Бұл кітап тілектер тізімінде бар!"}
+		}
 		return actionResult{Action: "add_wishlist", Data: "📚 Эта книга уже в вашем вишлисте!"}
 	}
 
 	_, err = u.wishlistRepo.Add(ctx, userID, bookID, entity.ShelfWantToRead)
 	if err != nil {
+		if lang == "kk" {
+			return actionResult{Action: "add_wishlist", Data: "Кітапты тілектер тізіміне қосу сәтсіз аяқталды."}
+		}
 		return actionResult{Action: "add_wishlist", Data: "Не удалось добавить книгу в вишлист."}
 	}
 
 	book, _ := u.bookRepo.GetByID(ctx, bookID)
 	if book != nil {
+		if lang == "kk" {
+			return actionResult{Action: "add_wishlist", Data: fmt.Sprintf("✅ «%s» кітабы тілектер тізіміне қосылды!", book.Title)}
+		}
 		return actionResult{Action: "add_wishlist", Data: fmt.Sprintf("✅ Книга «%s» добавлена в ваш вишлист!", book.Title)}
+	}
+	if lang == "kk" {
+		return actionResult{Action: "add_wishlist", Data: "✅ Кітап тілектер тізіміне қосылды!"}
 	}
 	return actionResult{Action: "add_wishlist", Data: "✅ Книга добавлена в ваш вишлист!"}
 }
 
-func (u *aiUseCase) actionListEvents(ctx context.Context) actionResult {
-	events, err := u.eventRepo.FindUpcoming(ctx, 7*24*time.Hour) // ближайшие 7 дней
+func (u *aiUseCase) actionListEvents(ctx context.Context, lang string) actionResult {
+	events, err := u.eventRepo.FindUpcoming(ctx, 7*24*time.Hour)
 	if err != nil || len(events) == 0 {
+		if lang == "kk" {
+			return actionResult{Action: "list_events", Data: "📅 Жақын арада іс-шаралар жоқ."}
+		}
 		return actionResult{Action: "list_events", Data: "📅 Ближайших мероприятий не найдено."}
 	}
 
 	var sb strings.Builder
-	sb.WriteString("📅 Ближайшие мероприятия:")
+	if lang == "kk" {
+		sb.WriteString("📅 Жақындағы іс-шаралар:")
+	} else {
+		sb.WriteString("📅 Ближайшие мероприятия:")
+	}
 	for _, e := range events {
+		title := e.Title
+		if lang == "kk" && e.TitleKK != "" {
+			title = e.TitleKK
+		}
 		loc := "место не указано"
+		if lang == "kk" {
+			loc = "орын көрсетілмеген"
+		}
 		if e.Location != nil {
 			loc = *e.Location
 		}
 		fmt.Fprintf(&sb, "\n  • %s — %s, %s",
-			e.Title,
+			title,
 			e.StartsAt.Format("02.01.2006 15:04"),
 			loc)
 	}
@@ -1003,7 +1061,7 @@ const (
 	maxDescriptionChars = 400
 )
 
-var readerSelectionSystemPrompt = `Ты помогаешь читателю понять выделенный фрагмент книги. Отвечай на русском языке, кратко и по делу, без вводных фраз о себе и без рекламы платформы. Опирайся на контекст книги, если он дан.
+var readerSelectionSystemPrompt = `Ты помогаешь читателю понять выделенный фрагмент книги. Отвечай на том языке, на котором написан запрос пользователя — на русском или казахском. Будь кратким и по делу, без вводных фраз о себе и без рекламы платформы. Опирайся на контекст книги, если он дан.
 Отвечай ТОЛЬКО по теме конкретного фрагмента или книги. Если запрос не связан с книгой или чтением — откажись.`
 
 func (u *aiUseCase) ExplainSelection(
