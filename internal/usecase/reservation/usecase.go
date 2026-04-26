@@ -132,16 +132,20 @@ func (u *reservationUseCase) StaffReturn(ctx context.Context, id uuid.UUID, libr
 
 // --- QR Scan ---
 
-func (u *reservationUseCase) LookupUserByQR(ctx context.Context, qrCode string, libraryID uuid.UUID) (*entity.User, []*entity.ReservationView, error) {
-	user, err := u.userRepo.GetByQRCode(ctx, qrCode)
+func (u *reservationUseCase) LookupUserByQR(ctx context.Context, qrCode string, libraryID uuid.UUID) (user *entity.User, pending []*entity.ReservationView, active []*entity.ReservationView, err error) {
+	user, err = u.userRepo.GetByQRCode(ctx, qrCode)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	reservations, err := u.reservationRepo.ListPendingByUserAndLibraryView(ctx, user.ID, libraryID)
+	pending, err = u.reservationRepo.ListPendingByUserAndLibraryView(ctx, user.ID, libraryID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return user, reservations, nil
+	active, err = u.reservationRepo.ListActiveByUserAndLibraryView(ctx, user.ID, libraryID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return user, pending, active, nil
 }
 
 func (u *reservationUseCase) ScanQR(ctx context.Context, qrToken string, libraryID uuid.UUID) (*entity.ReservationView, error) {

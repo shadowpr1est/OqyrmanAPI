@@ -361,7 +361,7 @@ func (h *Handler) LookupUserByQR(c *gin.Context) {
 		return
 	}
 
-	user, reservations, err := h.uc.LookupUserByQR(c.Request.Context(), req.QRCode, *libraryID)
+	user, pending, active, err := h.uc.LookupUserByQR(c.Request.Context(), req.QRCode, *libraryID)
 	if err != nil {
 		if errors.Is(err, entity.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
@@ -381,7 +381,8 @@ func (h *Handler) LookupUserByQR(c *gin.Context) {
 			Phone:     user.Phone,
 			AvatarURL: user.AvatarURL,
 		},
-		Reservations: toReservationViewResponses(reservations, true),
+		PendingReservations: toReservationViewResponses(pending, true),
+		ActiveReservations:  toReservationViewResponses(active, true),
 	}
 	c.JSON(http.StatusOK, resp)
 }

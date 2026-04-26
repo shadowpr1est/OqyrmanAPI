@@ -191,7 +191,7 @@ func main() {
 	statsUseCase := statsUC.NewStatsUseCase(statsRepo)
 	wishlistUseCase := wishlistUC.NewWishlistUseCase(wishlistRepo, sessionRepo)
 	noteUseCase := readingNoteUC.NewReadingNoteUseCase(noteRepo)
-	libraryUseCase := libraryUC.NewLibraryUseCase(libraryRepo)
+	libraryUseCase := libraryUC.NewLibraryUseCase(libraryRepo, minioStorage)
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)
 	reservUseCase := reservationUC.NewReservationUseCase(reservationRepo, userRepo, notifRepo, notifHub)
 	reviewUseCase := reviewUC.NewReviewUseCase(reviewRepo, bookRepo)

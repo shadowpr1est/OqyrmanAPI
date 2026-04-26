@@ -40,4 +40,6 @@ type ReservationRepository interface {
 	ListAllView(ctx context.Context, limit, offset int, status *string) ([]*entity.ReservationView, int, error)
 	// ListPendingByUserAndLibraryView returns pending reservations for a specific user at a specific library.
 	ListPendingByUserAndLibraryView(ctx context.Context, userID, libraryID uuid.UUID) ([]*entity.ReservationView, error)
+	// ListActiveByUserAndLibraryView returns active (on-hands) reservations for a specific user at a specific library.
+	ListActiveByUserAndLibraryView(ctx context.Context, userID, libraryID uuid.UUID) ([]*entity.ReservationView, error)
 }

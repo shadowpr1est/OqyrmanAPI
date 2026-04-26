@@ -690,6 +690,18 @@ func (r *reservationRepo) ListPendingByUserAndLibraryView(ctx context.Context, u
 	return items, nil
 }
 
+func (r *reservationRepo) ListActiveByUserAndLibraryView(ctx context.Context, userID, libraryID uuid.UUID) ([]*entity.ReservationView, error) {
+	var items []*entity.ReservationView
+	if err := r.db.SelectContext(ctx, &items,
+		reservationViewQuery+` WHERE res.user_id = $1 AND lb.library_id = $2 AND res.status = 'active'
+		ORDER BY res.due_date ASC`,
+		userID, libraryID,
+	); err != nil {
+		return nil, fmt.Errorf("reservationRepo.ListActiveByUserAndLibraryView: %w", err)
+	}
+	return items, nil
+}
+
 func containsStatus(allowed []entity.ReservationStatus, current entity.ReservationStatus) bool {
 	for _, s := range allowed {
 		if s == current {

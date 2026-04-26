@@ -23,8 +23,9 @@ type lookupUserByQRRequest struct {
 }
 
 type lookupUserByQRResponse struct {
-	User         lookupUserInfo         `json:"user"`
-	Reservations []reservationViewResponse `json:"reservations"`
+	User               lookupUserInfo         `json:"user"`
+	PendingReservations []reservationViewResponse `json:"pending_reservations"`
+	ActiveReservations  []reservationViewResponse `json:"active_reservations"`
 }
 
 type lookupUserInfo struct {
