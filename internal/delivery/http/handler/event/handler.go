@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
@@ -137,11 +137,13 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	result, err := h.uc.Create(c.Request.Context(), &entity.Event{
-		Title:       req.Title,
-		Description: req.Description,
-		Location:    req.Location,
-		StartsAt:    startsAt,
-		EndsAt:      endsAt,
+		Title:         req.Title,
+		TitleKK:       deref(req.TitleKK),
+		Description:   req.Description,
+		DescriptionKK: req.DescriptionKK,
+		Location:      req.Location,
+		StartsAt:      startsAt,
+		EndsAt:        endsAt,
 	}, cover)
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
@@ -207,12 +209,14 @@ func (h *Handler) Update(c *gin.Context) {
 	}
 
 	result, err := h.uc.Update(c.Request.Context(), &entity.Event{
-		ID:          id,
-		Title:       req.Title,
-		Description: req.Description,
-		Location:    req.Location,
-		StartsAt:    startsAt,
-		EndsAt:      endsAt,
+		ID:            id,
+		Title:         req.Title,
+		TitleKK:       deref(req.TitleKK),
+		Description:   req.Description,
+		DescriptionKK: req.DescriptionKK,
+		Location:      req.Location,
+		StartsAt:      startsAt,
+		EndsAt:        endsAt,
 	}, cover)
 	if err != nil {
 		if errors.Is(err, entity.ErrNotFound) {
@@ -287,4 +291,11 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

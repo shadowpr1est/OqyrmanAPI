@@ -56,8 +56,8 @@ func (r *eventRepo) GetByID(ctx context.Context, id uuid.UUID) (*entity.Event, e
 
 func (r *eventRepo) Create(ctx context.Context, e *entity.Event) (*entity.Event, error) {
 	rows, err := r.db.NamedQueryContext(ctx, `
-		INSERT INTO events (id, title, description, cover_url, location, starts_at, ends_at, created_at)
-		VALUES (:id, :title, :description, :cover_url, :location, :starts_at, :ends_at, :created_at)
+		INSERT INTO events (id, title, title_kk, description, description_kk, cover_url, location, starts_at, ends_at, created_at)
+		VALUES (:id, :title, :title_kk, :description, :description_kk, :cover_url, :location, :starts_at, :ends_at, :created_at)
 		RETURNING *`, e,
 	)
 	if err != nil {
@@ -79,12 +79,14 @@ func (r *eventRepo) Create(ctx context.Context, e *entity.Event) (*entity.Event,
 func (r *eventRepo) Update(ctx context.Context, e *entity.Event) (*entity.Event, error) {
 	rows, err := r.db.NamedQueryContext(ctx, `
 		UPDATE events
-		SET title       = :title,
-		    description = :description,
-		    cover_url   = :cover_url,
-		    location    = :location,
-		    starts_at   = :starts_at,
-		    ends_at     = :ends_at
+		SET title          = :title,
+		    title_kk       = :title_kk,
+		    description    = :description,
+		    description_kk = :description_kk,
+		    cover_url      = :cover_url,
+		    location       = :location,
+		    starts_at      = :starts_at,
+		    ends_at        = :ends_at
 		WHERE id = :id AND deleted_at IS NULL
 		RETURNING *`, e,
 	)

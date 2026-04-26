@@ -198,16 +198,18 @@ CREATE TABLE notifications (
 
 -- ─── Events ───────────────────────────────────────────────────────────────────
 CREATE TABLE events (
-    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    title         VARCHAR(255) NOT NULL,
-    description   TEXT,
-    cover_url     VARCHAR(500),
-    location      VARCHAR(255),
-    starts_at     TIMESTAMPTZ  NOT NULL,
-    ends_at       TIMESTAMPTZ  NOT NULL,
-    reminder_sent BOOLEAN      NOT NULL DEFAULT false,
-    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    deleted_at    TIMESTAMPTZ
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    title          VARCHAR(255) NOT NULL,
+    title_kk       VARCHAR(255) NOT NULL DEFAULT '',
+    description    TEXT,
+    description_kk TEXT,
+    cover_url      VARCHAR(500),
+    location       VARCHAR(255),
+    starts_at      TIMESTAMPTZ  NOT NULL,
+    ends_at        TIMESTAMPTZ  NOT NULL,
+    reminder_sent  BOOLEAN      NOT NULL DEFAULT false,
+    created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted_at     TIMESTAMPTZ
 );
 
 -- ─── Email verification codes ─────────────────────────────────────────────────
