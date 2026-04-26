@@ -21,19 +21,21 @@ type LibraryBookView struct {
 	LibraryLng     float64   `db:"library_lng"`
 	LibraryPhone   string    `db:"library_phone"`
 
-	BookID          uuid.UUID `db:"book_id"`
-	BookTitle       string    `db:"book_title"`
-	BookISBN        string    `db:"book_isbn"`
-	BookCoverURL    string    `db:"book_cover_url"`
-	BookYear        int       `db:"book_year"`
-	BookDescription string    `db:"book_description"`
-	BookLanguage    string    `db:"book_language"`
-	BookTotalPages  *int      `db:"book_total_pages"`
-	BookAvgRating   float64   `db:"book_avg_rating"`
+	BookID            uuid.UUID `db:"book_id"`
+	BookTitle         string    `db:"book_title"`
+	BookISBN          string    `db:"book_isbn"`
+	BookCoverURL      string    `db:"book_cover_url"`
+	BookYear          int       `db:"book_year"`
+	BookDescription   string    `db:"book_description"`
+	BookDescriptionKK string    `db:"book_description_kk"`
+	BookLanguage      string    `db:"book_language"`
+	BookTotalPages    *int      `db:"book_total_pages"`
+	BookAvgRating     float64   `db:"book_avg_rating"`
 
 	AuthorID        uuid.UUID `db:"author_id"`
 	AuthorName      string    `db:"author_name"`
 	AuthorBio       string    `db:"author_bio"`
+	AuthorBioKK     string    `db:"author_bio_kk"`
 	AuthorBirthDate *string   `db:"author_birth_date"` // "2006-01-02"
 	AuthorDeathDate *string   `db:"author_death_date"` // "2006-01-02"
 	AuthorPhotoURL  string    `db:"author_photo_url"`

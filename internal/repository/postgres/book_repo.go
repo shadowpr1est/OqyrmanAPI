@@ -21,8 +21,8 @@ func NewBookRepo(db *sqlx.DB) *bookRepo {
 
 func (r *bookRepo) Create(ctx context.Context, book *entity.Book) (*entity.Book, error) {
 	query := `
-		INSERT INTO books (id, author_id, genre_id, title, isbn, cover_url, description, language, year, avg_rating, total_pages)
-		VALUES (:id, :author_id, :genre_id, :title, :isbn, :cover_url, :description, :language, :year, :avg_rating, :total_pages)
+		INSERT INTO books (id, author_id, genre_id, title, isbn, cover_url, description, description_kk, language, year, avg_rating, total_pages)
+		VALUES (:id, :author_id, :genre_id, :title, :isbn, :cover_url, :description, :description_kk, :language, :year, :avg_rating, :total_pages)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, book)
 	if err != nil {
@@ -108,7 +108,7 @@ func (r *bookRepo) Search(ctx context.Context, query string, limit, offset int) 
 	if err := r.db.GetContext(ctx, &total, `
 		SELECT COUNT(*) FROM books
 		WHERE deleted_at IS NULL
-		  AND (title ILIKE $1 OR description ILIKE $1)`,
+		  AND (title ILIKE $1 OR description ILIKE $1 OR description_kk ILIKE $1)`,
 		"%"+query+"%",
 	); err != nil {
 		return nil, 0, fmt.Errorf("bookRepo.Search count: %w", err)
@@ -118,7 +118,7 @@ func (r *bookRepo) Search(ctx context.Context, query string, limit, offset int) 
 	if err := r.db.SelectContext(ctx, &books, `
 		SELECT * FROM books
 		WHERE deleted_at IS NULL
-		  AND (title ILIKE $1 OR description ILIKE $1)
+		  AND (title ILIKE $1 OR description ILIKE $1 OR description_kk ILIKE $1)
 		ORDER BY title
 		LIMIT $2 OFFSET $3`,
 		"%"+query+"%", limit, offset,
@@ -134,6 +134,7 @@ func (r *bookRepo) Update(ctx context.Context, book *entity.Book) (*entity.Book,
 		UPDATE books
 		SET author_id = :author_id, genre_id = :genre_id, title = :title,
 		    isbn = :isbn, cover_url = :cover_url, description = :description,
+		    description_kk = :description_kk,
 		    language = :language, year = :year, avg_rating = :avg_rating,
 		    total_pages = :total_pages
 		WHERE id = :id AND deleted_at IS NULL
@@ -251,6 +252,7 @@ func (r *bookRepo) ListSimilar(ctx context.Context, bookID uuid.UUID, limit int)
 const bookViewQuery = `
 	SELECT b.id, b.author_id, a.name AS author_name, 
 	       a.bio AS author_bio,
+	       a.bio_kk AS author_bio_kk,
 	       a.birth_date AS author_birth_date,
 	       a.death_date AS author_death_date,
 	       a.photo_url AS author_photo_url,
@@ -264,7 +266,7 @@ const bookViewQuery = `
 	       
 	       
 	       b.title, b.isbn, COALESCE(b.cover_url, '') AS cover_url,
-	       b.description, b.language, b.year, b.avg_rating, b.total_pages, b.created_at
+	       b.description, b.description_kk, b.language, b.year, b.avg_rating, b.total_pages, b.created_at
 	FROM books b
 	LEFT JOIN book_files bf ON bf.book_id = b.id
 	JOIN authors a ON a.id = b.author_id AND a.deleted_at IS NULL
@@ -331,14 +333,14 @@ func (r *bookRepo) SearchView(ctx context.Context, query string, limit, offset i
 		SELECT COUNT(*) FROM books b
 		JOIN authors a ON a.id = b.author_id AND a.deleted_at IS NULL
 		WHERE b.deleted_at IS NULL
-		  AND (b.title ILIKE $1 OR b.description ILIKE $1)`,
+		  AND (b.title ILIKE $1 OR b.description ILIKE $1 OR b.description_kk ILIKE $1)`,
 		pattern,
 	); err != nil {
 		return nil, 0, fmt.Errorf("bookRepo.SearchView count: %w", err)
 	}
 	var items []*entity.BookView
 	if err := r.db.SelectContext(ctx, &items,
-		bookViewQuery+` AND (b.title ILIKE $1 OR b.description ILIKE $1) ORDER BY b.title LIMIT $2 OFFSET $3`,
+		bookViewQuery+` AND (b.title ILIKE $1 OR b.description ILIKE $1 OR b.description_kk ILIKE $1) ORDER BY b.title LIMIT $2 OFFSET $3`,
 		pattern, limit, offset,
 	); err != nil {
 		return nil, 0, fmt.Errorf("bookRepo.SearchView: %w", err)
@@ -369,7 +371,7 @@ func (r *bookRepo) ListSimilarView(ctx context.Context, bookID uuid.UUID, limit 
 		SELECT b.id, b.author_id, a.name AS author_name,
 		       b.genre_id, g.name AS genre_name,
 		       b.title, b.isbn, COALESCE(b.cover_url, '') AS cover_url,
-		       b.description, b.language, b.year, b.avg_rating, b.total_pages, b.created_at
+		       b.description, b.description_kk, b.language, b.year, b.avg_rating, b.total_pages, b.created_at
 		FROM books b
 		JOIN books src ON src.id = $1
 		JOIN authors a ON a.id = b.author_id AND a.deleted_at IS NULL

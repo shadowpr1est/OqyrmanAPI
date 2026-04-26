@@ -1,13 +1,16 @@
 package common
 
-import "github.com/google/uuid"
-import "github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
+import (
+	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
+)
 
 // AuthorRef — lightweight author reference for nested API responses.
 type AuthorRef struct {
 	ID        string  `json:"id"`
 	Name      string  `json:"name"`
 	Bio       string  `json:"bio,omitempty"`
+	BioKK     string  `json:"bio_kk,omitempty"`
 	BirthDate *string `json:"birth_date,omitempty"` // "2006-01-02"
 	DeathDate *string `json:"death_date,omitempty"` // "2006-01-02"
 	PhotoURL  string  `json:"photo_url,omitempty"`
@@ -52,17 +55,18 @@ type UserRef struct {
 // BookRef — lightweight book reference for nested API responses.
 // Fields are omitempty so each consumer populates only what it JOINs.
 type BookRef struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	ISBN        string    `json:"isbn"`
-	CoverURL    string    `json:"cover_url"`
-	Description string    `json:"description"`
-	Language    string    `json:"language"`
-	Year        int       `json:"year"`
-	TotalPages  *int      `json:"total_pages"`
-	AvgRating   float64   `json:"avg_rating"`
-	Author      AuthorRef `json:"author"`
-	Genre       GenreRef  `json:"genre"`
+	ID            string    `json:"id"`
+	Title         string    `json:"title"`
+	ISBN          string    `json:"isbn"`
+	CoverURL      string    `json:"cover_url"`
+	Description   string    `json:"description"`
+	DescriptionKK string    `json:"description_kk,omitempty"`
+	Language      string    `json:"language"`
+	Year          int       `json:"year"`
+	TotalPages    *int      `json:"total_pages"`
+	AvgRating     float64   `json:"avg_rating"`
+	Author        AuthorRef `json:"author"`
+	Genre         GenreRef  `json:"genre"`
 }
 
 type ReservationBookRef struct {

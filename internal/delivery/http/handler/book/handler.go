@@ -60,14 +60,15 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	book := &entity.Book{
-		AuthorID:    authorID,
-		GenreID:     genreID,
-		Title:       req.Title,
-		ISBN:        req.ISBN,
-		Description: req.Description,
-		Language:    req.Language,
-		Year:        req.Year,
-		TotalPages:  req.TotalPages,
+		AuthorID:      authorID,
+		GenreID:       genreID,
+		Title:         req.Title,
+		ISBN:          req.ISBN,
+		Description:   req.Description,
+		DescriptionKK: req.DescriptionKK,
+		Language:      req.Language,
+		Year:          req.Year,
+		TotalPages:    req.TotalPages,
 	}
 
 	var cover *fileupload.File
@@ -414,6 +415,9 @@ func (h *Handler) Update(c *gin.Context) {
 	if req.Description != nil {
 		existing.Description = *req.Description
 	}
+	if req.DescriptionKK != nil {
+		existing.DescriptionKK = *req.DescriptionKK
+	}
 	if req.Language != nil {
 		existing.Language = *req.Language
 	}
@@ -541,31 +545,33 @@ func (h *Handler) ListSimilar(c *gin.Context) {
 
 func toBookResponse(b *entity.Book) bookResponse {
 	return bookResponse{
-		ID:          b.ID.String(),
-		AuthorID:    b.AuthorID.String(),
-		GenreID:     b.GenreID.String(),
-		Title:       b.Title,
-		ISBN:        b.ISBN,
-		CoverURL:    b.CoverURL,
-		Description: b.Description,
-		Language:    b.Language,
-		Year:        b.Year,
-		AvgRating:   b.AvgRating,
-		TotalPages:  b.TotalPages,
+		ID:            b.ID.String(),
+		AuthorID:      b.AuthorID.String(),
+		GenreID:       b.GenreID.String(),
+		Title:         b.Title,
+		ISBN:          b.ISBN,
+		CoverURL:      b.CoverURL,
+		Description:   b.Description,
+		DescriptionKK: b.DescriptionKK,
+		Language:      b.Language,
+		Year:          b.Year,
+		AvgRating:     b.AvgRating,
+		TotalPages:    b.TotalPages,
 	}
 }
 
 func toBookViewResponse(v *entity.BookView) bookViewResponse {
 	return bookViewResponse{
-		ID:          v.ID.String(),
-		Title:       v.Title,
-		ISBN:        v.ISBN,
-		CoverURL:    v.CoverURL,
-		Description: v.Description,
-		Language:    v.Language,
-		Year:        v.Year,
-		AvgRating:   v.AvgRating,
-		TotalPages:  v.TotalPages,
+		ID:            v.ID.String(),
+		Title:         v.Title,
+		ISBN:          v.ISBN,
+		CoverURL:      v.CoverURL,
+		Description:   v.Description,
+		DescriptionKK: v.DescriptionKK,
+		Language:      v.Language,
+		Year:          v.Year,
+		AvgRating:     v.AvgRating,
+		TotalPages:    v.TotalPages,
 		BookFile: func() *common.BookFileRef {
 			if v.BookFileID == nil {
 				return nil
@@ -581,6 +587,7 @@ func toBookViewResponse(v *entity.BookView) bookViewResponse {
 			ID:        v.AuthorID.String(),
 			Name:      v.AuthorName,
 			Bio:       v.AuthorBio,
+			BioKK:     v.AuthorBioKK,
 			BirthDate: v.AuthorBirthDate,
 			DeathDate: v.AuthorDeathDate,
 			PhotoURL:  v.AuthorPhotoURL,

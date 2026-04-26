@@ -158,6 +158,7 @@ const libraryBookViewQuery = `
 	       
 	       lb.book_id, b.title AS book_title, b.isbn AS book_isbn,
 		   COALESCE(b.cover_url, '') AS book_cover_url, b.description AS book_description,
+		   b.description_kk AS book_description_kk,
 		   b.language AS book_language,
 		   COALESCE(b.year, 0) AS book_year,
 		   COALESCE(b.total_pages,0) AS book_total_pages,
@@ -165,6 +166,7 @@ const libraryBookViewQuery = `
 		   
 	       b.author_id, a.name AS author_name, 
 	       a.bio AS author_bio,
+	       a.bio_kk AS author_bio_kk,
 	       a.birth_date AS author_birth_date,
 	       a.death_date AS author_death_date,
 	       a.photo_url AS author_photo_url,

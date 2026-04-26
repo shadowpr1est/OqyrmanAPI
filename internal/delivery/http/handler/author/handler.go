@@ -1,15 +1,15 @@
 package author
 
 import (
-	"log/slog"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
 )
@@ -41,6 +41,7 @@ func (h *Handler) Create(c *gin.Context) {
 	author := &entity.Author{
 		Name:     req.Name,
 		Bio:      req.Bio,
+		BioKK:    req.BioKK,
 		PhotoURL: req.PhotoURL,
 	}
 
@@ -163,6 +164,9 @@ func (h *Handler) Update(c *gin.Context) {
 	if req.Bio != nil {
 		existing.Bio = *req.Bio
 	}
+	if req.BioKK != nil {
+		existing.BioKK = *req.BioKK
+	}
 	if req.PhotoURL != nil {
 		existing.PhotoURL = *req.PhotoURL
 	}
@@ -265,6 +269,7 @@ func toAuthorResponse(a *entity.Author) authorResponse {
 		ID:       a.ID.String(),
 		Name:     a.Name,
 		Bio:      a.Bio,
+		BioKK:    a.BioKK,
 		PhotoURL: a.PhotoURL,
 	}
 	if a.BirthDate != nil {

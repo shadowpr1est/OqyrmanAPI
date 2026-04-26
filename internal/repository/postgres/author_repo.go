@@ -21,8 +21,8 @@ func NewAuthorRepo(db *sqlx.DB) *authorRepo {
 
 func (r *authorRepo) Create(ctx context.Context, author *entity.Author) (*entity.Author, error) {
 	query := `
-		INSERT INTO authors (id, name, bio, birth_date, death_date, photo_url)
-		VALUES (:id, :name, :bio, :birth_date, :death_date, :photo_url)
+		INSERT INTO authors (id, name, bio, bio_kk, birth_date, death_date, photo_url)
+		VALUES (:id, :name, :bio, :bio_kk, :birth_date, :death_date, :photo_url)
 		RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, author)
 	if err != nil {
@@ -82,7 +82,7 @@ func (r *authorRepo) Search(ctx context.Context, query string, limit, offset int
 	if err := r.db.GetContext(ctx, &total, `
 		SELECT COUNT(*) FROM authors
 		WHERE deleted_at IS NULL
-		  AND (name ILIKE $1 OR bio ILIKE $1)`,
+		  AND (name ILIKE $1 OR bio ILIKE $1 OR bio_kk ILIKE $1)`,
 		"%"+query+"%",
 	); err != nil {
 		return nil, 0, fmt.Errorf("authorRepo.Search count: %w", err)
@@ -92,7 +92,7 @@ func (r *authorRepo) Search(ctx context.Context, query string, limit, offset int
 	if err := r.db.SelectContext(ctx, &authors, `
 		SELECT * FROM authors
 		WHERE deleted_at IS NULL
-		  AND (name ILIKE $1 OR bio ILIKE $1)
+		  AND (name ILIKE $1 OR bio ILIKE $1 OR bio_kk ILIKE $1)
 		ORDER BY name
 		LIMIT $2 OFFSET $3`,
 		"%"+query+"%", limit, offset,
@@ -106,7 +106,7 @@ func (r *authorRepo) Search(ctx context.Context, query string, limit, offset int
 func (r *authorRepo) Update(ctx context.Context, author *entity.Author) (*entity.Author, error) {
 	query := `
 		UPDATE authors
-		SET name = :name, bio = :bio, birth_date = :birth_date,
+		SET name = :name, bio = :bio, bio_kk = :bio_kk, birth_date = :birth_date,
 		    death_date = :death_date, photo_url = :photo_url
 		WHERE id = :id AND deleted_at IS NULL
 		RETURNING *`

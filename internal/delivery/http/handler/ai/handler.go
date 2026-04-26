@@ -101,6 +101,7 @@ func toBookRecommendItem(v *entity.BookView) bookRecommendItem {
 			ID:        v.AuthorID.String(),
 			Name:      v.AuthorName,
 			Bio:       v.AuthorBio,
+			BioKK:     v.AuthorBioKK,
 			BirthDate: v.AuthorBirthDate,
 			DeathDate: v.AuthorDeathDate,
 			PhotoURL:  v.AuthorPhotoURL,
