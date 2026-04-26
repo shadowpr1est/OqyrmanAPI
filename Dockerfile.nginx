@@ -1,6 +1,1 @@
 FROM nginx:alpine
-
-RUN apk add --no-cache apache2-utils
-
-COPY monitoring/nginx/10-generate-monitoring-auth.sh /docker-entrypoint.d/10-generate-monitoring-auth.sh
-RUN chmod +x /docker-entrypoint.d/10-generate-monitoring-auth.sh
