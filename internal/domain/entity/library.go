@@ -13,6 +13,7 @@ type Library struct {
 	Lat       float64    `db:"lat"`
 	Lng       float64    `db:"lng"`
 	Phone     string     `db:"phone"`
+	PhotoURL  string     `db:"photo_url"`
 	CreatedAt time.Time  `db:"created_at"`
 	DeletedAt *time.Time `db:"deleted_at"`
 }

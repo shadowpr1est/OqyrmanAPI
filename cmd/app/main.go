@@ -189,7 +189,7 @@ func main() {
 	bookFileUseCase := bookFileUC.NewBookFileUseCase(bookFileRepo, bookRepo, minioStorage)
 	sessionUseCase := readingSessionUC.NewReadingSessionUseCase(sessionRepo)
 	statsUseCase := statsUC.NewStatsUseCase(statsRepo)
-	wishlistUseCase := wishlistUC.NewWishlistUseCase(wishlistRepo)
+	wishlistUseCase := wishlistUC.NewWishlistUseCase(wishlistRepo, sessionRepo)
 	noteUseCase := readingNoteUC.NewReadingNoteUseCase(noteRepo)
 	libraryUseCase := libraryUC.NewLibraryUseCase(libraryRepo)
 	libraryBookUseCase := libraryBookUC.NewLibraryBookUseCase(libraryBookRepo)

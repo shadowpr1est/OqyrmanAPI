@@ -21,8 +21,8 @@ func NewLibraryRepo(db *sqlx.DB) *libraryRepo {
 
 func (r *libraryRepo) Create(ctx context.Context, library *entity.Library) (*entity.Library, error) {
 	query := `
-        INSERT INTO libraries (id, name, address, lat, lng, phone)
-        VALUES (:id, :name, :address, :lat, :lng, :phone)
+        INSERT INTO libraries (id, name, address, lat, lng, phone, photo_url)
+        VALUES (:id, :name, :address, :lat, :lng, :phone, :photo_url)
         RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, library)
 	if err != nil {
@@ -98,7 +98,7 @@ func (r *libraryRepo) ListNearby(ctx context.Context, lat, lng, radiusKm float64
 func (r *libraryRepo) Update(ctx context.Context, library *entity.Library) (*entity.Library, error) {
 	query := `
         UPDATE libraries
-        SET name = :name, address = :address, lat = :lat, lng = :lng, phone = :phone
+        SET name = :name, address = :address, lat = :lat, lng = :lng, phone = :phone, photo_url = :photo_url
         WHERE id = :id AND deleted_at IS NULL
         RETURNING *`
 	rows, err := r.db.NamedQueryContext(ctx, query, library)

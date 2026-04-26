@@ -23,7 +23,7 @@ func NewEventRepo(db *sqlx.DB) *eventRepo {
 func (r *eventRepo) List(ctx context.Context, limit, offset int) ([]*entity.Event, int, error) {
 	var total int
 	if err := r.db.GetContext(ctx, &total,
-		`SELECT COUNT(*) FROM events WHERE deleted_at IS NULL`,
+		`SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND ends_at > now()`,
 	); err != nil {
 		return nil, 0, fmt.Errorf("eventRepo.List count: %w", err)
 	}
@@ -31,7 +31,7 @@ func (r *eventRepo) List(ctx context.Context, limit, offset int) ([]*entity.Even
 	var items []*entity.Event
 	if err := r.db.SelectContext(ctx, &items, `
 		SELECT * FROM events
-		WHERE deleted_at IS NULL
+		WHERE deleted_at IS NULL AND ends_at > now()
 		ORDER BY starts_at ASC
 		LIMIT $1 OFFSET $2`, limit, offset,
 	); err != nil {

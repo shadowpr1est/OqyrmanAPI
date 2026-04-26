@@ -2,6 +2,7 @@ package wishlist
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
@@ -11,10 +12,14 @@ import (
 
 type wishlistUseCase struct {
 	wishlistRepo repository.WishlistRepository
+	sessionRepo  repository.ReadingSessionRepository
 }
 
-func NewWishlistUseCase(wishlistRepo repository.WishlistRepository) domainUseCase.WishlistUseCase {
-	return &wishlistUseCase{wishlistRepo: wishlistRepo}
+func NewWishlistUseCase(
+	wishlistRepo repository.WishlistRepository,
+	sessionRepo repository.ReadingSessionRepository,
+) domainUseCase.WishlistUseCase {
+	return &wishlistUseCase{wishlistRepo: wishlistRepo, sessionRepo: sessionRepo}
 }
 
 func (u *wishlistUseCase) Add(ctx context.Context, userID, bookID uuid.UUID, status entity.ShelfStatus) (*entity.Wishlist, error) {
@@ -22,6 +27,14 @@ func (u *wishlistUseCase) Add(ctx context.Context, userID, bookID uuid.UUID, sta
 }
 
 func (u *wishlistUseCase) Remove(ctx context.Context, userID, bookID uuid.UUID) error {
+	// При удалении с полки также удаляем прогресс чтения
+	session, err := u.sessionRepo.GetByUserAndBook(ctx, userID, bookID)
+	if err != nil && !errors.Is(err, entity.ErrNotFound) {
+		return err
+	}
+	if session != nil {
+		_ = u.sessionRepo.Delete(ctx, session.ID)
+	}
 	return u.wishlistRepo.Remove(ctx, userID, bookID)
 }
 

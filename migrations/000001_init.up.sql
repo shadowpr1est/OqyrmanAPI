@@ -88,6 +88,7 @@ CREATE TABLE libraries (
     lat        FLOAT        NOT NULL,
     lng        FLOAT        NOT NULL,
     phone      VARCHAR(20)  NOT NULL DEFAULT '',
+    photo_url  TEXT         NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
     deleted_at TIMESTAMPTZ
 );

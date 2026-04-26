@@ -37,11 +37,12 @@ func (h *Handler) Create(c *gin.Context) {
 	}
 
 	library := &entity.Library{
-		Name:    req.Name,
-		Address: req.Address,
-		Lat:     req.Lat,
-		Lng:     req.Lng,
-		Phone:   req.Phone,
+		Name:     req.Name,
+		Address:  req.Address,
+		Lat:      req.Lat,
+		Lng:      req.Lng,
+		Phone:    req.Phone,
+		PhotoURL: req.PhotoURL,
 	}
 
 	result, err := h.uc.Create(c.Request.Context(), library)
@@ -202,6 +203,9 @@ func (h *Handler) Update(c *gin.Context) {
 	if req.Phone != nil {
 		existing.Phone = *req.Phone
 	}
+	if req.PhotoURL != nil {
+		existing.PhotoURL = *req.PhotoURL
+	}
 
 	result, err := h.uc.Update(c.Request.Context(), existing)
 	if err != nil {
@@ -241,11 +245,12 @@ func (h *Handler) Delete(c *gin.Context) {
 
 func toLibraryResponse(l *entity.Library) libraryResponse {
 	return libraryResponse{
-		ID:      l.ID.String(),
-		Name:    l.Name,
-		Address: l.Address,
-		Lat:     l.Lat,
-		Lng:     l.Lng,
-		Phone:   l.Phone,
+		ID:       l.ID.String(),
+		Name:     l.Name,
+		Address:  l.Address,
+		Lat:      l.Lat,
+		Lng:      l.Lng,
+		Phone:    l.Phone,
+		PhotoURL: l.PhotoURL,
 	}
 }
