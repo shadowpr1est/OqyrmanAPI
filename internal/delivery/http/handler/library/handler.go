@@ -1,16 +1,18 @@
 package library
 
 import (
-	"log/slog"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/google/uuid"
+	"github.com/shadowpr1est/OqyrmanAPI/internal/delivery/http/handler/common"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type Handler struct {
@@ -241,6 +243,63 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+// @Summary     Загрузить фото библиотеки
+// @Tags        libraries
+// @Security    BearerAuth
+// @Accept      multipart/form-data
+// @Produce     json
+// @Param       id    path     string true "ID библиотеки"
+// @Param       photo formData file   true "Фото (jpg, png, webp)"
+// @Success     200 {object} libraryResponse
+// @Router      /admin/libraries/{id}/photo [post]
+func (h *Handler) UploadPhoto(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	fh, err := c.FormFile("photo")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "photo file is required"})
+		return
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot open photo file"})
+		return
+	}
+	defer f.Close()
+
+	buf := make([]byte, 512)
+	n, _ := f.Read(buf)
+	ct := http.DetectContentType(buf[:n])
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "cannot process photo file"})
+		return
+	}
+	switch ct {
+	case "image/jpeg", "image/png", "image/webp":
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "only jpeg, png, webp images are allowed"})
+		return
+	}
+
+	library, err := h.uc.UploadPhoto(c.Request.Context(), id, &fileupload.File{
+		Filename:    fh.Filename,
+		Reader:      f,
+		Size:        fh.Size,
+		ContentType: ct,
+	})
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "internal error", "err", err, "path", c.FullPath())
+		common.InternalError(c)
+		return
+	}
+	c.JSON(http.StatusOK, toLibraryResponse(library))
 }
 
 func toLibraryResponse(l *entity.Library) libraryResponse {

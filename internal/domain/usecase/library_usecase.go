@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type LibraryUseCase interface {
@@ -14,4 +15,5 @@ type LibraryUseCase interface {
 	ListNearby(ctx context.Context, lat, lng, radiusKm float64) ([]*entity.Library, error)
 	Update(ctx context.Context, library *entity.Library) (*entity.Library, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	UploadPhoto(ctx context.Context, id uuid.UUID, photo *fileupload.File) (*entity.Library, error)
 }

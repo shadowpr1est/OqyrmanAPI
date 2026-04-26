@@ -118,6 +118,23 @@ func (r *libraryRepo) Update(ctx context.Context, library *entity.Library) (*ent
 	return library, nil
 }
 
+func (r *libraryRepo) UpdatePhotoURL(ctx context.Context, id uuid.UUID, url string) error {
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE libraries SET photo_url = $1 WHERE id = $2 AND deleted_at IS NULL`, url, id,
+	)
+	if err != nil {
+		return fmt.Errorf("libraryRepo.UpdatePhotoURL: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("libraryRepo.UpdatePhotoURL rows affected: %w", err)
+	}
+	if rows == 0 {
+		return entity.ErrNotFound
+	}
+	return nil
+}
+
 // Delete — soft delete.
 // После удаления библиотеки staff теряет доступ автоматически —
 // middleware проверяет deleted_at через JOIN при каждом запросе.

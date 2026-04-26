@@ -2,19 +2,26 @@ package library
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/entity"
 	"github.com/shadowpr1est/OqyrmanAPI/internal/domain/repository"
+	domainStorage "github.com/shadowpr1est/OqyrmanAPI/internal/domain/storage"
 	domainUseCase "github.com/shadowpr1est/OqyrmanAPI/internal/domain/usecase"
+	"github.com/shadowpr1est/OqyrmanAPI/pkg/fileupload"
 )
 
 type libraryUseCase struct {
 	libraryRepo repository.LibraryRepository
+	storage     domainStorage.FileStorage
 }
 
-func NewLibraryUseCase(libraryRepo repository.LibraryRepository) domainUseCase.LibraryUseCase {
-	return &libraryUseCase{libraryRepo: libraryRepo}
+func NewLibraryUseCase(
+	libraryRepo repository.LibraryRepository,
+	storage domainStorage.FileStorage,
+) domainUseCase.LibraryUseCase {
+	return &libraryUseCase{libraryRepo: libraryRepo, storage: storage}
 }
 
 func (u *libraryUseCase) Create(ctx context.Context, library *entity.Library) (*entity.Library, error) {
@@ -40,4 +47,16 @@ func (u *libraryUseCase) Update(ctx context.Context, library *entity.Library) (*
 
 func (u *libraryUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.libraryRepo.Delete(ctx, id)
+}
+
+func (u *libraryUseCase) UploadPhoto(ctx context.Context, id uuid.UUID, photo *fileupload.File) (*entity.Library, error) {
+	objectKey := fmt.Sprintf("libraries/%s/photo", id.String())
+	url, err := u.storage.Upload(ctx, objectKey, photo.Reader, photo.Size, photo.ContentType)
+	if err != nil {
+		return nil, fmt.Errorf("libraryUseCase.UploadPhoto upload: %w", err)
+	}
+	if err := u.libraryRepo.UpdatePhotoURL(ctx, id, url); err != nil {
+		return nil, err
+	}
+	return u.libraryRepo.GetByID(ctx, id)
 }

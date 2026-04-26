@@ -340,6 +340,7 @@ func (r *Router) Init() *gin.Engine {
 				admin.POST("/libraries", r.library.Create)
 				admin.PUT("/libraries/:id", r.library.Update)
 				admin.DELETE("/libraries/:id", r.library.Delete)
+				admin.POST("/libraries/:id/photo", r.library.UploadPhoto)
 
 				// library books
 				admin.POST("/library-books", r.libraryBook.Create)

@@ -14,4 +14,5 @@ type LibraryRepository interface {
 	ListNearby(ctx context.Context, lat, lng, radiusKm float64) ([]*entity.Library, error)
 	Update(ctx context.Context, library *entity.Library) (*entity.Library, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	UpdatePhotoURL(ctx context.Context, id uuid.UUID, url string) error
 }
